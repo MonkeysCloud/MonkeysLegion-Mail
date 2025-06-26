@@ -1,0 +1,42 @@
+<?php
+
+declare(strict_types=1);
+
+namespace MonkeysLegion\Mail\Queue;
+
+interface QueueInterface
+{
+    /**
+     * Push a job onto the queue.
+     *
+     * @param string $job The job class name or identifier
+     * @param array $data The job data
+     * @param string|null $queue The queue name (optional)
+     * @return mixed Job ID or confirmation
+     */
+    public function push(string $job, array $data = [], ?string $queue = null): mixed;
+
+    /**
+     * Pop a job from the queue.
+     *
+     * @param string|null $queue The queue name (optional)
+     * @return JobInterface|null The job instance or null if no jobs available
+     */
+    public function pop(?string $queue = null): ?JobInterface;
+
+    /**
+     * Get the size of the queue.
+     *
+     * @param string|null $queue The queue name (optional)
+     * @return int The number of jobs in the queue
+     */
+    public function size(?string $queue = null): int;
+
+    /**
+     * Clear all jobs from the queue.
+     *
+     * @param string|null $queue The queue name (optional)
+     * @return bool Success status
+     */
+    public function clear(?string $queue = null): bool;
+}
