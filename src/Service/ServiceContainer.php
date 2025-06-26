@@ -15,19 +15,7 @@ class ServiceContainer
     private array $factories = [];
     private array $config = [];
 
-    private function __construct()
-    {
-        try {
-            $envPath = getcwd() . '/..';
-            if (file_exists($envPath . '/.env')) {
-                $dotenv = Dotenv::createImmutable($envPath);
-                $dotenv->load();
-            }
-        } catch (Exception $e) {
-            // Log but don't fail if .env loading fails
-            error_log("Failed to load .env file: " . $e->getMessage());
-        }
-    }
+    private function __construct() {}
 
     /**
      * Get the singleton instance of the ServiceContainer.
