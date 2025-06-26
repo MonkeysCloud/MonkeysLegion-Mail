@@ -13,19 +13,9 @@ return [
     |
     */
 
-    'driver' => $_ENV['MAIL_DRIVER'] ?? 'log',
+    'driver' => $_ENV['MAIL_DRIVER'] ?? 'null', // Changed from 'log' to 'null'
 
     'drivers' => [
-
-        /*
-        |--------------------------------------------------------------------------
-        | Log Mailer
-        |--------------------------------------------------------------------------
-        |
-        | This mailer is used to log all email messages to a file.
-        |
-        */
-        'null' => [],
 
         /*|--------------------------------------------------------------------------
         | SMTP Mailer
@@ -40,7 +30,7 @@ return [
             'encryption' => $_ENV['MAIL_ENCRYPTION'] ?? 'tls', // tls / ssl / null
             'username' => $_ENV['MAIL_USERNAME'] ?? '',
             'password' => $_ENV['MAIL_PASSWORD'] ?? '',
-            'timeout' => null,
+            'timeout' => $_ENV['MAIL_TIMEOUT'] ?? 30,
             'from' => [
                 'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com',
                 'name' => $_ENV['MAIL_FROM_NAME'] ?? 'My App'
