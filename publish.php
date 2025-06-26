@@ -1,10 +1,10 @@
 <?php
 require __DIR__ . '/vendor/autoload.php';
+require_once __DIR__ . '/src/Template/helpers.php';
 
 use Dotenv\Dotenv;
 
-$projectRoot = getcwd();
-$dotenv = Dotenv::createImmutable($projectRoot);
+$dotenv = Dotenv::createImmutable(WORKING_DIRECTORY);
 $dotenv->load();
 
 $appEnv = $_ENV['APP_ENV'] ?? 'dev';
@@ -16,7 +16,7 @@ if (!file_exists($source)) {
     exit(1);
 }
 
-$destination = $projectRoot . '/config/mail/mail.' . ($appEnv) . '.php';
+$destination = WORKING_DIRECTORY . '/config/mail.' . ($appEnv) . '.php';
 
 // Ensure the destination directory exists
 if (!is_dir(dirname($destination))) {
