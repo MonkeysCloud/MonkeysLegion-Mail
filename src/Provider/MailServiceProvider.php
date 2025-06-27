@@ -31,17 +31,13 @@ class MailServiceProvider
         try {
             $in_container = ServiceContainer::getInstance();
 
-            // Load configurations
+            // Load Mail configurations
             $mailConfig = file_exists(MAIL_CONFIG_PATH) ? require MAIL_CONFIG_PATH : [];
             $defaults = file_exists(MAIL_CONFIG_DEFAULT_PATH) ? require MAIL_CONFIG_DEFAULT_PATH : [];
-            $redisConfig = file_exists(REDIS_CONFIG_PATH) ? require REDIS_CONFIG_PATH : [];
+            $mergedMailConfig = array_replace_recursive($defaults, $mailConfig);
 
-            // Simple array merge if configMerger doesn't exist
-            if (function_exists('configMerger')) {
-                $mergedMailConfig = configMerger($mailConfig, $defaults);
-            } else {
-                $mergedMailConfig = array_merge($defaults, $mailConfig);
-            }
+            // Load Redis configurations
+            $redisConfig = file_exists(REDIS_CONFIG_PATH) ? require REDIS_CONFIG_PATH : [];
 
             // Store configurations
             $in_container->setConfig($mergedMailConfig, 'mail');

@@ -1,13 +1,8 @@
 <?php
-require __DIR__ . '/vendor/autoload.php';
+
+declare(strict_types=1);
+
 require_once __DIR__ . '/src/Template/helpers.php';
-
-use Dotenv\Dotenv;
-
-$dotenv = Dotenv::createImmutable(WORKING_DIRECTORY);
-$dotenv->load();
-
-$appEnv = $_ENV['APP_ENV'] ?? 'dev';
 
 $source = __DIR__ . '/config/mail.php';
 
@@ -16,7 +11,7 @@ if (!file_exists($source)) {
     exit(1);
 }
 
-$destination = WORKING_DIRECTORY . '/config/mail.' . ($appEnv) . '.php';
+$destination = WORKING_DIRECTORY . '/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php';
 
 // Ensure the destination directory exists
 if (!is_dir(dirname($destination))) {
@@ -35,5 +30,9 @@ if (file_exists($destination)) {
     unlink($destination); // Remove the existing file
 }
 
-$output = shell_exec('cp ' . $source . ' ' . $destination);
-echo "✅ Config file copied to: $destination\n";
+if (copy($source, $destination)) {
+    echo "✅ Config file copied to: $destination\n";
+} else {
+    echo "❌ Failed to copy config file to: $destination\n";
+    exit(1);
+}
