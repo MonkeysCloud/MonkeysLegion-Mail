@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail;
 
+use MonkeysLegion\Mail\Logger\Logger;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Transport\NullTransport;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
@@ -12,10 +13,12 @@ use MonkeysLegion\Mail\Transport\SmtpTransport;
 class MailerFactory
 {
     private ServiceContainer $container;
+    private Logger $logger;
 
     public function __construct(ServiceContainer $container)
     {
         $this->container = $container;
+        $this->logger = $this->container->get(Logger::class);
     }
 
     /**
@@ -25,14 +28,14 @@ class MailerFactory
      * @return TransportInterface
      * @throws \InvalidArgumentException If the driver is unknown.
      */
-    public static function make(array $config = []): TransportInterface
+    public static function make(array $config = [], ?Logger $logger = null): TransportInterface
     {
         $driver = $config['driver'] ?? 'null';
 
         return match ($driver) {
-            'smtp' => new SmtpTransport($config['drivers'][$driver]),
+            'smtp' => new SmtpTransport($config, $logger),
             'sendmail' => new SendmailTransport(),
-            'null' => new NullTransport(),
+            'null' => new NullTransport($logger),
             default => throw new \InvalidArgumentException("Unknown driver: $driver"),
         };
     }
@@ -44,15 +47,16 @@ class MailerFactory
      * @param array $config The driver configuration
      * @return TransportInterface
      */
-    public static function createTransport(string $driver, array $config): TransportInterface
+    public static function createTransport($driver, $config, ?Logger $logger = null)
     {
         return match ($driver) {
-            'smtp' => new SmtpTransport($config),
+            'smtp' => new SmtpTransport($config, $logger),
             'sendmail' => new SendmailTransport(),
-            'null' => new NullTransport(),
+            'null' => new NullTransport($logger),
             default => throw new \InvalidArgumentException("Unknown driver: $driver"),
         };
     }
+
 
     /**
      * Get available drivers.
@@ -67,7 +71,7 @@ class MailerFactory
     public function setDriver(string $driver): void
     {
         $this->container->set(TransportInterface::class, function () use ($driver) {
-            return self::make(['driver' => $driver]);
+            return self::make(['driver' => $driver], $this->logger);
         });
     }
 }

@@ -39,4 +39,43 @@ interface QueueInterface
      * @return bool Success status
      */
     public function clear(?string $queue = null): bool;
+
+    /**
+     * Push a job to the failed queue.
+     *
+     * @param array $jobData Original job data
+     * @param \Exception $exception The exception that caused the failure
+     * @return bool Success status
+     */
+    public function pushToFailed(array $jobData, \Exception $exception): bool;
+
+    /**
+     * Get failed jobs.
+     *
+     * @param int $limit Maximum number of jobs to retrieve
+     * @return array Array of failed jobs
+     */
+    public function getFailedJobs(int $limit = 100): array;
+
+    /**
+     * Retry a failed job by moving it back to the main queue.
+     *
+     * @param string $jobId The failed job ID
+     * @return bool Success status
+     */
+    public function retryFailedJob(string $jobId): bool;
+
+    /**
+     * Clear failed jobs.
+     *
+     * @return bool Success status
+     */
+    public function clearFailedJobs(): bool;
+
+    /**
+     * Get failed jobs count.
+     *
+     * @return int Number of failed jobs
+     */
+    public function getFailedJobsCount(): int;
 }

@@ -4,6 +4,9 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Event;
 
+use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Mail\Service\ServiceContainer;
+
 class MessageFailed
 {
     private string $jobId;
@@ -12,8 +15,9 @@ class MessageFailed
     private int $attempts;
     private int $failedAt;
     private bool $willRetry;
+    private Logger $logger;
 
-    public function __construct(string $jobId, array $jobData, \Exception $exception, int $attempts, bool $willRetry)
+    public function __construct(string $jobId, array $jobData, \Exception $exception, int $attempts, bool $willRetry, Logger $logger)
     {
         $this->jobId = $jobId;
         $this->jobData = $jobData;
@@ -21,6 +25,20 @@ class MessageFailed
         $this->attempts = $attempts;
         $this->willRetry = $willRetry;
         $this->failedAt = time();
+        $this->logger = $logger;
+        $this->log();
+    }
+
+    private function log()
+    {
+        $this->logger->log("MessageFailed event created", [
+            'job_id' => $this->jobId,
+            'job_class' => $this->jobData['job'] ?? 'unknown',
+            'attempts' => $this->attempts,
+            'will_retry' => $this->willRetry,
+            'error_message' => $this->exception->getMessage(),
+            'failed_at' => $this->failedAt
+        ]);
     }
 
     public function getJobId(): string

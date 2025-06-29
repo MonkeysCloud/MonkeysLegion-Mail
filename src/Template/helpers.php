@@ -10,18 +10,14 @@ use Composer\InstalledVersions;
 if (!defined('WORKING_DIRECTORY')) {
     try {
         $all = InstalledVersions::getAllRawData();
-        $installPath = null;
+        $installPath = $all['root']['install_path'] ?? null;
 
-        if (isset($all['root']['install_path'])) {
-            $installPath = $all['root']['install_path'];
+        if ($installPath && is_dir($installPath)) {
+            define('WORKING_DIRECTORY', realpath($installPath));
+        } else {
+            define('WORKING_DIRECTORY', realpath(getcwd()));
         }
-
-        define('WORKING_DIRECTORY', realpath($installPath));
     } catch (\Throwable $e) {
-        define('WORKING_DIRECTORY', realpath(getcwd()));
-    }
-
-    if (!$installPath || !is_dir($installPath)) {
         define('WORKING_DIRECTORY', realpath(getcwd()));
     }
 }

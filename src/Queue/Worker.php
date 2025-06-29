@@ -6,6 +6,7 @@ namespace MonkeysLegion\Mail\Queue;
 
 use MonkeysLegion\Mail\Event\MessageFailed;
 use MonkeysLegion\Mail\Event\MessageSent;
+use MonkeysLegion\Mail\Logger\Logger;
 
 /**
  * Queue worker for processing jobs
@@ -18,10 +19,12 @@ class Worker
     private int $maxTries = 3;
     private int $memory = 128; // MB
     private int $timeout = 60; // seconds
+    private Logger $logger;
 
-    public function __construct(QueueInterface $queue)
+    public function __construct(QueueInterface $queue, Logger $logger)
     {
         $this->queue = $queue;
+        $this->logger = $logger;
     }
 
     /**
@@ -33,6 +36,14 @@ class Worker
      */
     public function work(?string $queueName = null): void
     {
+        $this->logger->log("Worker started", [
+            'queue' => $queueName ?? 'default',
+            'sleep' => $this->sleep,
+            'max_tries' => $this->maxTries,
+            'memory_limit' => $this->memory,
+            'timeout' => $this->timeout
+        ]);
+
         echo "Worker started. Listening for jobs...\n\n";
 
         while (true) {
@@ -43,6 +54,11 @@ class Worker
 
             // Check memory usage
             if ($this->memoryExceeded()) {
+                $memoryUsage = memory_get_usage(true) / 1024 / 1024;
+                $this->logger->log("Memory limit exceeded - stopping worker", [
+                    'memory_usage_mb' => round($memoryUsage, 2),
+                    'memory_limit_mb' => $this->memory
+                ]);
                 echo "Memory limit exceeded. Stopping worker.\n";
                 break;
             }
@@ -57,12 +73,19 @@ class Worker
 
                 $this->processJob($job);
             } catch (\Exception $e) {
+                $this->logger->log("Error in worker loop", [
+                    'exception' => $e,
+                    'error_message' => $e->getMessage(),
+                    'trace' => $e->getTraceAsString(),
+                    'queue' => $queueName
+                ]);
                 echo "Error in worker loop: " . $e->getMessage() . "\n";
                 // Sleep a bit before retrying to avoid tight error loops
                 sleep(5);
             }
         }
 
+        $this->logger->log("Worker stopped");
         echo "Worker stopped.\n";
     }
 
@@ -76,6 +99,13 @@ class Worker
     {
         $startTime = microtime(true);
 
+        $this->logger->log("Processing job", [
+            'job_id' => $job->getId(),
+            'job_class' => $job->getData()['job'] ?? 'unknown',
+            'attempts' => $job->attempts(),
+            'timeout' => $this->timeout
+        ]);
+
         try {
             echo "Processing job {$job->getId()}...\n";
 
@@ -86,14 +116,30 @@ class Worker
             $job->handle();
 
             $duration = round((microtime(true) - $startTime) * 1000, 2); // Convert to milliseconds
+
+            $this->logger->log("Job processed successfully", [
+                'job_id' => $job->getId(),
+                'duration_ms' => $duration,
+                'memory_usage_mb' => round(memory_get_usage(true) / 1024 / 1024, 2)
+            ]);
+
             echo "✓ Job {$job->getId()} completed ({$duration}ms)\n\n";
 
-            // Create and log success event
-            $sentEvent = new MessageSent($job->getId(), $job->getData(), (int)$duration);
-            error_log("MessageSent: Job {$job->getId()} completed successfully in {$duration}ms");
+            // Create event - logging is handled inside event constructor
+            $sentEvent = new MessageSent($job->getId(), $job->getData(), (int)$duration, $this->logger);
         } catch (\Exception $e) {
             $duration = round((microtime(true) - $startTime) * 1000, 2); // Convert to milliseconds
             $attempts = $job->attempts() + 1;
+
+            $this->logger->log("Job processing failed", [
+                'job_id' => $job->getId(),
+                'exception' => $e,
+                'error_message' => $e->getMessage(),
+                'duration_ms' => $duration,
+                'attempts' => $attempts,
+                'max_tries' => $this->maxTries,
+                'trace' => $e->getTraceAsString()
+            ]);
 
             // Handle job failure
             $this->handleFailedJob($job, $e, $attempts);
@@ -112,24 +158,31 @@ class Worker
     {
         $willRetry = $attempts < $this->maxTries;
 
-        // Create failed event
-        $failedEvent = new MessageFailed($job->getId(), $job->getData(), $exception, $attempts, $willRetry);
+        $this->logger->log("Handling failed job", [
+            'job_id' => $job->getId(),
+            'attempts' => $attempts,
+            'max_tries' => $this->maxTries,
+            'will_retry' => $willRetry,
+            'error_message' => $exception->getMessage()
+        ]);
+
+        // Create event - logging is handled inside event constructor
+        $failedEvent = new MessageFailed($job->getId(), $job->getData(), $exception, $attempts, $willRetry, $this->logger);
 
         if ($willRetry) {
             // Re-queue the job with incremented attempts
             $this->retryJob($job, $attempts, $exception);
         } else {
-            // Move to failed queue after max attempts
+            // Job has reached max attempts - call fail() to push to failed queue
             echo "✗ Job {$job->getId()} failed permanently after {$attempts} attempts\n";
 
-            if ($this->queue instanceof RedisQueue) {
-                $jobData = $job->getData();
-                $jobData['attempts'] = $attempts;
-                $this->queue->pushToFailed($jobData, $exception);
-            }
+            $this->logger->log("Job failed permanently", [
+                'job_id' => $job->getId(),
+                'final_attempts' => $attempts,
+                'error_message' => $exception->getMessage()
+            ]);
 
-            // Log final failure
-            error_log("MessageFailed: Job {$job->getId()} failed permanently: " . $exception->getMessage());
+            $job->fail($exception);
         }
     }
 
@@ -138,6 +191,12 @@ class Worker
      */
     private function retryJob(JobInterface $job, int $attempts, \Exception $exception): void
     {
+        $this->logger->log("Attempting to retry job", [
+            'job_id' => $job->getId(),
+            'attempts' => $attempts,
+            'max_tries' => $this->maxTries
+        ]);
+
         try {
             // Get the original job data structure
             $originalJobData = $job->getData();
@@ -159,17 +218,29 @@ class Worker
                 $redis->rPush($queueKey, json_encode($retryJobData));
             }
 
+            $this->logger->log("Job retry queued successfully", [
+                'job_id' => $job->getId(),
+                'attempts' => $attempts,
+                'max_tries' => $this->maxTries,
+                'retried_at' => $retryJobData['retried_at']
+            ]);
+
             // Log retry with original job ID
+            echo "→ Job {$job->getId()} retry queued, attempt {$attempts}/{$this->maxTries}\n";
             error_log("Job {$job->getId()} retry queued, attempt {$attempts}/{$this->maxTries}");
         } catch (\Exception $e) {
-            // If retry fails, move to failed queue
+            // If retry fails, move to failed queue using job->fail()
+            $this->logger->log("Job retry failed", [
+                'job_id' => $job->getId(),
+                'original_exception' => $exception,
+                'retry_exception' => $e,
+                'retry_error_message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             echo "✗ Failed to retry job {$job->getId()}: " . $e->getMessage() . "\n";
 
-            if ($this->queue instanceof RedisQueue) {
-                $jobData = $job->getData();
-                $jobData['attempts'] = $attempts;
-                $this->queue->pushToFailed($jobData, $exception);
-            }
+            $job->fail($exception);
 
             error_log("MessageFailed: Retry failed for job {$job->getId()}: " . $e->getMessage());
         }
@@ -183,7 +254,16 @@ class Worker
     private function memoryExceeded(): bool
     {
         $memoryUsage = memory_get_usage(true) / 1024 / 1024; // Convert to MB
-        return $memoryUsage >= $this->memory;
+        $exceeded = $memoryUsage >= $this->memory;
+
+        if ($exceeded) {
+            $this->logger->log("Memory usage check - limit exceeded", [
+                'current_usage_mb' => round($memoryUsage, 2),
+                'limit_mb' => $this->memory
+            ]);
+        }
+
+        return $exceeded;
     }
 
     /**
@@ -193,6 +273,7 @@ class Worker
      */
     public function stop(): void
     {
+        $this->logger->log("Worker stop requested");
         echo "Stopping worker gracefully...\n";
     }
 
@@ -204,6 +285,10 @@ class Worker
      */
     public function setSleep(int $seconds): void
     {
+        $this->logger->log("Worker sleep time updated", [
+            'old_sleep' => $this->sleep,
+            'new_sleep' => $seconds
+        ]);
         $this->sleep = $seconds;
     }
 
@@ -215,6 +300,10 @@ class Worker
      */
     public function setMaxTries(int $tries): void
     {
+        $this->logger->log("Worker max tries updated", [
+            'old_max_tries' => $this->maxTries,
+            'new_max_tries' => $tries
+        ]);
         $this->maxTries = $tries;
     }
 
@@ -226,6 +315,10 @@ class Worker
      */
     public function setMemory(int $memory): void
     {
+        $this->logger->log("Worker memory limit updated", [
+            'old_memory_mb' => $this->memory,
+            'new_memory_mb' => $memory
+        ]);
         $this->memory = $memory;
     }
 
@@ -237,6 +330,10 @@ class Worker
      */
     public function setJobTimeout(int $timeout): void
     {
+        $this->logger->log("Worker job timeout updated", [
+            'old_timeout' => $this->timeout,
+            'new_timeout' => $timeout
+        ]);
         $this->timeout = $timeout;
     }
 }

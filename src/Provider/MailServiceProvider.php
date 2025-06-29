@@ -9,6 +9,7 @@ define('MAIL_CONFIG_PATH', WORKING_DIRECTORY . '/config/mail.' . ($_ENV['APP_ENV
 define('REDIS_CONFIG_PATH', __DIR__ . '/../../config/redis.php');
 
 use MonkeysLegion\DI\ContainerBuilder;
+use MonkeysLegion\Mail\Logger\Logger;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\MailerFactory;
 use MonkeysLegion\Mail\Queue\QueueInterface;
@@ -16,7 +17,7 @@ use MonkeysLegion\Mail\Queue\RedisQueue;
 use MonkeysLegion\Mail\Queue\Worker;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\TransportInterface;
-// use Psr\Log\LoggerInterface;
+use Psr\Log\LoggerInterface;
 
 class MailServiceProvider
 {
@@ -28,13 +29,24 @@ class MailServiceProvider
      */
     public static function register(ContainerBuilder $c): void
     {
-        try {
-            $in_container = ServiceContainer::getInstance();
+        $in_container = ServiceContainer::getInstance();
 
+        $in_container->set(Logger::class, fn() => new Logger());
+        $logger = $in_container->get(Logger::class);
+
+        $logger->log("Starting mail service registration");
+
+        try {
             // Load Mail configurations
             $mailConfig = file_exists(MAIL_CONFIG_PATH) ? require MAIL_CONFIG_PATH : [];
             $defaults = file_exists(MAIL_CONFIG_DEFAULT_PATH) ? require MAIL_CONFIG_DEFAULT_PATH : [];
             $mergedMailConfig = array_replace_recursive($defaults, $mailConfig);
+
+            $logger->log("Mail configuration loaded", [
+                'has_custom_config' => file_exists(MAIL_CONFIG_PATH),
+                'has_defaults' => file_exists(MAIL_CONFIG_DEFAULT_PATH),
+                'driver' => $mergedMailConfig['driver'] ?? 'not_set'
+            ]);
 
             // Load Redis configurations
             $redisConfig = file_exists(REDIS_CONFIG_PATH) ? require REDIS_CONFIG_PATH : [];
@@ -43,34 +55,44 @@ class MailServiceProvider
             $in_container->setConfig($mergedMailConfig, 'mail');
             $in_container->setConfig($redisConfig, 'redis');
 
-            // Register Transport Interface
-            $in_container->set(TransportInterface::class, function () use ($mergedMailConfig) {
+            // Register Transport Interface with proper driver config
+            $in_container->set(TransportInterface::class, function () use ($mergedMailConfig, $logger) {
                 try {
-                    return MailerFactory::make($mergedMailConfig);
+                    $driver = $mergedMailConfig['driver'] ?? 'null';
+                    $driverConfig = $mergedMailConfig['drivers'][$driver] ?? [];
+
+                    // Merge driver-specific config with global config
+                    $fullConfig = array_merge($mergedMailConfig, $driverConfig, ['driver' => $driver]);
+
+                    $logger->log("Creating transport", [
+                        'driver' => $driver,
+                        'config_keys' => array_keys($fullConfig)
+                    ]);
+
+                    return MailerFactory::make($fullConfig, $logger);
                 } catch (\Exception $e) {
-                    error_log("Failed to create mail transport: " . $e->getMessage());
+                    $logger->log("Failed to create mail transport", [
+                        'exception' => $e,
+                        'error_message' => $e->getMessage(),
+                        'trace' => $e->getTraceAsString()
+                    ]);
                     throw $e;
                 }
             });
 
             // Register Queue Interface (Redis Queue) - internal only
             $in_container->set(QueueInterface::class, function () use ($in_container) {
-                try {
-                    $redisConfig = $in_container->getConfig('redis');
-                    $queueConfig = $redisConfig['queue'] ?? [];
-                    $connectionName = $queueConfig['connection'] ?? 'default';
-                    $connectionConfig = $redisConfig['connections'][$connectionName] ?? $redisConfig['connections']['default'] ?? [];
+                $redisConfig = $in_container->getConfig('redis');
+                $queueConfig = $redisConfig['queue'] ?? [];
+                $connectionName = $queueConfig['connection'] ?? 'default';
+                $connectionConfig = $redisConfig['connections'][$connectionName] ?? $redisConfig['connections']['default'] ?? [];
 
-                    return new RedisQueue(
-                        $connectionConfig['host'] ?? '127.0.0.1',
-                        $connectionConfig['port'] ?? 6379,
-                        $queueConfig['default_queue'] ?? 'emails',
-                        $queueConfig['key_prefix'] ?? 'queue:'
-                    );
-                } catch (\Exception $e) {
-                    error_log("Failed to create Redis queue: " . $e->getMessage());
-                    throw $e;
-                }
+                return new RedisQueue(
+                    $connectionConfig['host'] ?? '127.0.0.1',
+                    $connectionConfig['port'] ?? 6379,
+                    $queueConfig['default_queue'] ?? 'emails',
+                    $queueConfig['key_prefix'] ?? 'queue:'
+                );
             });
 
             // Register Redis Queue specifically (for failed job handling) - internal only
@@ -80,23 +102,18 @@ class MailServiceProvider
 
             // Register Queue Worker - internal only
             $in_container->set(Worker::class, function () use ($in_container) {
-                try {
-                    $queue = $in_container->get(QueueInterface::class);
-                    $worker = new Worker($queue);
+                $queue = $in_container->get(QueueInterface::class);
+                $worker = new Worker($queue, $in_container->get(Logger::class));
 
-                    $redisConfig = $in_container->getConfig('redis');
-                    $workerConfig = $redisConfig['queue']['worker'] ?? [];
+                $redisConfig = $in_container->getConfig('redis');
+                $workerConfig = $redisConfig['queue']['worker'] ?? [];
 
-                    $worker->setSleep($workerConfig['sleep'] ?? 3);
-                    $worker->setMaxTries($workerConfig['max_tries'] ?? 3);
-                    $worker->setMemory($workerConfig['memory'] ?? 128);
-                    $worker->setJobTimeout($workerConfig['timeout'] ?? 60);
+                $worker->setSleep($workerConfig['sleep'] ?? 3);
+                $worker->setMaxTries($workerConfig['max_tries'] ?? 3);
+                $worker->setMemory($workerConfig['memory'] ?? 128);
+                $worker->setJobTimeout($workerConfig['timeout'] ?? 60);
 
-                    return $worker;
-                } catch (\Exception $e) {
-                    error_log("Failed to create queue worker: " . $e->getMessage());
-                    throw $e;
-                }
+                return $worker;
             });
 
             // Register Mailer Factory - internal only
@@ -106,12 +123,7 @@ class MailServiceProvider
 
             // Register Mailer - internal, but also expose to external container
             $in_container->set(Mailer::class, function () use ($in_container) {
-                try {
-                    return new Mailer($in_container->get(TransportInterface::class), $in_container);
-                } catch (\Exception $e) {
-                    error_log("Failed to create mailer: " . $e->getMessage());
-                    throw $e;
-                }
+                return new Mailer($in_container->get(TransportInterface::class), $in_container);
             });
 
             // Register ONLY the public API that users should access
@@ -119,10 +131,19 @@ class MailServiceProvider
                 Mailer::class => fn() => $in_container->get(Mailer::class),
             ]);
         } catch (\Exception $e) {
+            $logger->log("Mail service provider registration failed", [
+                'exception' => $e,
+                'error_message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
             error_log("Mail service provider registration failed: " . $e->getMessage());
             // Don't re-throw to prevent blocking the entire application
         }
     }
 
-    // public static function setLogger(LoggerInterface $logger): void {}
+    public static function setLogger(LoggerInterface $logger): void
+    {
+        $container = ServiceContainer::getInstance();
+        $container->get(Logger::class)->setLogger($logger);
+    }
 }

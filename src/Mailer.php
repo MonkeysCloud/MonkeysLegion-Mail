@@ -9,16 +9,19 @@ use MonkeysLegion\Mail\Queue\QueueInterface;
 use MonkeysLegion\Mail\Queue\RedisQueue;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Event\MessageSent;
+use MonkeysLegion\Mail\Logger\Logger;
 
 class Mailer
 {
     protected TransportInterface $driver;
     private ServiceContainer $container;
+    private Logger $logger;
 
     public function __construct(TransportInterface $driver, ?ServiceContainer $container = null)
     {
         $this->driver = $driver;
         $this->container = $container ?? ServiceContainer::getInstance();
+        $this->logger = $this->container->get(Logger::class);
     }
 
     /**
@@ -34,6 +37,17 @@ class Mailer
     {
         $startTime = microtime(true);
 
+        $this->logger->log("Attempting to send email", [
+            'to' => $to,
+            'subject' => $subject,
+            'content_type' => $contentType,
+            'has_attachments' => !empty($attachments),
+            'attachment_count' => count($attachments),
+            'has_inline_images' => !empty($inlineImages),
+            'inline_image_count' => count($inlineImages),
+            'driver' => get_class($this->driver)
+        ]);
+
         try {
             $message = new Message(
                 $to,
@@ -48,6 +62,13 @@ class Mailer
 
             $duration = round((microtime(true) - $startTime) * 1000, 2); // Convert to milliseconds
 
+            $this->logger->log("Email sent successfully", [
+                'to' => $to,
+                'subject' => $subject,
+                'duration_ms' => $duration,
+                'driver' => get_class($this->driver)
+            ]);
+
             // Create message data for event
             $messageData = [
                 'to' => $to,
@@ -58,11 +79,22 @@ class Mailer
                 'inlineImages' => $inlineImages
             ];
 
-            // Create and log success event
+            // Create event - logging is handled inside event constructor
             $messageId = uniqid('direct_', true);
-            $sentEvent = new MessageSent($messageId, $messageData, (int)$duration);
-            error_log("MessageSent: Direct email to {$to} sent successfully in {$duration}ms");
+            $sentEvent = new MessageSent($messageId, $messageData, (int)$duration, $this->logger);
         } catch (\Exception $e) {
+            $duration = round((microtime(true) - $startTime) * 1000, 2);
+
+            $this->logger->log("Email sending failed", [
+                'to' => $to,
+                'subject' => $subject,
+                'duration_ms' => $duration,
+                'driver' => get_class($this->driver),
+                'exception' => $e,
+                'error_message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             error_log("Mail sending failed: " . $e->getMessage());
             throw new \RuntimeException("Failed to send email to $to: " . $e->getMessage(), 0, $e);
         }
@@ -76,21 +108,46 @@ class Mailer
      */
     public function setDriver(string $driverName, array $config = []): void
     {
-        $mailConfig = $this->container->getConfig('mail');
+        $oldDriver = get_class($this->driver);
 
-        if (!empty($config)) {
-            // Merge with existing config
-            $driverConfig = array_merge($mailConfig['drivers'][$driverName] ?? [], $config);
-        } else {
-            $driverConfig = $mailConfig['drivers'][$driverName] ?? [];
-        }
-
-        $fullConfig = array_merge($mailConfig, [
-            'driver' => $driverName,
-            'drivers' => array_merge($mailConfig['drivers'] ?? [], [$driverName => $driverConfig])
+        $this->logger->log("Changing mail driver", [
+            'old_driver' => $oldDriver,
+            'new_driver' => $driverName,
+            'has_custom_config' => !empty($config)
         ]);
 
-        $this->driver = MailerFactory::make($fullConfig);
+        try {
+            $mailConfig = $this->container->getConfig('mail');
+
+            if (!empty($config)) {
+                // Merge with existing config
+                $driverConfig = array_merge($mailConfig['drivers'][$driverName] ?? [], $config);
+            } else {
+                $driverConfig = $mailConfig['drivers'][$driverName] ?? [];
+            }
+
+            $fullConfig = array_merge($mailConfig, [
+                'driver' => $driverName,
+                'drivers' => array_merge($mailConfig['drivers'] ?? [], [$driverName => $driverConfig])
+            ]);
+
+            $this->driver = MailerFactory::make($fullConfig, $this->logger);
+
+            $this->logger->log("Mail driver changed successfully", [
+                'old_driver' => $oldDriver,
+                'new_driver' => get_class($this->driver),
+                'driver_name' => $driverName
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->log("Failed to change mail driver", [
+                'old_driver' => $oldDriver,
+                'attempted_driver' => $driverName,
+                'exception' => $e,
+                'error_message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     /**
@@ -110,6 +167,10 @@ class Mailer
      */
     public function useSmtp(array $config = []): void
     {
+        $this->logger->log("Switching to SMTP driver", [
+            'current_driver' => get_class($this->driver),
+            'has_custom_config' => !empty($config)
+        ]);
         $this->setDriver('smtp', $config);
     }
 
@@ -118,6 +179,9 @@ class Mailer
      */
     public function useNull(): void
     {
+        $this->logger->log("Switching to null driver for testing", [
+            'current_driver' => get_class($this->driver)
+        ]);
         $this->setDriver('null');
     }
 
@@ -126,6 +190,9 @@ class Mailer
      */
     public function useSendmail(): void
     {
+        $this->logger->log("Switching to sendmail driver", [
+            'current_driver' => get_class($this->driver)
+        ]);
         $this->setDriver('sendmail');
     }
 
@@ -150,6 +217,17 @@ class Mailer
         array $inlineImages = [],
         ?string $queue = null
     ): mixed {
+        $this->logger->log("Queuing email for background processing", [
+            'to' => $to,
+            'subject' => $subject,
+            'content_type' => $contentType,
+            'has_attachments' => !empty($attachments),
+            'attachment_count' => count($attachments),
+            'has_inline_images' => !empty($inlineImages),
+            'inline_image_count' => count($inlineImages),
+            'queue' => $queue ?? 'default'
+        ]);
+
         try {
             // Get queue instance from container or create default Redis queue
             $queueInstance = $this->getQueueInstance();
@@ -165,8 +243,27 @@ class Mailer
             ];
 
             // Push job to queue
-            return $queueInstance->push(SendMailJob::class, $jobData, $queue);
+            $jobId = $queueInstance->push(SendMailJob::class, $jobData, $queue);
+
+            $this->logger->log("Email queued successfully", [
+                'job_id' => $jobId,
+                'to' => $to,
+                'subject' => $subject,
+                'queue' => $queue ?? 'default',
+                'queue_class' => get_class($queueInstance)
+            ]);
+
+            return $jobId;
         } catch (\Exception $e) {
+            $this->logger->log("Failed to queue email", [
+                'to' => $to,
+                'subject' => $subject,
+                'queue' => $queue ?? 'default',
+                'exception' => $e,
+                'error_message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
             error_log("Failed to queue email: " . $e->getMessage());
             throw new \RuntimeException("Failed to queue email to $to: " . $e->getMessage(), 0, $e);
         }
@@ -179,8 +276,19 @@ class Mailer
     {
         try {
             // Try to get queue from container
-            return $this->container->get(QueueInterface::class);
+            $queue = $this->container->get(QueueInterface::class);
+
+            $this->logger->log("Using queue from container", [
+                'queue_class' => get_class($queue)
+            ]);
+
+            return $queue;
         } catch (\Exception $e) {
+            $this->logger->log("Container queue not available, using fallback Redis queue", [
+                'exception' => $e,
+                'error_message' => $e->getMessage()
+            ]);
+
             // Fallback to default Redis queue
             return new RedisQueue();
         }
