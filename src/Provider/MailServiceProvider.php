@@ -8,7 +8,10 @@ define('MAIL_CONFIG_DEFAULT_PATH', __DIR__ . '/../../config/mail.php');
 define('MAIL_CONFIG_PATH', WORKING_DIRECTORY . '/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php');
 define('REDIS_CONFIG_PATH', __DIR__ . '/../../config/redis.php');
 
+use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\DI\ContainerBuilder;
+use MonkeysLegion\Mail\Cli\Command\MailInstallCommand;
+use MonkeysLegion\Mail\Cli\Command\MailMakeCommand;
 use MonkeysLegion\Mail\Logger\Logger;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\MailerFactory;
@@ -16,6 +19,7 @@ use MonkeysLegion\Mail\Queue\QueueInterface;
 use MonkeysLegion\Mail\Queue\RedisQueue;
 use MonkeysLegion\Mail\Queue\Worker;
 use MonkeysLegion\Mail\Service\ServiceContainer;
+use MonkeysLegion\Mail\Template\Renderer;
 use MonkeysLegion\Mail\TransportInterface;
 use Psr\Log\LoggerInterface;
 
@@ -54,6 +58,17 @@ class MailServiceProvider
             // Store configurations
             $in_container->setConfig($mergedMailConfig, 'mail');
             $in_container->setConfig($redisConfig, 'redis');
+
+            $in_container->set(Renderer::class, function () use ($in_container) {
+                $viewsPath = WORKING_DIRECTORY . '/resources/views';
+                $cachePath = WORKING_DIRECTORY . '/storage/cache/views';
+
+                return new Renderer(
+                    $viewsPath,
+                    $cachePath,
+                    $in_container->get(Logger::class)
+                );
+            });
 
             // Register Transport Interface with proper driver config
             $in_container->set(TransportInterface::class, function () use ($mergedMailConfig, $logger) {
@@ -125,10 +140,13 @@ class MailServiceProvider
             $in_container->set(Mailer::class, function () use ($in_container) {
                 return new Mailer($in_container->get(TransportInterface::class), $in_container);
             });
-
             // Register ONLY the public API that users should access
             $c->addDefinitions([
                 Mailer::class => fn() => $in_container->get(Mailer::class),
+                Command::class => [
+                    MailInstallCommand::class,
+                    MailMakeCommand::class,
+                ]
             ]);
         } catch (\Exception $e) {
             $logger->log("Mail service provider registration failed", [

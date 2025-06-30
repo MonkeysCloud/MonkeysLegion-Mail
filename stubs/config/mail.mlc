@@ -1,0 +1,19 @@
+driver             $_ENV['MAIL_DRIVER'] ?? 'null'
+
+smtp_host          $_ENV['MAIL_HOST'] ?? 'smtp.mailtrap.io'
+smtp_port          $_ENV['MAIL_PORT'] ?? 587
+smtp_encryption    $_ENV['MAIL_ENCRYPTION'] ?? 'tls'
+smtp_username      $_ENV['MAIL_USERNAME'] ?? ''
+smtp_password      $_ENV['MAIL_PASSWORD'] ?? ''
+smtp_timeout       $_ENV['MAIL_TIMEOUT'] ?? 30
+smtp_from_address  $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com'
+smtp_from_name     $_ENV['MAIL_FROM_NAME'] ?? 'My App'
+
+mailgun_api_key        $_ENV['MAILGUN_API_KEY'] ?? ''
+mailgun_domain         $_ENV['MAILGUN_DOMAIN'] ?? ''
+mailgun_from_address   $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com'
+mailgun_from_name      $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+
+sendmail_path          $_ENV['MAIL_SENDMAIL_PATH'] ?? '/usr/sbin/sendmail'
+sendmail_from_address  $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com'
+sendmail_from_name     $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
