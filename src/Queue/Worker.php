@@ -14,18 +14,15 @@ use MonkeysLegion\Mail\Logger\Logger;
  */
 class Worker
 {
-    private QueueInterface $queue;
     private int $sleep = 3;
     private int $maxTries = 3;
     private int $memory = 128; // MB
     private int $timeout = 60; // seconds
-    private Logger $logger;
 
-    public function __construct(QueueInterface $queue, Logger $logger)
-    {
-        $this->queue = $queue;
-        $this->logger = $logger;
-    }
+    public function __construct(
+        private QueueInterface $queue,
+        private Logger $logger
+    ) {}
 
     /**
      * Start processing jobs from the queue

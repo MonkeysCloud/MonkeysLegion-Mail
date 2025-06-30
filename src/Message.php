@@ -11,13 +11,6 @@ class Message
     public const CONTENT_TYPE_MIXED = 'multipart/mixed';
     public const CONTENT_TYPE_ALTERNATIVE = 'multipart/alternative';
 
-    private string $to;
-    private string $subject;
-    private string $content;
-    private string $contentType;
-    private array $attachments = [];
-    private array $inlineImages = [];
-
     /**
      * Message constructor.
      *
@@ -29,20 +22,13 @@ class Message
      * @param array $inlineImages An array of inline images to include in the email.
      */
     public function __construct(
-        string $to,
-        string $subject,
-        string $content = '',
-        string $contentType = self::CONTENT_TYPE_TEXT,
-        array $attachments = [],
-        array $inlineImages = []
-    ) {
-        $this->to = $to;
-        $this->subject = $subject;
-        $this->content = $content;
-        $this->contentType = $contentType;
-        $this->attachments = $attachments;
-        $this->inlineImages = $inlineImages;
-    }
+        private string $to,
+        private string $subject,
+        private string $content = '',
+        private string $contentType = self::CONTENT_TYPE_TEXT,
+        private array $attachments = [],
+        private array $inlineImages = []
+    ) {}
 
     public function getTo(): string
     {

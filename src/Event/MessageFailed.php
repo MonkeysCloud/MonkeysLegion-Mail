@@ -9,21 +9,16 @@ use MonkeysLegion\Mail\Service\ServiceContainer;
 
 class MessageFailed
 {
-    private string $jobId;
-    private array $jobData;
-    private \Exception $exception;
-    private int $attempts;
     private int $failedAt;
-    private bool $willRetry;
-    private Logger $logger;
 
-    public function __construct(string $jobId, array $jobData, \Exception $exception, int $attempts, bool $willRetry, Logger $logger)
-    {
-        $this->jobId = $jobId;
-        $this->jobData = $jobData;
-        $this->exception = $exception;
-        $this->attempts = $attempts;
-        $this->willRetry = $willRetry;
+    public function __construct(
+        private string $jobId,
+        private array $jobData,
+        private \Exception $exception,
+        private int $attempts,
+        private bool $willRetry,
+        private Logger $logger
+    ) {
         $this->failedAt = time();
         $this->logger = $logger;
         $this->log();

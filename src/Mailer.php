@@ -13,14 +13,12 @@ use MonkeysLegion\Mail\Logger\Logger;
 
 class Mailer
 {
-    protected TransportInterface $driver;
-    private ServiceContainer $container;
     private Logger $logger;
 
-    public function __construct(TransportInterface $driver, ?ServiceContainer $container = null)
-    {
-        $this->driver = $driver;
-        $this->container = $container ?? ServiceContainer::getInstance();
+    public function __construct(
+        private TransportInterface $driver,
+        private ?ServiceContainer $container = null
+    ) {
         $this->logger = $this->container->get(Logger::class);
     }
 

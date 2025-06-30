@@ -8,19 +8,15 @@ use MonkeysLegion\Mail\Logger\Logger;
 
 class MessageSent
 {
-    private string $jobId;
-    private array $jobData;
     private int $sentAt;
-    private int $duration;
-    private Logger $logger;
 
-    public function __construct(string $jobId, array $jobData, int $duration, Logger $logger)
-    {
-        $this->jobId = $jobId;
-        $this->jobData = $jobData;
-        $this->duration = $duration;
+    public function __construct(
+        private string $jobId,
+        private array $jobData,
+        private int $duration,
+        private Logger $logger
+    ) {
         $this->sentAt = time();
-        $this->logger = $logger;
         $this->log();
     }
 

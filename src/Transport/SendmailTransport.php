@@ -12,12 +12,8 @@ use MonkeysLegion\Mail\TransportInterface;
  */
 final class SendmailTransport implements TransportInterface
 {
-    private string $sendmailPath;
 
-    public function __construct(string $sendmailPath = '/usr/sbin/sendmail')
-    {
-        $this->sendmailPath = $sendmailPath;
-    }
+    public function __construct(private string $sendmailPath = '/usr/sbin/sendmail') {}
 
     public function send(Message $message): void
     {

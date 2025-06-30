@@ -12,12 +12,10 @@ use MonkeysLegion\Mail\Transport\SmtpTransport;
 
 class MailerFactory
 {
-    private ServiceContainer $container;
     private Logger $logger;
 
-    public function __construct(ServiceContainer $container)
+    public function __construct(private ServiceContainer $container)
     {
-        $this->container = $container;
         $this->logger = $this->container->get(Logger::class);
     }
 

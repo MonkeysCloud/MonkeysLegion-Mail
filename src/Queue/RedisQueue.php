@@ -13,20 +13,16 @@ use MonkeysLegion\Mail\Service\ServiceContainer;
 class RedisQueue implements QueueInterface
 {
     private Redis $redis;
-    private string $defaultQueue;
-    private string $keyPrefix;
     private Logger $logger;
     private ServiceContainer $container;
 
     public function __construct(
-        string $host = '127.0.0.1',
-        int $port = 6379,
-        string $defaultQueue = 'default',
-        string $keyPrefix = 'queue:'
+        private string $host = '127.0.0.1',
+        private int $port = 6379,
+        private string $defaultQueue = 'default',
+        private string $keyPrefix = 'queue:'
     ) {
         $this->redis = new Redis();
-        $this->defaultQueue = $defaultQueue;
-        $this->keyPrefix = $keyPrefix;
         $this->container = ServiceContainer::getInstance();
         $this->logger = $this->container->get(Logger::class);
         $this->connect($host, $port);

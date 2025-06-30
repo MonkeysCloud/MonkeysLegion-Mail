@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "bba9b46e4fc5ee948f6167b01aa7b333",
+    "content-hash": "4d2f5255735f5ff294e467fb0affc1e6",
     "packages": [
         {
             "name": "dflydev/dot-access-data",
@@ -333,6 +333,99 @@
             "time": "2022-12-11T20:36:23+00:00"
         },
         {
+            "name": "monkeyscloud/monkeyslegion-cli",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/MonkeysCloud/MonkeysLegion-Cli.git",
+                "reference": "00304d6320fea346b823848afbf8a8920249c0b6"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/MonkeysCloud/MonkeysLegion-Cli/zipball/00304d6320fea346b823848afbf8a8920249c0b6",
+                "reference": "00304d6320fea346b823848afbf8a8920249c0b6",
+                "shasum": ""
+            },
+            "require": {
+                "ext-ctype": "*",
+                "ext-pdo": "*",
+                "ext-readline": "*",
+                "monkeyscloud/monkeyslegion-core": "^1.0@dev",
+                "monkeyscloud/monkeyslegion-di": "dev-main",
+                "monkeyscloud/monkeyslegion-entity": "^1.0@dev",
+                "php": "^8.4"
+            },
+            "default-branch": true,
+            "bin": [
+                "bin/ml"
+            ],
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "1.0-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MonkeysLegion\\Cli\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Command-line interface and developer tooling for the MonkeysLegion framework.",
+            "support": {
+                "issues": "https://github.com/MonkeysCloud/MonkeysLegion-Cli/issues",
+                "source": "https://github.com/MonkeysCloud/MonkeysLegion-Cli/tree/main"
+            },
+            "time": "2025-06-21T02:41:42+00:00"
+        },
+        {
+            "name": "monkeyscloud/monkeyslegion-core",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/MonkeysCloud/MonkeysLegion-Core.git",
+                "reference": "f4cf612b80c21dd3b54c12d1bd3e3b5c5ebb3d85"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/MonkeysCloud/MonkeysLegion-Core/zipball/f4cf612b80c21dd3b54c12d1bd3e3b5c5ebb3d85",
+                "reference": "f4cf612b80c21dd3b54c12d1bd3e3b5c5ebb3d85",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.4",
+                "psr/container": "^2.0"
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "1.0-dev"
+                }
+            },
+            "autoload": {
+                "files": [
+                    "src/Support/helpers.php"
+                ],
+                "psr-4": {
+                    "MonkeysLegion\\Core\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Core runtime (kernel, events, helpers) for the MonkeysLegion PHP framework.",
+            "support": {
+                "issues": "https://github.com/MonkeysCloud/MonkeysLegion-Core/issues",
+                "source": "https://github.com/MonkeysCloud/MonkeysLegion-Core/tree/main"
+            },
+            "time": "2025-05-22T01:09:07+00:00"
+        },
+        {
             "name": "monkeyscloud/monkeyslegion-di",
             "version": "dev-main",
             "source": {
@@ -369,6 +462,89 @@
                 "source": "https://github.com/MonkeysCloud/MonkeysLegion-Di/tree/main"
             },
             "time": "2025-05-19T02:45:54+00:00"
+        },
+        {
+            "name": "monkeyscloud/monkeyslegion-entity",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/MonkeysCloud/MonkeysLegion-Entity.git",
+                "reference": "02311deaf15f1efa5da849cc0fe579b0cb10a5f3"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/MonkeysCloud/MonkeysLegion-Entity/zipball/02311deaf15f1efa5da849cc0fe579b0cb10a5f3",
+                "reference": "02311deaf15f1efa5da849cc0fe579b0cb10a5f3",
+                "shasum": ""
+            },
+            "require": {
+                "ext-pdo": "*",
+                "monkeyscloud/monkeyslegion-core": "^1.0@dev",
+                "monkeyscloud/monkeyslegion-di": "dev-main",
+                "php": "^8.4"
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "1.0-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MonkeysLegion\\Entity\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "Attribute-based data-mapper, entity scanner, and repository layer.",
+            "support": {
+                "issues": "https://github.com/MonkeysCloud/MonkeysLegion-Entity/issues",
+                "source": "https://github.com/MonkeysCloud/MonkeysLegion-Entity/tree/main"
+            },
+            "time": "2025-06-21T00:59:36+00:00"
+        },
+        {
+            "name": "monkeyscloud/monkeyslegion-template",
+            "version": "dev-main",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/MonkeysCloud/MonkeysLegion-Template.git",
+                "reference": "b1875dc294ed70279e34a60aa81d0962e16cc797"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/MonkeysCloud/MonkeysLegion-Template/zipball/b1875dc294ed70279e34a60aa81d0962e16cc797",
+                "reference": "b1875dc294ed70279e34a60aa81d0962e16cc797",
+                "shasum": ""
+            },
+            "require": {
+                "php": "^8.4"
+            },
+            "default-branch": true,
+            "type": "library",
+            "extra": {
+                "branch-alias": {
+                    "dev-main": "1.0-dev"
+                }
+            },
+            "autoload": {
+                "psr-4": {
+                    "MonkeysLegion\\Template\\": "src/"
+                }
+            },
+            "notification-url": "https://packagist.org/downloads/",
+            "license": [
+                "MIT"
+            ],
+            "description": "MLView – the MonkeysLegion template engine with components, slots, and caching",
+            "support": {
+                "issues": "https://github.com/MonkeysCloud/MonkeysLegion-Template/issues",
+                "source": "https://github.com/MonkeysCloud/MonkeysLegion-Template/tree/main"
+            },
+            "time": "2025-05-24T21:30:54+00:00"
         },
         {
             "name": "nette/schema",
@@ -2757,7 +2933,9 @@
     "aliases": [],
     "minimum-stability": "dev",
     "stability-flags": {
-        "monkeyscloud/monkeyslegion-di": 20
+        "monkeyscloud/monkeyslegion-cli": 20,
+        "monkeyscloud/monkeyslegion-di": 20,
+        "monkeyscloud/monkeyslegion-template": 20
     },
     "prefer-stable": true,
     "prefer-lowest": false,

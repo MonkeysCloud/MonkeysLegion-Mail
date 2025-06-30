@@ -8,19 +8,17 @@ use MonkeysLegion\Mail\Logger\Logger;
 
 class Job implements JobInterface
 {
-    private array $data;
     private array $fullJobData; // Store the complete Redis job structure
-    private QueueInterface $queue;
     private int $attempts = 0;
-    private Logger $logger;
 
-    public function __construct(array $data, QueueInterface $queue, Logger $logger)
-    {
+    public function __construct(
+        private array $data,
+        private QueueInterface $queue,
+        private Logger $logger
+    ) {
         try {
             $this->fullJobData = $data; // Store complete structure
             $this->data = $data['data']; // Extract inner data for job execution
-            $this->logger = $logger;
-            $this->queue = $queue;
             $this->attempts = $data['attempts'] ?? 0;
 
             $this->logger->log("Job constructed", [

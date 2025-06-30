@@ -8,17 +8,14 @@ use MonkeysLegion\Mail\Logger\Logger;
 
 class MessageQueued
 {
-    private string $jobId;
-    private array $jobData;
     private int $queuedAt;
-    private Logger $logger;
 
-    public function __construct(string $jobId, array $jobData, Logger $logger)
-    {
-        $this->jobId = $jobId;
-        $this->jobData = $jobData;
+    public function __construct(
+        private string $jobId,
+        private array $jobData,
+        private Logger $logger
+    ) {
         $this->queuedAt = time();
-        $this->logger = $logger;
         $this->log();
     }
 

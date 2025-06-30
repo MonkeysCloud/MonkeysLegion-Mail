@@ -10,10 +10,8 @@ use MonkeysLegion\Mail\TransportInterface;
 
 final class SmtpTransport implements TransportInterface
 {
-    private array $config;
     private ?string $address = null;
     private $socket;
-    private ?Logger $logger;
 
     /**
      * SmtpTransport constructor.
@@ -22,18 +20,16 @@ final class SmtpTransport implements TransportInterface
      *  Expected keys: 'host', 'port', 'encryption', 'username', 'password', 'from', 'timeout'.
      *  'encryption' can be 'ssl', 'tls', or 'none'.    
      */
-    public function __construct(array $config, ?Logger $logger = null)
-    {
-        $this->logger = $logger ?? new Logger();
-
+    public function __construct(
+        private array $config,
+        private  ?Logger $logger = null
+    ) {
         $this->logger->log("SMTP Transport constructor called", [
             'config_keys' => array_keys($config),
             'has_host' => isset($config['host']),
             'has_port' => isset($config['port']),
             'has_encryption' => isset($config['encryption'])
         ]);
-
-        $this->config = $config;
 
         $this->logger->log("SMTP Transport initialized", [
             'host' => $this->config['host'],

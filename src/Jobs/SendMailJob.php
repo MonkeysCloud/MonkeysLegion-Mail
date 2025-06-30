@@ -14,13 +14,11 @@ use MonkeysLegion\Mail\Service\ServiceContainer;
  */
 class SendMailJob
 {
-    private array $data;
     private Logger $logger;
     private ServiceContainer $container;
 
-    public function __construct(array $data)
+    public function __construct(private array $data)
     {
-        $this->data = $data;
         $this->container = ServiceContainer::getInstance();
         $this->logger = $this->container->get(Logger::class);
     }

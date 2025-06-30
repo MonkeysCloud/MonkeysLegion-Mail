@@ -14,12 +14,8 @@ use MonkeysLegion\Mail\TransportInterface;
  */
 final class NullTransport implements TransportInterface
 {
-    private Logger $logger;
 
-    public function __construct(Logger $logger)
-    {
-        $this->logger = $logger;
-    }
+    public function __construct(private Logger $logger) {}
 
     public function send(Message $message): void
     {
