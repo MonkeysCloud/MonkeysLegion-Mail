@@ -140,13 +140,19 @@ class MailServiceProvider
             $in_container->set(Mailer::class, function () use ($in_container) {
                 return new Mailer($in_container->get(TransportInterface::class), $in_container);
             });
+
+            // Register CLI Commands - internal, but also expose to external container
+            $in_container->set(Command::class, function () {
+                return [
+                    MailInstallCommand::class,
+                    MailMakeCommand::class,
+                ];
+            });
+
             // Register ONLY the public API that users should access
             $c->addDefinitions([
                 Mailer::class => fn() => $in_container->get(Mailer::class),
-                Command::class => [
-                    MailInstallCommand::class,
-                    MailMakeCommand::class,
-                ]
+                Command::class => $in_container->get(Command::class),
             ]);
         } catch (\Exception $e) {
             $logger->log("Mail service provider registration failed", [
