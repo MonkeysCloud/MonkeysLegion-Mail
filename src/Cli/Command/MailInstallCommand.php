@@ -22,8 +22,8 @@ final class MailInstallCommand extends Command
 
     public function handle(): int
     {
-        $projectRoot = WORKING_DIRECTORY;
-        $stubDir = __DIR__ . '/../../stubs';
+        $projectRoot = base_path();
+        $stubDir = __DIR__ . '/../../../stubs';
 
         // 1) Copy scaffolding files
         $map = [
@@ -41,9 +41,9 @@ final class MailInstallCommand extends Command
             "{$stubDir}/resources/views/emails/password-reset.ml.php"   => "{$projectRoot}/resources/views/emails/password-reset.ml.php",
             "{$stubDir}/resources/views/emails/receipt.ml.php"   => "{$projectRoot}/resources/views/emails/receipt.ml.php",
             "{$stubDir}/resources/views/emails/welcome.ml.php"   => "{$projectRoot}/resources/views/emails/welcome.ml.php",
-            "{$stubDir}/Mail/welcome-mail.php"   => "{$projectRoot}/app/Mail/welcome-mail.php",
-            "{$stubDir}/Mail/receipt-mail.php"   => "{$projectRoot}/app/Mail/receipt-mail.php",
-            "{$stubDir}/Mail/password-reset-mail.php"   => "{$projectRoot}/app/Mail/password-reset-mail.php",
+            "{$stubDir}/Mail/welcome-mail.php"   => "{$projectRoot}/app/Mail/WelcomeMail.php",
+            "{$stubDir}/Mail/receipt-mail.php"   => "{$projectRoot}/app/Mail/ReceiptMail.php",
+            "{$stubDir}/Mail/password-reset-mail.php"   => "{$projectRoot}/app/Mail/PasswordResetMail.php",
         ];
 
         foreach ($map as $from => $to) {
@@ -57,8 +57,10 @@ final class MailInstallCommand extends Command
                 continue;
             }
 
-            $this->copyFile($from, $to);
-            $this->info('✓ Published file ' . str_replace($projectRoot . '/', '', $to));
+            if ($this->copyFile($from, $to)) {
+                $this->info('✓ Published file ' . str_replace($projectRoot . '/', '', $to));
+            }
+            $this->line('');
         }
 
         // 2) Ensure .env contains Mail keys
@@ -310,18 +312,18 @@ final class MailInstallCommand extends Command
         }
         $arrayEnd = $pos - 1;   // position of ']'
 
-        // 4) Build the factory text with same indent as others (4 spaces)
+        // 4) Build the factory text with same indentation as others
         $factory = <<<'PHP'
 
-    /* ----------------------------------------------------------------- */
-    /* Mail — Service bindings                                           */
-    /* ----------------------------------------------------------------- */
-    \MonkeysLegion\Mail\Mailer::class => fn($c) => (function() use ($c) {
-        // Register mail services using the provider
-        \MonkeysLegion\Mail\Provider\MailServiceProvider::register($c);
-        return $c->get(\MonkeysLegion\Mail\Mailer::class);
-    })(),
-PHP;
+                        /* ----------------------------------------------------------------- */
+                        /* Mail — Service bindings                                           */
+                        /* ----------------------------------------------------------------- */
+                        \MonkeysLegion\Mail\Mailer::class => fn($c) => (function() use ($c) {
+                            // Register mail services using the provider
+                            \MonkeysLegion\Mail\Provider\MailServiceProvider::register($c);
+                            return $c->get(\MonkeysLegion\Mail\Mailer::class);
+                        })(),
+                    PHP;
 
         // 5) Inject before the closing "]"
         $patched = substr_replace($code, $factory . "\n", $arrayEnd, 0);
@@ -368,11 +370,29 @@ PHP;
     /**
      * Copy a single file ensuring the destination directory exists.
      */
-    private function copyFile(string $from, string $to): void
+    private function copyFile(string $from, string $to): bool
     {
-        @mkdir(dirname($to), 0755, true);
-        copy($from, $to);
+        if (!file_exists($from)) {
+            $this->warn("Source file does not exist: $from");
+            return false;
+        }
+
+        $dir = dirname($to);
+        if (!is_dir($dir)) {
+            if (!mkdir($dir, 0755, true) && !is_dir($dir)) {
+                $this->warn("Failed to create directory: $dir");
+                return false;
+            }
+        }
+
+        if (!copy($from, $to)) {
+            $this->warn("Failed to copy file from $from to $to");
+            return false;
+        }
+
+        return true;
     }
+
 
     /**
      * Ask a yes/no question and return true for 'yes', false for 'no'.

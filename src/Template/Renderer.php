@@ -4,24 +4,15 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Template;
 
-use MonkeysLegion\Template\MLView;
 use MonkeysLegion\Mail\Logger\Logger;
-use MonkeysLegion\Mail\Service\ServiceContainer;
+use MonkeysLegion\Template\MLView;
 
 class Renderer
 {
-    private MLView $view;
-
     public function __construct(
-        private string $viewsPath,
-        private string $cachePath,
+        private MLView $mlView,
         private Logger $logger
-    ) {
-        $this->view = new MLView(
-            viewsPath: $viewsPath,
-            cacheDir: $cachePath
-        );
-    }
+    ) {}
 
     /**
      * Render a template with the given data
@@ -33,7 +24,8 @@ class Renderer
     public function render(string $template, array $data = []): string
     {
         try {
-            return $this->view->render($template, $data);
+            $result = $this->mlView->render($template, $data);
+            return $result;
         } catch (\Exception $e) {
             $this->logger->log("Template rendering failed", [
                 'template' => $template,
@@ -47,30 +39,6 @@ class Renderer
     }
 
     /**
-     * Check if a template exists
-     *
-     * @param string $template
-     * @return bool
-     */
-    public function templateExists(string $template): bool
-    {
-        try {
-            // Try to get the template path through MLView's loader
-            // This is a simple check - MLView will handle the actual file resolution
-            $viewsPath = $this->viewsPath;
-            $templatePath = $viewsPath . '/' . str_replace('.', '/', $template) . '.ml.php';
-
-            return file_exists($templatePath);
-        } catch (\Exception $e) {
-            $this->logger->log("Template existence check failed", [
-                'template' => $template,
-                'error' => $e->getMessage()
-            ]);
-            return false;
-        }
-    }
-
-    /**
      * Clear the template cache
      *
      * @return bool
@@ -78,8 +46,7 @@ class Renderer
     public function clearCache(): bool
     {
         try {
-            $this->view->clearCache();
-
+            $this->mlView->clearCache();
             return true;
         } catch (\Exception $e) {
             $this->logger->log("Failed to clear template cache", [
@@ -91,12 +58,12 @@ class Renderer
     }
 
     /**
-     * Get the MLView instance for advanced usage
+     * Get the template renderer instance for advanced usage
      *
      * @return MLView
      */
-    public function getView(): MLView
+    public function getTemplateRenderer(): MLView
     {
-        return $this->view;
+        return $this->mlView;
     }
 }

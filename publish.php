@@ -11,7 +11,7 @@ if (!file_exists($source)) {
     exit(1);
 }
 
-$destination = WORKING_DIRECTORY . '/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php';
+$destination = base_path('/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php');
 
 // Ensure the destination directory exists
 if (!is_dir(dirname($destination))) {

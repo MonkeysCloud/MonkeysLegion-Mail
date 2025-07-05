@@ -34,7 +34,6 @@ class Mailer
     public function send(string $to, string $subject, string $content, string $contentType = 'text/html', array $attachments = [], array $inlineImages = []): void
     {
         $startTime = microtime(true);
-
         $this->logger->log("Attempting to send email", [
             'to' => $to,
             'subject' => $subject,
@@ -45,7 +44,6 @@ class Mailer
             'inline_image_count' => count($inlineImages),
             'driver' => get_class($this->driver)
         ]);
-
         try {
             $message = new Message(
                 $to,
@@ -55,18 +53,14 @@ class Mailer
                 $attachments,
                 $inlineImages
             );
-
             $this->driver->send($message);
-
             $duration = round((microtime(true) - $startTime) * 1000, 2); // Convert to milliseconds
-
             $this->logger->log("Email sent successfully", [
                 'to' => $to,
                 'subject' => $subject,
                 'duration_ms' => $duration,
                 'driver' => get_class($this->driver)
             ]);
-
             // Create message data for event
             $messageData = [
                 'to' => $to,

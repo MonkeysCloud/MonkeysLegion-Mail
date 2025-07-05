@@ -13,70 +13,12 @@ use MonkeysLegion\Mail\Mail\Mailable;
  */
 class {{ class }} extends Mailable
 {
-    /**
-     * Mail-specific timeout override (optional)
-     */
-    protected ?int $timeout = null;
-
-    /**
-     * Max retry attempts override (optional)
-     */
-    protected ?int $maxTries = null;
-
-    public function __construct() 
-    {
-        parent::__construct();
-    }
-
-    /**
-     * Build the mail message.
-     * 
-     * Configure the mail properties like view, subject, recipient, etc.
-     * All fluent methods are inherited from the Mailable base class.
-     * 
-     * @return self
-     */
+    
     public function build(): self
     {
         return $this
             ->view('emails.{{ view_name }}')
-            ->to('{{ to_placeholder }}')
             ->subject('{{ subject_placeholder }}')
             ->contentType('text/html');
-            
-        // Additional configuration examples:
-        // ->from('noreply@example.com', 'Your App')
-        // ->attach('/path/to/file.pdf')
-        // ->embed('/path/to/image.jpg', 'logo')
-        // ->with('data_key', $value)
-        // ->withData(['key1' => 'value1', 'key2' => 'value2'])
     }
-    
-    /**
-     * Runtime configuration examples:
-     * 
-     * $mail = new {{ class }}();
-     * 
-     * // Runtime setters
-     * $mail->setTo('user@example.com')
-     *      ->setSubject('Dynamic Subject')
-     *      ->setView('emails.custom-template');
-     *
-     * // Bulk configuration
-     * $mail->configure([
-     *     'to' => 'user@example.com',
-     *     'subject' => 'Dynamic Subject',
-     *     'queue' => 'high_priority',
-     *     'viewData' => ['name' => 'John', 'age' => 30]
-     * ]);
-     *
-     * // Conditional configuration
-     * $mail->when($isVip, function($mail) {
-     *     $mail->setQueue('vip');
-     * });
-     *
-     * // Property-based configuration:
-     * protected int $maxTries = 3;
-     * protected int $timeout = 60;
-     */
 }

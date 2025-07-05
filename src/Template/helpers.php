@@ -2,23 +2,10 @@
 
 declare(strict_types=1);
 
+require_once __DIR__ . '/../../vendor/autoload.php';
+
 use Dotenv\Dotenv;
 use Composer\InstalledVersions;
-
-if (!defined('WORKING_DIRECTORY')) {
-    try {
-        $all = InstalledVersions::getAllRawData();
-        $installPath = $all['root']['install_path'] ?? null;
-
-        if ($installPath && is_dir($installPath)) {
-            define('WORKING_DIRECTORY', realpath($installPath));
-        } else {
-            define('WORKING_DIRECTORY', realpath(getcwd()));
-        }
-    } catch (\Throwable $e) {
-        define('WORKING_DIRECTORY', realpath(getcwd()));
-    }
-}
 
 $envFiles = [
     '.env',
@@ -27,10 +14,11 @@ $envFiles = [
     '.env.test',
     '.env.prod',
 ];
+
 try {
     foreach ($envFiles as $envFile) {
-        if (file_exists(WORKING_DIRECTORY . '/' . $envFile)) {
-            $dotenv = Dotenv::createImmutable(WORKING_DIRECTORY, $envFile);
+        if (file_exists(base_path('/' . $envFile))) {
+            $dotenv = Dotenv::createImmutable(base_path(), $envFile);
             $dotenv->safeLoad();
         }
     }

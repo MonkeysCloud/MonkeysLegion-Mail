@@ -27,8 +27,7 @@ class Job implements JobInterface
                 'attempts' => $this->attempts
             ]);
         } catch (\Throwable $e) {
-
-            dd("Failed to construct job: " . $e->getMessage(), 0, $e);
+            throw new \RuntimeException("Failed to construct job: " . $e->getMessage(), 0, $e);
         }
     }
 

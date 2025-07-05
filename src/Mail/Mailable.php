@@ -14,65 +14,49 @@ use MonkeysLegion\Mail\Logger\Logger;
  */
 abstract class Mailable
 {
-    /**
-     * The view template to use for this mail
-     */
+    // =================================================================
+    // PROPERTIES
+    // =================================================================
+
+    /** The view template to use for this mail */
     protected ?string $view = null;
 
-    /**
-     * The subject of the email
-     */
+    /** The subject of the email */
     protected ?string $subject = null;
 
-    /**
-     * The recipient email address
-     */
+    /** The recipient email address */
     protected ?string $to = null;
 
-    /**
-     * Content type for the email
-     */
+    /** Content type for the email */
     protected string $contentType = 'text/html';
 
-    /**
-     * File attachments
-     */
+    /** File attachments */
     protected array $attachments = [];
 
-    /**
-     * Inline images
-     */
+    /** Inline images */
     protected array $inlineImages = [];
 
-    /**
-     * Queue name for background processing
-     */
+    /** Queue name for background processing */
     protected ?string $queue = null;
 
-    /**
-     * Mail-specific timeout override (can be set as property in child classes)
-     */
+    /** Mail-specific timeout override (can be set as property in child classes) */
     protected ?int $timeout = null;
 
-    /**
-     * Max retry attempts override (can be set as property in child classes)
-     */
+    /** Max retry attempts override (can be set as property in child classes) */
     protected ?int $maxTries = null;
 
-    /**
-     * Data to pass to the view
-     */
+    /** Data to pass to the view */
     protected array $viewData = [];
 
-    /**
-     * Service container instance
-     */
+    /** Service container instance */
     private ServiceContainer $container;
 
-    /**
-     * Logger instance
-     */
+    /** Logger instance */
     private Logger $logger;
+
+    // =================================================================
+    // CONSTRUCTOR & ABSTRACT METHODS
+    // =================================================================
 
     public function __construct()
     {
@@ -86,18 +70,15 @@ abstract class Mailable
      */
     abstract public function build(): self;
 
+    // =================================================================
+    // MAIN ACTIONS
+    // =================================================================
+
     /**
      * Send the mail immediately
      */
     public function send(): void
     {
-        $this->logger->log("Sending mailable", [
-            'class' => static::class,
-            'view' => $this->view,
-            'to' => $this->to,
-            'subject' => $this->subject
-        ]);
-
         // Build the mail first
         $this->build();
 
@@ -106,7 +87,6 @@ abstract class Mailable
 
         try {
             $mailer = $this->container->get(Mailer::class);
-
             // Render content if view is specified
             $content = $this->renderContent();
 
@@ -118,11 +98,6 @@ abstract class Mailable
                 $this->attachments,
                 $this->inlineImages
             );
-
-            $this->logger->log("Mailable sent successfully", [
-                'class' => static::class,
-                'to' => $this->to
-            ]);
         } catch (\Exception $e) {
             $this->logger->log("Mailable sending failed", [
                 'class' => static::class,
@@ -139,12 +114,6 @@ abstract class Mailable
      */
     public function queue(): mixed
     {
-        $this->logger->log("Queuing mailable", [
-            'class' => static::class,
-            'view' => $this->view,
-            'to' => $this->to,
-            'queue' => $this->queue
-        ]);
 
         // Build the mail first
         $this->build();
@@ -185,6 +154,10 @@ abstract class Mailable
             throw $e;
         }
     }
+
+    // =================================================================
+    // FLUENT BUILDER METHODS
+    // =================================================================
 
     /**
      * Set the view template for this mail
@@ -284,6 +257,10 @@ abstract class Mailable
         return $this;
     }
 
+    // =================================================================
+    // RUNTIME SETTERS
+    // =================================================================
+
     /**
      * Set the recipient dynamically at runtime
      */
@@ -338,6 +315,10 @@ abstract class Mailable
         return $this;
     }
 
+    // =================================================================
+    // ADVANCED CONFIGURATION
+    // =================================================================
+
     /**
      * Configure the mail with an array of properties at runtime
      */
@@ -387,6 +368,10 @@ abstract class Mailable
         return $this;
     }
 
+    // =================================================================
+    // GETTERS
+    // =================================================================
+
     /**
      * Get the recipient email
      */
@@ -419,6 +404,10 @@ abstract class Mailable
         return $this->viewData;
     }
 
+    // =================================================================
+    // PRIVATE METHODS
+    // =================================================================
+
     /**
      * Render the mail content
      */
@@ -431,20 +420,8 @@ abstract class Mailable
         try {
             $renderer = $this->container->get(Renderer::class);
 
-            // Try to render as an email template first (with subject extraction)
-            if (method_exists($renderer, 'renderEmail')) {
-                $result = $renderer->renderEmail($this->view, $this->viewData);
-
-                // Use extracted subject if no subject was manually set
-                if ($this->subject === null && !empty($result['subject'])) {
-                    $this->subject = $result['subject'];
-                }
-
-                return $result['content'];
-            }
-
-            // Fallback to regular template rendering
-            return $renderer->render($this->view, $this->viewData);
+            $content = $renderer->render($this->view, $this->viewData);
+            return $content;
         } catch (\Exception $e) {
             $this->logger->log("Failed to render mail content", [
                 'class' => static::class,

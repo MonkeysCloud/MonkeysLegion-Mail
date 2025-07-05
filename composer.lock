@@ -512,12 +512,12 @@
             "source": {
                 "type": "git",
                 "url": "https://github.com/MonkeysCloud/MonkeysLegion-Template.git",
-                "reference": "b1875dc294ed70279e34a60aa81d0962e16cc797"
+                "reference": "2499a8651ce088e56b531b8875299b28329b4735"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/MonkeysCloud/MonkeysLegion-Template/zipball/b1875dc294ed70279e34a60aa81d0962e16cc797",
-                "reference": "b1875dc294ed70279e34a60aa81d0962e16cc797",
+                "url": "https://api.github.com/repos/MonkeysCloud/MonkeysLegion-Template/zipball/2499a8651ce088e56b531b8875299b28329b4735",
+                "reference": "2499a8651ce088e56b531b8875299b28329b4735",
                 "shasum": ""
             },
             "require": {
@@ -544,7 +544,7 @@
                 "issues": "https://github.com/MonkeysCloud/MonkeysLegion-Template/issues",
                 "source": "https://github.com/MonkeysCloud/MonkeysLegion-Template/tree/main"
             },
-            "time": "2025-05-24T21:30:54+00:00"
+            "time": "2025-07-04T23:13:46+00:00"
         },
         {
             "name": "nette/schema",
@@ -1317,16 +1317,16 @@
     "packages-dev": [
         {
             "name": "myclabs/deep-copy",
-            "version": "1.13.1",
+            "version": "1.13.3",
             "source": {
                 "type": "git",
                 "url": "https://github.com/myclabs/DeepCopy.git",
-                "reference": "1720ddd719e16cf0db4eb1c6eca108031636d46c"
+                "reference": "faed855a7b5f4d4637717c2b3863e277116beb36"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/myclabs/DeepCopy/zipball/1720ddd719e16cf0db4eb1c6eca108031636d46c",
-                "reference": "1720ddd719e16cf0db4eb1c6eca108031636d46c",
+                "url": "https://api.github.com/repos/myclabs/DeepCopy/zipball/faed855a7b5f4d4637717c2b3863e277116beb36",
+                "reference": "faed855a7b5f4d4637717c2b3863e277116beb36",
                 "shasum": ""
             },
             "require": {
@@ -1365,7 +1365,7 @@
             ],
             "support": {
                 "issues": "https://github.com/myclabs/DeepCopy/issues",
-                "source": "https://github.com/myclabs/DeepCopy/tree/1.13.1"
+                "source": "https://github.com/myclabs/DeepCopy/tree/1.13.3"
             },
             "funding": [
                 {
@@ -1373,7 +1373,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-04-29T12:36:36+00:00"
+            "time": "2025-07-05T12:25:42+00:00"
         },
         {
             "name": "nikic/php-parser",
@@ -1887,16 +1887,16 @@
         },
         {
             "name": "phpunit/phpunit",
-            "version": "12.2.3",
+            "version": "12.2.6",
             "source": {
                 "type": "git",
                 "url": "https://github.com/sebastianbergmann/phpunit.git",
-                "reference": "60a8ea2d8b2f070000051b56778009e11576e7d1"
+                "reference": "638644c62a58f04974da115f98981c9b48564021"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/60a8ea2d8b2f070000051b56778009e11576e7d1",
-                "reference": "60a8ea2d8b2f070000051b56778009e11576e7d1",
+                "url": "https://api.github.com/repos/sebastianbergmann/phpunit/zipball/638644c62a58f04974da115f98981c9b48564021",
+                "reference": "638644c62a58f04974da115f98981c9b48564021",
                 "shasum": ""
             },
             "require": {
@@ -1964,7 +1964,7 @@
             "support": {
                 "issues": "https://github.com/sebastianbergmann/phpunit/issues",
                 "security": "https://github.com/sebastianbergmann/phpunit/security/policy",
-                "source": "https://github.com/sebastianbergmann/phpunit/tree/12.2.3"
+                "source": "https://github.com/sebastianbergmann/phpunit/tree/12.2.6"
             },
             "funding": [
                 {
@@ -1988,7 +1988,7 @@
                     "type": "tidelift"
                 }
             ],
-            "time": "2025-06-20T11:33:06+00:00"
+            "time": "2025-07-04T06:00:16+00:00"
         },
         {
             "name": "sebastian/cli-parser",

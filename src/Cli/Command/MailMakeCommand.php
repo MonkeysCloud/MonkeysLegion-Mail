@@ -18,18 +18,19 @@ final class MailMakeCommand extends Command
 {
     use MakerHelpers;
 
+    // =================================================================
+    // MAIN COMMAND HANDLER
+    // =================================================================
+
     public function handle(): int
     {
         $name = $this->argument('name');
 
         if (!$name) {
-            $this->error('Please provide a name for the mail class.');
-            $this->line('Usage: make:mail <ClassName>');
-            $this->line('Example: make:mail WelcomeEmail');
-            return self::FAILURE;
+            return $this->showUsageAndExit();
         }
 
-        $projectRoot = WORKING_DIRECTORY;
+        $projectRoot = base_path();
         $stubPath = __DIR__ . '/../../Resources/Stubs/mail.stub';
 
         if (!file_exists($stubPath)) {
@@ -38,76 +39,62 @@ final class MailMakeCommand extends Command
         }
 
         try {
-            // Parse and validate the class name
-            $className = $this->parseClassName($name);
-            $namespace = $this->generateNamespace($projectRoot);
-            $viewName = $this->generateViewName($className);
-            $subject = $this->generateSubject($className);
-
-            // Generate the file path
-            $filePath = $this->generateFilePath($projectRoot, $className);
-
-            // Check if file already exists
-            if (file_exists($filePath) && !$this->shouldOverwrite($filePath, $projectRoot)) {
-                return self::SUCCESS;
-            }
-
-            // Read and process the stub
-            $stubContent = file_get_contents($stubPath);
-            $processedContent = $this->processStub($stubContent, [
-                'namespace' => $namespace,
-                'class' => $className,
-                'class_lower' => strtolower($className),
-                'view_name' => $viewName,
-                'to_placeholder' => 'user@example.com',
-                'subject_placeholder' => $subject
-            ]);
-
-            // Ensure directory exists and write file
-            $this->ensureDirectoryExists(dirname($filePath));
-            file_put_contents($filePath, $processedContent);
-
-            // Success message
-            $relativePath = str_replace($projectRoot . DIRECTORY_SEPARATOR, '', $filePath);
-            $this->info("✓ Mail class created: {$relativePath}");
-            $this->line('');
-            $this->line('<comment>Next steps:</comment>');
-            $this->line("1. Create the email template: resources/views/emails/{$viewName}.ml.php");
-            $this->line("2. Customize the build() method in your mail class");
-            $this->line("3. Use your mail class:");
-            $this->line("   <info>\$mail = new {$className}();</info>");
-            $this->line("   <info>\$mail->setTo('user@example.com')->send();</info>");
-
-            return self::SUCCESS;
+            return $this->generateMailClass($name, $projectRoot, $stubPath);
         } catch (\Exception $e) {
             $this->error("Failed to generate mail class: " . $e->getMessage());
             return self::FAILURE;
         }
     }
 
-    /**
-     * Get command line argument by name or position
-     */
-    private function argument(string $name, int $position = 1): ?string
+    // =================================================================
+    // CORE GENERATION LOGIC
+    // =================================================================
+
+    private function generateMailClass(string $name, string $projectRoot, string $stubPath): int
     {
-        global $argv;
+        // Parse and validate the class name
+        $className = $this->parseClassName($name);
+        $namespace = $this->generateNamespace($projectRoot);
+        $viewName = $this->generateViewName($className);
+        $subject = $this->generateSubject($className);
 
-        // For 'name' argument, it's typically the first argument after the command
-        // Command structure: php artisan make:mail <name>
-        // $argv[0] = script name
-        // $argv[1] = command (make:mail)  
-        // $argv[2] = name argument
+        // Generate the file path
+        $filePath = $this->generateFilePath($projectRoot, $className);
 
-        if (isset($argv[$position + 1])) {
-            return $argv[$position + 1];
+        // Check if file already exists
+        if (file_exists($filePath) && !$this->shouldOverwrite($filePath, $projectRoot)) {
+            return self::SUCCESS;
         }
 
-        return null;
+        // Process and write the file
+        $this->createMailClassFile($stubPath, $filePath, [
+            'namespace' => $namespace,
+            'class' => $className,
+            'class_lower' => strtolower($className),
+            'view_name' => $viewName,
+            'to_placeholder' => 'user@example.com',
+            'subject_placeholder' => $subject
+        ]);
+
+        // Show success message
+        $this->showSuccessMessage($filePath, $projectRoot, $viewName, $className);
+
+        return self::SUCCESS;
     }
 
-    /**
-     * Parse and validate the class name
-     */
+    private function createMailClassFile(string $stubPath, string $filePath, array $replacements): void
+    {
+        $stubContent = file_get_contents($stubPath);
+        $processedContent = $this->processStub($stubContent, $replacements);
+
+        $this->ensureDirectoryExists(dirname($filePath));
+        file_put_contents($filePath, $processedContent);
+    }
+
+    // =================================================================
+    // NAME PARSING & GENERATION
+    // =================================================================
+
     private function parseClassName(string $name): string
     {
         // Remove .php extension if provided
@@ -125,19 +112,20 @@ final class MailMakeCommand extends Command
 
         // Validate class name format
         if (!preg_match('/^[A-Z][a-zA-Z0-9]*$/', $className)) {
-            throw new \InvalidArgumentException("Invalid class name: {$className}. Class names must start with a capital letter and contain only letters and numbers.");
+            throw new \InvalidArgumentException(
+                "Invalid class name: {$className}. " .
+                    "Class names must start with a capital letter and contain only letters and numbers."
+            );
         }
 
         return $className;
     }
 
-    /**
-     * Generate the namespace for the mail class
-     */
     private function generateNamespace(string $projectRoot): string
     {
         // Try to detect namespace from composer.json
         $composerPath = $projectRoot . '/composer.json';
+
         if (file_exists($composerPath)) {
             $composer = json_decode(file_get_contents($composerPath), true);
             $autoload = $composer['autoload']['psr-4'] ?? [];
@@ -153,9 +141,6 @@ final class MailMakeCommand extends Command
         return 'App\\Mail';
     }
 
-    /**
-     * Generate view name from class name
-     */
     private function generateViewName(string $className): string
     {
         // Remove 'Mail' suffix
@@ -167,9 +152,6 @@ final class MailMakeCommand extends Command
         return $viewName;
     }
 
-    /**
-     * Generate a default subject from class name
-     */
     private function generateSubject(string $className): string
     {
         // Remove 'Mail' suffix
@@ -181,18 +163,33 @@ final class MailMakeCommand extends Command
         return $subject;
     }
 
-    /**
-     * Generate the file path for the mail class
-     */
     private function generateFilePath(string $projectRoot, string $className): string
     {
         $mailDir = $projectRoot . '/app/Mail';
         return $mailDir . '/' . $className . '.php';
     }
 
-    /**
-     * Process the stub template with replacements
-     */
+    // =================================================================
+    // UTILITY METHODS
+    // =================================================================
+
+    private function argument(string $name, int $position = 1): ?string
+    {
+        global $argv;
+
+        // For 'name' argument, it's typically the first argument after the command
+        // Command structure: php artisan make:mail <name>
+        // $argv[0] = script name
+        // $argv[1] = command (make:mail)  
+        // $argv[2] = name argument
+
+        if (isset($argv[$position + 1])) {
+            return $argv[$position + 1];
+        }
+
+        return null;
+    }
+
     private function processStub(string $content, array $replacements): string
     {
         foreach ($replacements as $key => $value) {
@@ -202,9 +199,6 @@ final class MailMakeCommand extends Command
         return $content;
     }
 
-    /**
-     * Ensure directory exists
-     */
     private function ensureDirectoryExists(string $directory): void
     {
         if (!is_dir($directory)) {
@@ -212,9 +206,6 @@ final class MailMakeCommand extends Command
         }
     }
 
-    /**
-     * Check if we should overwrite an existing file
-     */
     private function shouldOverwrite(string $filePath, string $projectRoot): bool
     {
         $relativePath = str_replace($projectRoot . DIRECTORY_SEPARATOR, '', $filePath);
@@ -227,15 +218,40 @@ final class MailMakeCommand extends Command
         return $overwrite;
     }
 
-    /**
-     * Ask a yes/no question and return true for 'yes', false for 'no'
-     */
     private function confirm(string $question, bool $default = false): bool
     {
         $answer = $this->ask($question . ($default ? ' [Y/n]' : ' [y/N]'));
+
         if ($answer === '') {
             return $default;
         }
+
         return in_array(strtolower($answer), ['y', 'yes'], true);
+    }
+
+    // =================================================================
+    // OUTPUT METHODS
+    // =================================================================
+
+    private function showUsageAndExit(): int
+    {
+        $this->error('Please provide a name for the mail class.');
+        $this->line('Usage: make:mail <ClassName>');
+        $this->line('Example: make:mail WelcomeEmail');
+        return self::FAILURE;
+    }
+
+    private function showSuccessMessage(string $filePath, string $projectRoot, string $viewName, string $className): void
+    {
+        $relativePath = str_replace($projectRoot . DIRECTORY_SEPARATOR, '', $filePath);
+
+        $this->info("✓ Mail class created: {$relativePath}");
+        $this->line('');
+        $this->line('<comment>Next steps:</comment>');
+        $this->line("1. Create the email template: resources/views/emails/{$viewName}.ml.php");
+        $this->line("2. Customize the build() method in your mail class");
+        $this->line("3. Use your mail class:");
+        $this->line("   <info>\$mail = new {$className}();</info>");
+        $this->line("   <info>\$mail->setTo('user@example.com')->send();</info>");
     }
 }
