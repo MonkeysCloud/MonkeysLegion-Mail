@@ -1,3 +1,3 @@
 <div class="email-footer">
-    {{ $this->slot('default') }}
+    <?= $slotContent ?>
 </div>

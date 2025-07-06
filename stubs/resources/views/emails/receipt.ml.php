@@ -1,7 +1,7 @@
 <x-email-layout>
-    <x-slot:subject>
-        Receipt for Order #{{ $orderNumber }} - {{ $appName }}
-    </x-slot:subject>
+    @slot('subject')
+    Receipt for Order #{{ $orderNumber }} - {{ $appName }}
+    @endslot
 
     <x-email-header>
         <h1>Payment Receipt</h1>
@@ -14,7 +14,7 @@
         <p>Thank you for your purchase! This email confirms that we have received your payment.</p>
 
         <x-email-card>
-            <x-slot:title>Order Summary</x-slot:title>
+            @slot('title')Order Summary@endslot
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                     <td><strong>Order Number:</strong></td>
@@ -38,7 +38,7 @@
         </x-email-card>
 
         <x-email-card>
-            <x-slot:title>Items Purchased</x-slot:title>
+            @slot('title')Items Purchased@endslot
             <table style="width: 100%; border-collapse: collapse; margin-top: 10px;">
                 <thead>
                     <tr style="border-bottom: 2px solid #ddd;">
@@ -67,7 +67,7 @@
         </x-email-card>
 
         <x-email-card>
-            <x-slot:title>Payment Details</x-slot:title>
+            @slot('title')Payment Details@endslot
             <table style="width: 100%; border-collapse: collapse;">
                 <tr>
                     <td><strong>Subtotal:</strong></td>
@@ -100,7 +100,7 @@
 
         @if($billingAddress || $shippingAddress)
         <x-email-card>
-            <x-slot:title>Addresses</x-slot:title>
+            @slot('title')Addresses@endslot
             <div style="display: flex; gap: 20px;">
                 @if($billingAddress)
                 <div style="flex: 1;">
@@ -137,7 +137,7 @@
 
         @if($trackingInfo)
         <x-email-card>
-            <x-slot:title>Shipping Information</x-slot:title>
+            @slot('title')Shipping Information@endslot
             <p><strong>Tracking Number:</strong> {{ $trackingInfo['number'] }}</p>
             <p><strong>Carrier:</strong> {{ $trackingInfo['carrier'] }}</p>
             <p><strong>Estimated Delivery:</strong> {{ $trackingInfo['estimatedDelivery'] }}</p>

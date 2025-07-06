@@ -1,3 +1,3 @@
 <div class="email-content">
-    {{ $this->slot('default') }}
+    <?= $slotContent ?>
 </div>

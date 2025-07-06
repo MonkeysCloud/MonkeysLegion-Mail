@@ -1,7 +1,7 @@
 <x-email-layout>
-    <x-slot:subject>
-        Welcome to {{ $appName }}, {{ $userName }}!
-    </x-slot:subject>
+    @slot('subject')
+    Welcome to {{ $appName }}, {{ $userName }}!
+    @endslot
 
     <x-email-header>
         <h1>Welcome to {{ $appName }}!</h1>
@@ -13,7 +13,9 @@
         <p>We're excited to welcome you to {{ $appName }}! Your account has been successfully created and you're now part of our community.</p>
 
         <x-email-card>
-            <x-slot:title>Getting Started</x-slot:title>
+            @slot('title')
+            Getting Started
+            @endslot
             <p>Here are a few things you can do to get started:</p>
             <ul>
                 <li>Complete your profile setup</li>

@@ -1,7 +1,7 @@
 <x-email-layout>
-    <x-slot:subject>
-        Reset Your {{ $appName }} Password
-    </x-slot:subject>
+    @slot('subject')
+    Reset Your {{ $appName }} Password
+    @endslot
 
     <x-email-header>
         <h1>Password Reset Request</h1>
@@ -13,7 +13,7 @@
         <p>You are receiving this email because we received a password reset request for your {{ $appName }} account.</p>
 
         <x-email-card>
-            <x-slot:title>Security Information</x-slot:title>
+            @slot('title')Security Information@endslot
             <p><strong>Request Details:</strong></p>
             <ul>
                 <li><strong>Time:</strong> {{ $requestTime }}</li>

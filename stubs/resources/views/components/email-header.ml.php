@@ -1,3 +1,3 @@
 <div class="email-header">
-    {{ $this->slot('default') }}
+    <?= $slotContent ?>
 </div>
