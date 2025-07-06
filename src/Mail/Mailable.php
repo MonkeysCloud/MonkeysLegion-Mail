@@ -460,4 +460,37 @@ abstract class Mailable
             throw new \InvalidArgumentException("Mail validation failed: " . implode(', ', $errors));
         }
     }
+
+    /**
+     * Set the mail driver dynamically at runtime
+     */
+    public function setDriver(string $driver, array $config = []): self
+    {
+        $this->logger->log("Setting mail driver from Mailable", [
+            'class' => static::class,
+            'driver' => $driver,
+            'has_custom_config' => !empty($config)
+        ]);
+
+        try {
+            $mailer = $this->container->get(Mailer::class);
+            $mailer->setDriver($driver, $config);
+
+            $this->logger->log("Mail driver set successfully from Mailable", [
+                'class' => static::class,
+                'driver' => $driver,
+                'new_driver_class' => $mailer->getCurrentDriver()
+            ]);
+        } catch (\Exception $e) {
+            $this->logger->log("Failed to set mail driver from Mailable", [
+                'class' => static::class,
+                'driver' => $driver,
+                'exception' => $e,
+                'error_message' => $e->getMessage()
+            ]);
+            throw $e;
+        }
+
+        return $this;
+    }
 }
