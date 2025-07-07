@@ -34,7 +34,10 @@ return [
             'from' => [
                 'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com',
                 'name' => $_ENV['MAIL_FROM_NAME'] ?? 'My App'
-            ]
+            ],
+            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
+            'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
+            'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
         ],
 
         /*|--------------------------------------------------------------------------
@@ -49,7 +52,10 @@ return [
             'from' => [
                 'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
                 'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
-            ]
+            ],
+            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
+            'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
+            'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
         ],
 
 
@@ -64,7 +70,23 @@ return [
             'from' => [
                 'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
                 'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
-            ]
+            ],
+            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
+            'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
+            'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
         ],
+
+        /*|--------------------------------------------------------------------------
+        | Null Mailer
+        |--------------------------------------------------------------------------
+        | This mailer is used to discard all email messages.
+        | It is useful for testing and development purposes.
+        |*/
+        'null' => [
+            'from' => [
+                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
+                'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+            ]
+        ]
     ]
 ];

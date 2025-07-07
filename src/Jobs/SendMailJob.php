@@ -5,8 +5,9 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Jobs;
 
 use MonkeysLegion\Mail\Logger\Logger;
-use MonkeysLegion\Mail\Mailer;
+use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Service\ServiceContainer;
+use MonkeysLegion\Mail\TransportInterface;
 
 /**
  * Job class for sending emails asynchronously
@@ -17,7 +18,7 @@ class SendMailJob
     private Logger $logger;
     private ServiceContainer $container;
 
-    public function __construct(private array $data)
+    public function __construct(private Message $m)
     {
         $this->container = ServiceContainer::getInstance();
         $this->logger = $this->container->get(Logger::class);
@@ -30,26 +31,22 @@ class SendMailJob
     public function handle(): void
     {
         try {
-
             // Ensure mailer service is available
             if (!$this->container->getConfig('mail')) {
-                $this->logger->log("Mail configuration not found. Services may not be properly bootstrapped.", ['data' => $this->data]);
+                $this->logger->log("Mail configuration not found. Services may not be properly bootstrapped.", ['data' => $this->m]);
                 throw new \RuntimeException("Mail configuration not found. Services may not be properly bootstrapped.");
             }
 
-            $mailer = $this->container->get(Mailer::class);
-
-            // Send the email using the mailer
-            $mailer->send(
-                $this->data['to'],
-                $this->data['subject'],
-                $this->data['content'],
-                $this->data['contentType'] ?? 'text/html',
-                $this->data['attachments'] ?? [],
-                $this->data['inlineImages'] ?? []
-            );
+            $transport = $this->container->get(TransportInterface::class);
+            $transport->send($this->m);
         } catch (\Exception $e) {
-            $this->logger->log("SendMailJob failed: " . $e->getMessage(), $this->data);
+            $this->logger->log("SendMailJob failed: " . $e->getMessage(), [
+                'content' => $this->m->getContent(),
+                'to' => $this->m->getTo(),
+                'subject' => $this->m->getSubject(),
+                'attachments' => $this->m->getAttachments(),
+                'inline_images' => $this->m->getInlineImages(),
+            ]);
             throw $e; // Re-throw to trigger job failure handling
         }
     }
@@ -59,6 +56,12 @@ class SendMailJob
      */
     public function getData(): array
     {
-        return $this->data;
+        return [
+            'content' => $this->m->getContent(),
+            'to' => $this->m->getTo(),
+            'subject' => $this->m->getSubject(),
+            'attachments' => $this->m->getAttachments(),
+            'inline_images' => $this->m->getInlineImages(),
+        ];
     }
 }

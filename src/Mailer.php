@@ -10,6 +10,7 @@ use MonkeysLegion\Mail\Queue\RedisQueue;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Event\MessageSent;
 use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Mail\Security\DkimSigner;
 
 class Mailer
 {
@@ -53,6 +54,13 @@ class Mailer
                 $attachments,
                 $inlineImages
             );
+
+            // Set From header from driver config
+            $this->setFromHeader($message);
+
+            // Sign the message if DKIM signing is enabled
+            $message = $this->sign($message);
+
             $this->driver->send($message);
             $duration = round((microtime(true) - $startTime) * 1000, 2); // Convert to milliseconds
             $this->logger->log("Email sent successfully", [
@@ -89,6 +97,84 @@ class Mailer
 
             error_log("Mail sending failed: " . $e->getMessage());
             throw new \RuntimeException("Failed to send email to $to: " . $e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Queue an email for background processing
+     * 
+     * @param string $to The recipient's email address
+     * @param string $subject The subject of the email
+     * @param string $content The content of the email
+     * @param string $contentType The content type (default: text/html)
+     * @param array $attachments File attachments
+     * @param array $inlineImages Inline images
+     * @param string|null $queue Queue name (optional)
+     * @return mixed Job ID
+     */
+    public function queue(
+        string $to,
+        string $subject,
+        string $content,
+        string $contentType = 'text/html',
+        array $attachments = [],
+        array $inlineImages = [],
+        ?string $queue = null
+    ): mixed {
+        $this->logger->log("Queuing email for background processing", [
+            'to' => $to,
+            'subject' => $subject,
+            'content_type' => $contentType,
+            'has_attachments' => !empty($attachments),
+            'attachment_count' => count($attachments),
+            'has_inline_images' => !empty($inlineImages),
+            'inline_image_count' => count($inlineImages),
+            'queue' => $queue ?? 'default'
+        ]);
+
+        try {
+            // Create message object
+            $message = new Message(
+                $to,
+                $subject,
+                $content,
+                $contentType,
+                $attachments,
+                $inlineImages
+            );
+
+            // Set From header from driver config
+            $this->setFromHeader($message);
+
+            // Sign the message if DKIM signing is enabled
+            $message = $this->sign($message);
+
+            // Get queue instance from container or create default Redis queue
+            $queueInstance = $this->getQueueInstance();
+
+            $jobId = $queueInstance->push(SendMailJob::class, $message, $queue);
+
+            $this->logger->log("Email queued successfully", [
+                'job_id' => $jobId,
+                'to' => $to,
+                'subject' => $subject,
+                'queue' => $queue ?? 'default',
+                'queue_class' => get_class($queueInstance),
+            ]);
+
+            return $jobId;
+        } catch (\Exception $e) {
+            $this->logger->log("Failed to queue email", [
+                'to' => $to,
+                'subject' => $subject,
+                'queue' => $queue ?? 'default',
+                'exception' => $e,
+                'error_message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+
+            error_log("Failed to queue email: " . $e->getMessage());
+            throw new \RuntimeException("Failed to queue email to $to: " . $e->getMessage(), 0, $e);
         }
     }
 
@@ -189,79 +275,6 @@ class Mailer
     }
 
     /**
-     * Queue an email for background processing
-     * 
-     * @param string $to The recipient's email address
-     * @param string $subject The subject of the email
-     * @param string $content The content of the email
-     * @param string $contentType The content type (default: text/html)
-     * @param array $attachments File attachments
-     * @param array $inlineImages Inline images
-     * @param string|null $queue Queue name (optional)
-     * @return mixed Job ID
-     */
-    public function queue(
-        string $to,
-        string $subject,
-        string $content,
-        string $contentType = 'text/html',
-        array $attachments = [],
-        array $inlineImages = [],
-        ?string $queue = null
-    ): mixed {
-        $this->logger->log("Queuing email for background processing", [
-            'to' => $to,
-            'subject' => $subject,
-            'content_type' => $contentType,
-            'has_attachments' => !empty($attachments),
-            'attachment_count' => count($attachments),
-            'has_inline_images' => !empty($inlineImages),
-            'inline_image_count' => count($inlineImages),
-            'queue' => $queue ?? 'default'
-        ]);
-
-        try {
-            // Get queue instance from container or create default Redis queue
-            $queueInstance = $this->getQueueInstance();
-
-            // Prepare job data
-            $jobData = [
-                'to' => $to,
-                'subject' => $subject,
-                'content' => $content,
-                'contentType' => $contentType,
-                'attachments' => $attachments,
-                'inlineImages' => $inlineImages
-            ];
-
-            // Push job to queue
-            $jobId = $queueInstance->push(SendMailJob::class, $jobData, $queue);
-
-            $this->logger->log("Email queued successfully", [
-                'job_id' => $jobId,
-                'to' => $to,
-                'subject' => $subject,
-                'queue' => $queue ?? 'default',
-                'queue_class' => get_class($queueInstance)
-            ]);
-
-            return $jobId;
-        } catch (\Exception $e) {
-            $this->logger->log("Failed to queue email", [
-                'to' => $to,
-                'subject' => $subject,
-                'queue' => $queue ?? 'default',
-                'exception' => $e,
-                'error_message' => $e->getMessage(),
-                'trace' => $e->getTraceAsString()
-            ]);
-
-            error_log("Failed to queue email: " . $e->getMessage());
-            throw new \RuntimeException("Failed to queue email to $to: " . $e->getMessage(), 0, $e);
-        }
-    }
-
-    /**
      * Get or create queue instance
      */
     private function getQueueInstance(): QueueInterface
@@ -284,5 +297,74 @@ class Mailer
             // Fallback to default Redis queue
             return new RedisQueue();
         }
+    }
+
+    /**
+     * Set the From header on the message using driver configuration
+     */
+    private function setFromHeader(Message $message): void
+    {
+        $config = $this->container->getConfig('mail');
+        $driverConfig = $config['drivers'][$config['driver']] ?? [];
+
+        if (!empty($driverConfig['from']['address'])) {
+            $fromAddress = trim($driverConfig['from']['address']);
+            $fromName = trim($driverConfig['from']['name'] ?? '');
+
+            if (!empty($fromName)) {
+                // Use sprintf for better control over string formatting
+                $fromHeader = sprintf('%s <%s>', $fromName, $fromAddress);
+            } else {
+                $fromHeader = $fromAddress;
+            }
+
+            $message->setFrom($fromHeader);
+
+            $this->logger->log("From header set on message", [
+                'from_address' => $fromAddress,
+                'from_name' => $fromName,
+                'from_header' => $fromHeader
+            ]);
+        } else {
+            $this->logger->log("No from address configured in driver config", [
+                'driver' => $config['driver'],
+                'config_keys' => array_keys($driverConfig)
+            ]);
+        }
+    }
+
+    private function sign(Message $m): Message
+    {
+        $config = $this->container->getConfig('mail');
+        $config = $config['drivers'][$config['driver']];
+
+        if (!DkimSigner::shouldSign(get_class($this->driver), $config)) {
+            $this->logger->log("DKIM signing skipped for local transport", [
+                'driver' => get_class($this->driver)
+            ]);
+            return $m;
+        }
+
+        $headers = $m->getHeaders();
+        $body = $m->getContent();
+
+        $dkimSigner = new DkimSigner(
+            $config['dkim_private_key'],
+            $config['dkim_selector'],
+            $config['dkim_domain']
+        );
+
+        $dkimSignature = $dkimSigner->sign($headers, $body);
+
+        // Set the DKIM signature on the message
+        $m->setDkimSignature($dkimSignature);
+
+        $this->logger->log("DKIM signature generated and attached to message", [
+            'signature_length' => strlen($dkimSignature),
+            'domain' => $config['dkim_domain'],
+            'selector' => $config['dkim_selector']
+        ]);
+
+        return $m;
     }
 }

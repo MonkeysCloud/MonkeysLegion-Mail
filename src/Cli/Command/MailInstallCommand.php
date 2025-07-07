@@ -66,10 +66,7 @@ final class MailInstallCommand extends Command
         // 2) Ensure .env contains Mail keys
         $this->ensureEnvKeys($projectRoot);
 
-        // 3) Add mail service bindings to DI container
-        $this->addMailBinding($projectRoot);
-
-        // 4) Patch config/app.mlc: add mail { … } section
+        // 3) Patch config/app.mlc: add mail { … } section
         $this->addMailConfig($projectRoot);
 
         $this->line('<info>Mail scaffolding and .env setup complete!</info>');
@@ -99,7 +96,10 @@ final class MailInstallCommand extends Command
             'MAIL_ENCRYPTION',
             'MAIL_FROM_ADDRESS',
             'MAIL_FROM_NAME',
-            'MAIL_TIMEOUT'
+            'MAIL_TIMEOUT',
+            'MAIL_DKIM_PRIVATE_KEY',
+            'MAIL_DKIM_SELECTOR',
+            'MAIL_DKIM_DOMAIN'
         ];
 
         $missing = [];
@@ -134,6 +134,9 @@ final class MailInstallCommand extends Command
                 'MAIL_FROM_ADDRESS' => '# Default sender email address',
                 'MAIL_FROM_NAME' => '# Default sender name',
                 'MAIL_TIMEOUT' => '# Mail server timeout (in seconds)',
+                'MAIL_DKIM_PRIVATE_KEY' => '# DKIM private key for signing emails',
+                'MAIL_DKIM_SELECTOR' => '# DKIM selector for identifying the key',
+                'MAIL_DKIM_DOMAIN' => '# DKIM domain for signing emails',
                 default => ''
             };
             $append .= "$key=" . strtoupper($key) . "_VALUE $comment\n";
@@ -261,75 +264,6 @@ final class MailInstallCommand extends Command
 
         file_put_contents($mlcFile, implode("\n", $lines) . "\n");
         $this->info('✓ Added/merged mail { … } section in config/app.mlc.');
-    }
-
-    /**
-     * Ensure DI knows how to build Mail services.
-     * Called from handle() after copying files but before config patching.
-     *
-     * @param string $projectRoot
-     */
-    private function addMailBinding(string $projectRoot): void
-    {
-        $appFile = "{$projectRoot}/config/app.php";
-        if (!is_file($appFile)) {
-            $this->warn('config/app.php not found; cannot inject Mail service bindings.');
-            return;
-        }
-
-        $code = file_get_contents($appFile);
-
-        // 1) Bail if the binding already exists
-        if (str_contains($code, 'Mailer::class')) {
-            $this->info('Mail service bindings already present; nothing to do.');
-            return;
-        }
-
-        // 2) Locate the outermost "return [" that begins the DI array
-        if (!preg_match('/return\s*\[\s*$/m', $code, $m, PREG_OFFSET_CAPTURE)) {
-            $this->warn('Could not locate the DI definition array in app.php.');
-            return;
-        }
-        $arrayStart = $m[0][1] + strlen($m[0][0]);   // position *after* the line
-
-        // 3) Walk forward to find the matching closing "];"
-        $depth = 1;           // we're inside "["
-        $pos   = $arrayStart;
-        $len   = strlen($code);
-        while ($pos < $len && $depth > 0) {
-            $ch = $code[$pos];
-            if ($ch === '[') {
-                $depth++;
-            }
-            if ($ch === ']') {
-                $depth--;
-            }
-            $pos++;
-        }
-        if ($depth !== 0) {
-            $this->warn('Malformed DI array in app.php; could not find closing bracket.');
-            return;
-        }
-        $arrayEnd = $pos - 1;   // position of ']'
-
-        // 4) Build the factory text with same indentation as others
-        $factory = <<<'PHP'
-
-                        /* ----------------------------------------------------------------- */
-                        /* Mail — Service bindings                                           */
-                        /* ----------------------------------------------------------------- */
-                        \MonkeysLegion\Mail\Mailer::class => fn($c) => (function() use ($c) {
-                            // Register mail services using the provider
-                            \MonkeysLegion\Mail\Provider\MailServiceProvider::register($c);
-                            return $c->get(\MonkeysLegion\Mail\Mailer::class);
-                        })(),
-                    PHP;
-
-        // 5) Inject before the closing "]"
-        $patched = substr_replace($code, $factory . "\n", $arrayEnd, 0);
-        file_put_contents($appFile, $patched);
-
-        $this->info('✓ Added Mail service bindings to config/app.php.');
     }
 
     /**

@@ -4,17 +4,19 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Queue;
 
+use MonkeysLegion\Mail\Message;
+
 interface QueueInterface
 {
     /**
      * Push a job onto the queue.
      *
      * @param string $job The job class name or identifier
-     * @param array $data The job data
+     * @param Message $message The message object to queue
      * @param string|null $queue The queue name (optional)
      * @return mixed Job ID or confirmation
      */
-    public function push(string $job, array $data = [], ?string $queue = null): mixed;
+    public function push(string $job, Message $message, ?string $queue = null): mixed;
 
     /**
      * Pop a job from the queue.

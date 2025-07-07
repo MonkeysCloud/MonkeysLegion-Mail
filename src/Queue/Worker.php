@@ -7,6 +7,7 @@ namespace MonkeysLegion\Mail\Queue;
 use MonkeysLegion\Mail\Event\MessageFailed;
 use MonkeysLegion\Mail\Event\MessageSent;
 use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Mail\Message;
 
 /**
  * Queue worker for processing jobs
@@ -61,14 +62,15 @@ class Worker
             }
 
             try {
-                $job = $this->queue->pop($queueName);
+                $jobData = $this->queue->pop($queueName);
 
-                if ($job === null) {
+                if (!$jobData) {
                     sleep($this->sleep);
                     continue;
                 }
 
-                $this->processJob($job);
+                // $jobData is now ready for processing
+                $this->processJob($jobData);
             } catch (\Exception $e) {
                 $this->logger->log("Error in worker loop", [
                     'exception' => $e,
@@ -202,15 +204,15 @@ class Worker
             $retryJobData = [
                 'id' => $originalJobData['id'], // Keep original job ID
                 'job' => $originalJobData['job'],
-                'data' => $originalJobData['data'],
+                'message' => $originalJobData['message'], // Keep the serialized Message object
                 'attempts' => $attempts, // Update attempts count
                 'created_at' => $originalJobData['created_at'], // Keep original creation time
                 'retried_at' => microtime(true), // Add retry timestamp
             ];
 
-            // Push the complete job structure directly to Redis instead of using push()
+            // Push the complete job structure directly to Redis
             if ($this->queue instanceof RedisQueue) {
-                $queueKey = 'queue:' . ($this->queue->getDefaultQueue() ?? 'emails');
+                $queueKey = 'queue:' . ($this->queue->getDefaultQueue() ?? 'default');
                 $redis = $this->queue->getRedis();
                 $redis->rPush($queueKey, json_encode($retryJobData));
             }

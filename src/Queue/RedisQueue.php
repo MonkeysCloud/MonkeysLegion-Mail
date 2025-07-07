@@ -8,6 +8,7 @@ use Redis;
 use RedisException;
 use MonkeysLegion\Mail\Event\MessageQueued;
 use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 
 class RedisQueue implements QueueInterface
@@ -61,15 +62,16 @@ class RedisQueue implements QueueInterface
         }
     }
 
-    public function push(string $job, array $data = [], ?string $queue = null): mixed
+    public function push(string $job, Message $message, ?string $queue = null): mixed
     {
         $queue = $queue ?? $this->defaultQueue;
         $queueKey = $this->keyPrefix . $queue;
 
+        // Serialize Message object for storage
         $jobData = [
             'id' => uniqid('job_', true),
             'job' => $job,
-            'data' => $data,
+            'message' => serialize($message),
             'attempts' => 0,
             'created_at' => microtime(true),
         ];
@@ -78,7 +80,9 @@ class RedisQueue implements QueueInterface
             'job_id' => $jobData['id'],
             'job_class' => $job,
             'queue' => $queue,
-            'queue_key' => $queueKey
+            'queue_key' => $queueKey,
+            'message_to' => $message->getTo(),
+            'message_subject' => $message->getSubject()
         ]);
 
         try {
@@ -142,6 +146,9 @@ class RedisQueue implements QueueInterface
                 ]);
                 return null;
             }
+
+            $jobData['message'] = unserialize($jobData['message'] ?? '');
+            echo $jobData['message'] instanceof Message ? "Message deserialized successfully.\n" : "Failed to deserialize message.\n";
 
             $this->logger->log("Job popped successfully", [
                 'job_id' => $jobData['id'] ?? 'unknown',
@@ -367,20 +374,29 @@ class RedisQueue implements QueueInterface
                     // Remove from failed queue
                     $this->redis->lRem($failedKey, $jobJson, 1);
 
-                    // Add back to main queue with incremented attempts
+                    // Get the original job data
                     $originalJob = $failedJobData['original_job'];
-                    $originalJob['attempts'] = ($originalJob['attempts'] ?? 0) + 1;
-                    $originalJob['retried_at'] = microtime(true);
+                    
+                    // Extract the Message object from the original job data
+                    $message = $originalJob['message']; // This should be the serialized Message
 
-                    $result = $this->push(
-                        $originalJob['job'],
-                        $originalJob['data'],
-                        $this->defaultQueue
-                    ) !== false;
+                    // Add back to main queue with incremented attempts using the same format as push()
+                    $retryJobData = [
+                        'id' => $originalJob['id'], // Keep original job ID
+                        'job' => $originalJob['job'],
+                        'message' => $message, // Keep the serialized Message object
+                        'attempts' => ($originalJob['attempts'] ?? 0) + 1,
+                        'created_at' => $originalJob['created_at'], // Keep original creation time
+                        'retried_at' => microtime(true), // Add retry timestamp
+                    ];
+
+                    // Push directly to the main queue
+                    $queueKey = $this->keyPrefix . $this->defaultQueue;
+                    $result = $this->redis->rPush($queueKey, json_encode($retryJobData)) > 0;
 
                     $this->logger->log($result ? "Failed job retried successfully" : "Failed to retry job", [
                         'job_id' => $jobId,
-                        'new_attempts' => $originalJob['attempts'],
+                        'new_attempts' => $retryJobData['attempts'],
                         'success' => $result
                     ]);
 
@@ -467,6 +483,9 @@ class RedisQueue implements QueueInterface
      */
     public function getDefaultQueue(): string
     {
+        return $this->defaultQueue;
+    }
+}
         return $this->defaultQueue;
     }
 }

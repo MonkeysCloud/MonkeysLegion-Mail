@@ -11,6 +11,11 @@ class Message
     public const CONTENT_TYPE_MIXED = 'multipart/mixed';
     public const CONTENT_TYPE_ALTERNATIVE = 'multipart/alternative';
 
+    private string $from = '';
+    private string $messageId = '';
+    private string $date = '';
+    private ?string $dkimSignature = null;
+
     /**
      * Message constructor.
      *
@@ -28,7 +33,33 @@ class Message
         private string $contentType = self::CONTENT_TYPE_TEXT,
         private array $attachments = [],
         private array $inlineImages = []
-    ) {}
+    ) {
+        $this->messageId = $this->generateMessageId();
+        $this->date = date('r'); // RFC 2822 format
+    }
+
+    public function getHeaders(): array
+    {
+        $headers = [
+            'From' => $this->getFrom(),
+            'To' => $this->getTo(),
+            'Subject' => $this->getSubject(),
+            'Date' => $this->getDate(),
+            'Message-ID' => $this->getMessageId(),
+            'Content-Type' => $this->getContentType() . '; charset=UTF-8',
+            'MIME-Version' => '1.0',
+        ];
+
+        if (!empty($this->dkimSignature)) {
+            // Extract DKIM header from raw line
+            if (stripos($this->dkimSignature, 'DKIM-Signature:') === 0) {
+                [$name, $value] = explode(':', $this->dkimSignature, 2);
+                $headers[trim($name)] = trim($value);
+            }
+        }
+
+        return $headers;
+    }
 
     public function getTo(): string
     {
@@ -58,6 +89,41 @@ class Message
     public function getAttachments(): array
     {
         return $this->attachments;
+    }
+
+    public function getFrom(): string
+    {
+        return $this->from;
+    }
+
+    public function setFrom(string $from): void
+    {
+        $this->from = $from;
+    }
+
+    public function getDkimSignature(): ?string
+    {
+        return $this->dkimSignature;
+    }
+
+    public function setDkimSignature(string $dkimSignature): void
+    {
+        $this->dkimSignature = $dkimSignature;
+    }
+
+    public function getDate(): string
+    {
+        return $this->date;
+    }
+
+    public function getMessageId(): string
+    {
+        return $this->messageId;
+    }
+
+    private function generateMessageId(): string
+    {
+        return '<' . uniqid() . '.' . time() . '@' . (gethostname() ?: 'localhost') . '>';
     }
 
     /**
@@ -101,12 +167,12 @@ class Message
 
     public function toString(): string
     {
-        $headers = [
-            "To: {$this->getTo()}",
-            "Subject: {$this->getSubject()}",
-            "Content-Type: {$this->getContentType()}; charset=UTF-8",
-            "MIME-Version: 1.0"
-        ];
+        $headers = [];
+        foreach ($this->getHeaders() as $key => $value) {
+            if (!empty($value)) {
+                $headers[] = "$key: $value";
+            }
+        }
 
         $body = $this->content;
 

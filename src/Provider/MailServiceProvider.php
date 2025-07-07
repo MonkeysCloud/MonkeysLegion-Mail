@@ -8,7 +8,7 @@ namespace MonkeysLegion\Mail\Provider;
 // CONFIGURATION CONSTANTS
 // =================================================================
 define('MAIL_CONFIG_DEFAULT_PATH', __DIR__ . '/../../config/mail.php');
-define('MAIL_CONFIG_PATH', base_path('/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php'));
+define('MAIL_CONFIG_PATH', WORKING_DIRECTORY . '/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php');
 define('REDIS_CONFIG_PATH', __DIR__ . '/../../config/redis.php');
 
 use MonkeysLegion\Cli\Console\Command;
@@ -89,7 +89,17 @@ class MailServiceProvider
 
     private static function loadConfigurations(Logger $logger): array
     {
-        $mailConfig = file_exists(MAIL_CONFIG_PATH) ? require MAIL_CONFIG_PATH : [];
+        $mailConfig = [];
+
+        if (file_exists(MAIL_CONFIG_PATH)) {
+            $mailConfig = require MAIL_CONFIG_PATH;
+        } else {
+            $fallback = base_path('/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php');
+            if (file_exists($fallback)) {
+                $mailConfig = require $fallback;
+            }
+        }
+
         $defaults = file_exists(MAIL_CONFIG_DEFAULT_PATH) ? require MAIL_CONFIG_DEFAULT_PATH : [];
         $mergedMailConfig = array_replace_recursive($defaults, $mailConfig);
 
