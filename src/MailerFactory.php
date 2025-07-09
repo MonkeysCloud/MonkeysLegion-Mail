@@ -55,17 +55,6 @@ class MailerFactory
         };
     }
 
-
-    /**
-     * Get available drivers.
-     *
-     * @return array List of available driver names
-     */
-    public static function getAvailableDrivers(): array
-    {
-        return ['smtp', 'sendmail', 'null'];
-    }
-
     public function setDriver(string $driver): void
     {
         $this->container->set(TransportInterface::class, function () use ($driver) {

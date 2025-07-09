@@ -28,4 +28,9 @@ final class NullTransport implements TransportInterface
         ];
         $this->logger->log("NullTransport: Email to {$message->getTo()} with subject '{$message->getSubject()}'", $logData);
     }
+
+    public function getName(): string
+    {
+        return 'null';
+    }
 }

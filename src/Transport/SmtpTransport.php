@@ -63,7 +63,10 @@ final class SmtpTransport implements TransportInterface
             $this->sendCommand("DATA");
             $this->expectResponse(354);
 
-            $this->sendCommand($m->toString() . "\r\n.");
+            // Check if DKIM signature is available and add it to headers
+            $messageContent = $this->formatMessageWithDkim($m);
+
+            $this->sendCommand($messageContent . "\r\n.");
             $this->expectResponse(250);
 
             $this->disconnect();
@@ -84,6 +87,65 @@ final class SmtpTransport implements TransportInterface
             $this->disconnect();
             throw new \RuntimeException("SMTP send failed: " . $e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * Format message content with DKIM signature if available
+     */
+    private function formatMessageWithDkim(Message $message): string
+    {
+        $headers = [];
+        $messageHeaders = $message->getHeaders();
+
+        // Check if there's a DKIM signature in the message
+        $dkimSignature = $message->getDkimSignature() ?? null;
+
+        // CRITICAL: Add DKIM signature FIRST before any other headers
+        if ($dkimSignature) {
+            $headers[] = $dkimSignature;
+
+            $this->logger->log("Adding DKIM signature to SMTP message", [
+                'has_dkim' => true,
+                'signature_length' => strlen($dkimSignature)
+            ]);
+        }
+
+        // Add headers in EXACT same order as they were when we signed
+        $headerOrder = ['From', 'To', 'Subject', 'Date', 'Message-ID', 'Content-Type', 'MIME-Version'];
+
+        foreach ($headerOrder as $headerName) {
+            if (isset($messageHeaders[$headerName]) && !empty($messageHeaders[$headerName])) {
+                $headers[] = "$headerName: " . $messageHeaders[$headerName];
+            }
+        }
+
+        // Add any remaining headers not in our standard order
+        foreach ($messageHeaders as $key => $value) {
+            if (!in_array($key, $headerOrder) && !empty($value)) {
+                $headers[] = "$key: $value";
+            }
+        }
+
+        $body = $message->getContent();
+
+        // CRITICAL: Body must have same line endings as when we calculated the hash
+        // Remove any existing line endings and add exactly one CRLF
+        $body = rtrim($body, "\r\n") . "\r\n";
+
+        // Handle attachments and inline images
+        if (!empty($message->getAttachments())) {
+            foreach ($message->getAttachments() as $attachment) {
+                $body .= "Attachment: {$attachment}\r\n";
+            }
+        }
+
+        if (!empty($message->getInlineImages())) {
+            foreach ($message->getInlineImages() as $image) {
+                $body .= "Inline Image: {$image}\r\n";
+            }
+        }
+
+        return implode("\r\n", $headers) . "\r\n\r\n" . $body;
     }
 
     /**
@@ -130,8 +192,27 @@ final class SmtpTransport implements TransportInterface
 
             $ehloResponse = '';
 
-            // For STARTTLS and none: send EHLO now
-            if ($this->config['encryption'] !== 'ssl') {
+            $encryption = $this->config['encryption'] ?? 'none';
+
+
+            // Explicitly handle null values AND string 'null'
+            if ($encryption === null || $encryption === '' || $encryption === 'null') {
+                $encryption = 'none';
+            }
+
+            $encryption = strtolower($encryption);
+
+            if (!in_array($encryption, ['ssl', 'tls', 'none'])) {
+                $this->logger->log("Invalid encryption value detected", [
+                    'raw_encryption' => $this->config['encryption'] ?? 'NOT_SET',
+                    'processed_encryption' => $encryption,
+                    'config_keys' => array_keys($this->config)
+                ]);
+                throw new \RuntimeException("Unsupported encryption method: {$encryption}");
+            }
+
+            // For STARTTLS or no encryption: send EHLO immediately
+            if ($encryption !== 'ssl') {
                 $this->sendCommand("EHLO localhost");
                 $ehloResponse = $this->readResponse();
 
@@ -145,11 +226,17 @@ final class SmtpTransport implements TransportInterface
                 $this->handleEncryption($ehloResponse);
             }
 
-            // After STARTTLS, or after SSL, send EHLO again (if not already done)
-            if ($this->config['encryption'] === 'ssl') {
+            // After STARTTLS handshake, or in case of direct SSL connection
+            if ($encryption === 'ssl' || $encryption === 'tls') {
                 $this->sendCommand("EHLO localhost");
-                $this->expectResponse(250);
                 $ehloResponse = $this->readResponse();
+
+                if (!$ehloResponse || substr($ehloResponse, 0, 3) !== '250') {
+                    $this->logger->log("Second EHLO failed", [
+                        'response' => trim($ehloResponse)
+                    ]);
+                    throw new \RuntimeException("Second EHLO failed. Server response: " . trim($ehloResponse));
+                }
             }
 
             if (!empty($this->config['username']) && !empty($this->config['password'])) {
@@ -204,7 +291,14 @@ final class SmtpTransport implements TransportInterface
     {
         $host = $this->config['host'];
         $port = $this->config['port'];
-        $encryption = strtolower($this->config['encryption']);
+        $encryption = $this->config['encryption'] ?? 'none';
+
+        // Explicitly handle null values AND string 'null'
+        if ($encryption === null || $encryption === '' || $encryption === 'null') {
+            $encryption = 'none';
+        }
+
+        $encryption = strtolower($encryption);
 
         if ($encryption === 'ssl') {
             return 'ssl://' . $host . ':' . $port;
@@ -216,7 +310,14 @@ final class SmtpTransport implements TransportInterface
 
     private function handleEncryption(string $ehloResponse): void
     {
-        $encryption = strtolower($this->config['encryption']);
+        $encryption = $this->config['encryption'] ?? 'none';
+
+        // Explicitly handle null values AND string 'null'
+        if ($encryption === null || $encryption === '' || $encryption === 'null') {
+            $encryption = 'none';
+        }
+
+        $encryption = strtolower($encryption);
 
         $this->logger->log("Handling SMTP encryption", [
             'encryption_type' => $encryption,
@@ -537,5 +638,10 @@ final class SmtpTransport implements TransportInterface
     {
         $this->config = array_merge($this->config, $config);
         $this->address = $this->makeAddress();
+    }
+
+    public function getName(): string
+    {
+        return 'smtp';
     }
 }

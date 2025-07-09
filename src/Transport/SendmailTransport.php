@@ -21,12 +21,12 @@ final class SendmailTransport implements TransportInterface
             throw new \RuntimeException("Sendmail binary not found or not executable: {$this->sendmailPath}");
         }
 
-        $headers = [
-            "To: {$message->getTo()}",
-            "Subject: {$message->getSubject()}",
-            "Content-Type: {$message->getContentType()}; charset=UTF-8",
-            "MIME-Version: 1.0"
-        ];
+        $headers = [];
+        foreach ($message->getHeaders() as $key => $value) {
+            if (!empty($value)) {
+                $headers[] = "$key: $value";
+            }
+        }
 
         $emailData = implode("\r\n", $headers) . "\r\n\r\n" . $message->getContent();
 
@@ -56,5 +56,10 @@ final class SendmailTransport implements TransportInterface
         if ($returnValue !== 0) {
             throw new \RuntimeException("Sendmail failed with exit code $returnValue: $errors");
         }
+    }
+
+    public function getName(): string
+    {
+        return 'sendmail';
     }
 }

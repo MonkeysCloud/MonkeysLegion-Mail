@@ -486,6 +486,3 @@ class RedisQueue implements QueueInterface
         return $this->defaultQueue;
     }
 }
-        return $this->defaultQueue;
-    }
-}
