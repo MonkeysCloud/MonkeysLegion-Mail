@@ -404,6 +404,46 @@ abstract class Mailable
         return $this->viewData;
     }
 
+    /**
+     * Get timeout setting
+     */
+    public function getTimeout(): ?int
+    {
+        return $this->timeout;
+    }
+
+    /**
+     * Get maximum retry attempts
+     */
+    public function getMaxTries(): ?int
+    {
+        return $this->maxTries;
+    }
+
+    /**
+     * Get content type
+     */
+    public function getContentType(): string
+    {
+        return $this->contentType;
+    }
+
+    /**
+     * Get all attachments
+     */
+    public function getAttachments(): array
+    {
+        return $this->attachments;
+    }
+
+    /**
+     * Get all inline images
+     */
+    public function getInlineImages(): array
+    {
+        return $this->inlineImages;
+    }
+
     // =================================================================
     // PRIVATE METHODS
     // =================================================================
@@ -491,6 +531,80 @@ abstract class Mailable
             throw $e;
         }
 
+        return $this;
+    }
+
+    // =================================================================
+    // PROPERTY CONFIGURATION METHODS
+    // =================================================================
+
+    /**
+     * Set timeout for mail processing
+     */
+    public function setTimeout(int $timeout): self
+    {
+        $this->timeout = $timeout;
+        return $this;
+    }
+
+    /**
+     * Set maximum retry attempts
+     */
+    public function setMaxTries(int $maxTries): self
+    {
+        $this->maxTries = $maxTries;
+        return $this;
+    }
+
+    /**
+     * Set content type for this mail
+     */
+    public function setContentType(string $type): self
+    {
+        $this->contentType = $type;
+        return $this;
+    }
+
+    /**
+     * Add attachment to this mail
+     */
+    public function addAttachment(string $path, ?string $name = null, ?string $mimeType = null): self
+    {
+        $this->attachments[] = [
+            'path' => $path,
+            'name' => $name,
+            'mime_type' => $mimeType
+        ];
+        return $this;
+    }
+
+    /**
+     * Set all attachments
+     */
+    public function setAttachments(array $attachments): self
+    {
+        $this->attachments = $attachments;
+        return $this;
+    }
+
+    /**
+     * Add inline image to this mail
+     */
+    public function addInlineImage(string $path, string $cid): self
+    {
+        $this->inlineImages[] = [
+            'path' => $path,
+            'cid' => $cid
+        ];
+        return $this;
+    }
+
+    /**
+     * Set all inline images
+     */
+    public function setInlineImages(array $inlineImages): self
+    {
+        $this->inlineImages = $inlineImages;
         return $this;
     }
 }
