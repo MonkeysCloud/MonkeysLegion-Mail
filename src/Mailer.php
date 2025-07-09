@@ -10,6 +10,7 @@ use MonkeysLegion\Mail\Queue\RedisQueue;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Event\MessageSent;
 use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Mail\RateLimiter\RateLimiter;
 use MonkeysLegion\Mail\Security\DkimSigner;
 
 class Mailer
@@ -18,6 +19,7 @@ class Mailer
 
     public function __construct(
         private TransportInterface $driver,
+        private RateLimiter $rateLimiter,
         private ?ServiceContainer $container = null
     ) {
         $this->logger = $this->container->get(Logger::class);
@@ -34,18 +36,33 @@ class Mailer
      */
     public function send(string $to, string $subject, string $content, string $contentType = 'text/html', array $attachments = [], array $inlineImages = []): void
     {
-        $startTime = microtime(true);
-        $this->logger->log("Attempting to send email", [
-            'to' => $to,
-            'subject' => $subject,
-            'content_type' => $contentType,
-            'has_attachments' => !empty($attachments),
-            'attachment_count' => count($attachments),
-            'has_inline_images' => !empty($inlineImages),
-            'inline_image_count' => count($inlineImages),
-            'driver' => get_class($this->driver)
-        ]);
         try {
+            if (!$this->rateLimiter->allow()) {
+                $this->logger->log("Rate limit exceeded for sending emails", [
+                    'to' => $to,
+                    'subject' => $subject,
+                    'content_type' => $contentType,
+                    'has_attachments' => !empty($attachments),
+                    'attachment_count' => count($attachments),
+                    'has_inline_images' => !empty($inlineImages),
+                    'inline_image_count' => count($inlineImages),
+                    'driver' => get_class($this->driver)
+                ]);
+                throw new \RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
+            }
+            
+            $startTime = microtime(true);
+            $this->logger->log("Attempting to send email", [
+                'to' => $to,
+                'subject' => $subject,
+                'content_type' => $contentType,
+                'has_attachments' => !empty($attachments),
+                'attachment_count' => count($attachments),
+                'has_inline_images' => !empty($inlineImages),
+                'inline_image_count' => count($inlineImages),
+                'driver' => get_class($this->driver)
+            ]);
+
             $message = new Message(
                 $to,
                 $subject,

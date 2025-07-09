@@ -10,6 +10,7 @@ namespace MonkeysLegion\Mail\Provider;
 define('MAIL_CONFIG_DEFAULT_PATH', __DIR__ . '/../../config/mail.php');
 define('MAIL_CONFIG_PATH', WORKING_DIRECTORY . '/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php');
 define('REDIS_CONFIG_PATH', __DIR__ . '/../../config/redis.php');
+define('RATELIMITER_CONFIG_PATH', __DIR__ . '/../../config/rate_limiter.php');
 
 use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\DI\ContainerBuilder;
@@ -21,13 +22,12 @@ use MonkeysLegion\Mail\MailerFactory;
 use MonkeysLegion\Mail\Queue\QueueInterface;
 use MonkeysLegion\Mail\Queue\RedisQueue;
 use MonkeysLegion\Mail\Queue\Worker;
+use MonkeysLegion\Mail\RateLimiter\RateLimiter;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Template\Renderer;
 use MonkeysLegion\Mail\TransportInterface;
-use MonkeysLegion\Template\Compiler;
 use MonkeysLegion\Template\MLView;
 use Psr\Log\LoggerInterface;
-use MonkeysLegion\Template\Loader as TemplateLoader;
 
 class MailServiceProvider
 {
@@ -48,6 +48,9 @@ class MailServiceProvider
             // Load configurations
             $configs = self::loadConfigurations($logger);
             self::storeConfigurations($in_container, $configs);
+
+            // Register rate limiter
+            self::registerRateLimiter($in_container);
 
             // Register core services
             self::registerCoreServices($in_container);
@@ -105,6 +108,8 @@ class MailServiceProvider
 
         $redisConfig = file_exists(REDIS_CONFIG_PATH) ? require REDIS_CONFIG_PATH : [];
 
+        $rateLimiterConfig = file_exists(RATELIMITER_CONFIG_PATH) ? require RATELIMITER_CONFIG_PATH : [];
+
         $logger->log("Mail configuration loaded", [
             'has_custom_config' => file_exists(MAIL_CONFIG_PATH),
             'has_defaults' => file_exists(MAIL_CONFIG_DEFAULT_PATH),
@@ -113,7 +118,8 @@ class MailServiceProvider
 
         return [
             'mail' => $mergedMailConfig,
-            'redis' => $redisConfig
+            'redis' => $redisConfig,
+            'rate_limiter' => $rateLimiterConfig
         ];
     }
 
@@ -121,6 +127,7 @@ class MailServiceProvider
     {
         $container->setConfig($configs['mail'], 'mail');
         $container->setConfig($configs['redis'], 'redis');
+        $container->setConfig($configs['rate_limiter'], 'rate_limiter');
     }
 
     // =================================================================
@@ -240,6 +247,7 @@ class MailServiceProvider
         $container->set(Mailer::class, function () use ($container) {
             return new Mailer(
                 $container->get(TransportInterface::class),
+                $container->get(RateLimiter::class),
                 $container
             );
         });
@@ -294,5 +302,23 @@ class MailServiceProvider
     {
         $container = ServiceContainer::getInstance();
         $container->get(Logger::class)->setLogger($logger);
+    }
+
+    // =================================================================
+    // RATE LIMITER REGISTRATION
+    // =================================================================
+
+    private static function registerRateLimiter(ServiceContainer $container): void
+    {
+        $config = $container->getConfig('rate_limiter');
+
+        $container->set(RateLimiter::class, function () use ($config) {
+            return new RateLimiter(
+                $config['key'],
+                $config['limit'],
+                $config['seconds'],
+                $config['storage_path']
+            );
+        });
     }
 }

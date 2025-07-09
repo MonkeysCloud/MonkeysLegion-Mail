@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "4f1503f524e967e170c5193c7b66dd6f",
+    "content-hash": "4d2f5255735f5ff294e467fb0affc1e6",
     "packages": [
         {
             "name": "dflydev/dot-access-data",
@@ -1369,14 +1369,21 @@
         {
             "name": "monkeyscloud/monkeyslegion-template",
             "version": "dev-main",
-            "dist": {
-                "type": "path",
-                "url": "../MonkeysLegion-Template",
+            "source": {
+                "type": "git",
+                "url": "https://github.com/MonkeysCloud/MonkeysLegion-Template.git",
                 "reference": "f79a4244368891f58165fb8e0e548eec861060b7"
+            },
+            "dist": {
+                "type": "zip",
+                "url": "https://api.github.com/repos/MonkeysCloud/MonkeysLegion-Template/zipball/f79a4244368891f58165fb8e0e548eec861060b7",
+                "reference": "f79a4244368891f58165fb8e0e548eec861060b7",
+                "shasum": ""
             },
             "require": {
                 "php": "^8.4"
             },
+            "default-branch": true,
             "type": "library",
             "extra": {
                 "branch-alias": {
@@ -1388,14 +1395,16 @@
                     "MonkeysLegion\\Template\\": "src/"
                 }
             },
+            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
             "description": "MLView – the MonkeysLegion template engine with components, slots, and caching",
-            "transport-options": {
-                "symlink": true,
-                "relative": true
-            }
+            "support": {
+                "issues": "https://github.com/MonkeysCloud/MonkeysLegion-Template/issues",
+                "source": "https://github.com/MonkeysCloud/MonkeysLegion-Template/tree/main"
+            },
+            "time": "2025-07-06T10:50:58+00:00"
         },
         {
             "name": "monkeyscloud/monkeyslegion-validation",
