@@ -1,0 +1,44 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<phpunit
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:noNamespaceSchemaLocation="https://schema.phpunit.de/12.2/phpunit.xsd"
+    bootstrap="vendor/autoload.php"
+    colors="true"
+    beStrictAboutTestsThatDoNotTestAnything="true"
+    beStrictAboutOutputDuringTests="true"
+    failOnRisky="true"
+    failOnWarning="true"
+    failOnIncomplete="true"
+    failOnSkipped="true"
+>
+  <testsuites>
+    <testsuite name="Unit Tests">
+      <directory>./tests</directory>
+      <exclude>./tests/Integration</exclude>
+    </testsuite>
+    <testsuite name="Integration Tests">
+      <directory>./tests/Integration</directory>
+    </testsuite>
+  </testsuites>
+  <source>
+    <include>
+      <directory suffix=".php">./src</directory>
+    </include>
+    <exclude>
+      <directory>./src/Resources</directory>
+      <directory>./src/Cli</directory>
+    </exclude>
+  </source>
+  <php>
+    <env name="APP_ENV" value="testing"/>
+    <env name="MAIL_DRIVER" value="null"/>
+    <env name="REDIS_HOST" value="127.0.0.1"/>
+    <env name="REDIS_PORT" value="6379"/>
+  </php>
+  <logging>
+    <junit outputFile="tests/results/junit.xml"/>
+    <teamcity outputFile="tests/results/teamcity.txt"/>
+    <testdoxHtml outputFile="tests/results/testdox.html"/>
+    <testdoxText outputFile="tests/results/testdox.txt"/>
+  </logging>
+</phpunit>

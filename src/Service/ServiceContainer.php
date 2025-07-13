@@ -83,4 +83,29 @@ class ServiceContainer
     {
         return $this->config[$name] ?? [];
     }
+
+    /**
+     * Check if a service is registered
+     */
+    public function has(string $key): bool
+    {
+        return isset($this->bindings[$key]);
+    }
+
+    public static function reset(): void
+    {
+        if (self::$instance !== null) {
+            self::$instance->instances = [];
+            self::$instance->factories = [];
+            self::$instance->config = [];
+            self::$instance = null;
+        }
+    }
+
+    public function resetInstances(): void
+    {
+        $this->instances = [];
+        $this->factories = [];
+        $this->config = [];
+    }
 }

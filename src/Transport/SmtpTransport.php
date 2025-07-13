@@ -32,9 +32,9 @@ final class SmtpTransport implements TransportInterface
         ]);
 
         $this->logger->log("SMTP Transport initialized", [
-            'host' => $this->config['host'],
-            'port' => $this->config['port'],
-            'encryption' => $this->config['encryption'],
+            'host' => $this->config['host'] ?? 'not_set',
+            'port' => $this->config['port'] ?? 25,
+            'encryption' => $this->config['encryption'] ?? 'not_set',
             'has_auth' => !empty($this->config['username']),
             'from_address' => $this->config['from']['address'] ?? 'not_set'
         ]);
@@ -289,8 +289,8 @@ final class SmtpTransport implements TransportInterface
      */
     private function makeAddress(): string
     {
-        $host = $this->config['host'];
-        $port = $this->config['port'];
+        $host = $this->config['host'] ?? 'localhost';
+        $port = $this->config['port'] ?? 25;
         $encryption = $this->config['encryption'] ?? 'none';
 
         // Explicitly handle null values AND string 'null'

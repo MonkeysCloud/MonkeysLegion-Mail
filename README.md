@@ -352,6 +352,15 @@ The mail package includes powerful CLI commands for testing, queue management, a
 php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:test user@example.com
 ```
 
+### DKIM Key Generation
+
+```bash
+# Generate DKIM private and public key files in the specified directory
+php vendor/bin/ml make:dkim-pkey <directory>
+```
+- This will create `dkim_private.key` and `dkim_public.key` in the given directory.
+- Add the public key to your DNS as a TXT record for DKIM.
+
 ### Queue Management
 
 ```bash
@@ -828,6 +837,7 @@ public function onQueue(string $queue): self
 | `mail:flush` | Delete failed jobs |
 | `mail:purge` | Delete all jobs |
 | `make:mail <name>` | Generate mailable class |
+| `make:dkim-pkey <directory>` | Generate DKIM private and public key files |
 
 ---
 

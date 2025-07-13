@@ -148,7 +148,6 @@ class RedisQueue implements QueueInterface
             }
 
             $jobData['message'] = unserialize($jobData['message'] ?? '');
-            echo $jobData['message'] instanceof Message ? "Message deserialized successfully.\n" : "Failed to deserialize message.\n";
 
             $this->logger->log("Job popped successfully", [
                 'job_id' => $jobData['id'] ?? 'unknown',
@@ -386,7 +385,7 @@ class RedisQueue implements QueueInterface
                         'job' => $originalJob['job'],
                         'message' => $message, // Keep the serialized Message object
                         'attempts' => ($originalJob['attempts'] ?? 0) + 1,
-                        'created_at' => $originalJob['created_at'], // Keep original creation time
+                        'created_at' => $originalJob['created_at'] ?? 0, // Keep original creation time
                         'retried_at' => microtime(true), // Add retry timestamp
                     ];
 

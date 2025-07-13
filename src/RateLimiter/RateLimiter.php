@@ -25,7 +25,7 @@ class RateLimiter
 
         try {
             $timestamps = $this->readTimestamps();
-            $now = time();
+            $now = microtime(true);
             $windowStart = $now - $this->seconds;
 
             // Filter timestamps within window
@@ -53,7 +53,7 @@ class RateLimiter
     public function remaining(): int
     {
         $timestamps = $this->readTimestamps();
-        $now = time();
+        $now = microtime(true);
         $windowStart = $now - $this->seconds;
 
         // Filter timestamps within window
@@ -72,7 +72,7 @@ class RateLimiter
             return 0;
         }
 
-        $now = time();
+        $now = microtime(true);
         $windowStart = $now - $this->seconds;
 
         // Filter timestamps within window
@@ -84,7 +84,7 @@ class RateLimiter
 
         // Time until oldest timestamp expires
         $oldestTimestamp = min($validTimestamps);
-        return max(0, ($oldestTimestamp + $this->seconds) - $now);
+        return (int) max(0, ($oldestTimestamp + $this->seconds) - $now);
     }
 
     /**
@@ -118,7 +118,7 @@ class RateLimiter
                 return true; // Nothing to clean
             }
 
-            $now = time();
+            $now = microtime(true);
             $windowStart = $now - $this->seconds;
 
             // Filter timestamps within window (keep only recent ones)
@@ -202,7 +202,7 @@ class RateLimiter
     public function getStats(): array
     {
         $timestamps = $this->readTimestamps();
-        $now = time();
+        $now = microtime(true);
         $windowStart = $now - $this->seconds;
 
         // Filter timestamps within window
@@ -265,5 +265,20 @@ class RateLimiter
     {
         $content = json_encode($timestamps, JSON_THROW_ON_ERROR);
         return file_put_contents($this->filePath, $content, LOCK_EX) !== false;
+    }
+
+    public function getConfig(): array
+    {
+        return [
+            'key' => $this->key,
+            'limit' => $this->limit,
+            'seconds' => $this->seconds,
+            'storage_path' => $this->storagePath,
+        ];
+    }
+
+    public function getFilePath(): string
+    {
+        return $this->filePath;
     }
 }

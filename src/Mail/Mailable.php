@@ -331,6 +331,8 @@ abstract class Mailable
                 'view' => $this->setView($value),
                 'queue' => $this->setQueue($value),
                 'viewData' => $this->mergeViewData($value),
+                'timeout' => $this->setTimeout($value),
+                'maxTries' => $this->setMaxTries($value),
                 default => $this->with($key, $value) // Treat unknown keys as view data
             };
         }

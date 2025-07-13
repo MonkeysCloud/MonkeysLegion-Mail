@@ -6,6 +6,7 @@ namespace MonkeysLegion\Mail\Security;
 
 use MonkeysLegion\Mail\Transport\NullTransport;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
+use RuntimeException;
 
 class DkimSigner
 {
@@ -20,20 +21,54 @@ class DkimSigner
         $this->domain = $domain;
     }
 
-    public static function generateKeys(int $bits = 2048): array
+    public static function generateKeys($bits = 2048): array
     {
+        $opensslConfig = realpath(__DIR__ . '/../../config/openssl.cnf');
+
+        if (!$opensslConfig || !is_readable($opensslConfig)) {
+            throw new RuntimeException("OpenSSL config file not found or not readable");
+        }
+
+        // Ensure temp directory is writable
+        $tempDir = sys_get_temp_dir();
+        if (!is_writable($tempDir)) {
+            throw new RuntimeException("Temporary directory is not writable: $tempDir");
+        }
+
         $config = [
             "private_key_bits" => $bits,
             "private_key_type" => OPENSSL_KEYTYPE_RSA,
+            "config" => $opensslConfig,
+            // "encrypt_key" => false,
         ];
 
-        $res = openssl_pkey_new($config);
-        openssl_pkey_export($res, $private);
-        $pubDetails = openssl_pkey_get_details($res);
+        // Generate the key pair
+        $keyResource = openssl_pkey_new($config);
+
+        if (!$keyResource) {
+            $error = openssl_error_string();
+            throw new RuntimeException("Failed to generate private key: $error");
+        }
+
+        // Export private key with the SAME config
+        $privateKey = '';
+        $exportResult = openssl_pkey_export($keyResource, $privateKey, null, $config);
+
+        if (!$exportResult) {
+            $error = openssl_error_string();
+            throw new RuntimeException("Failed to export private key: $error");
+        }
+
+        // Extract public key
+        $publicKeyDetails = openssl_pkey_get_details($keyResource);
+        if (!$publicKeyDetails) {
+            $error = openssl_error_string();
+            throw new RuntimeException("Failed to get public key details: $error");
+        }
 
         return [
-            'private' => $private,
-            'public' => $pubDetails['key'],
+            'private' => $privateKey,
+            'public' => $publicKeyDetails['key']
         ];
     }
 
@@ -62,7 +97,7 @@ class DkimSigner
         $signResult = openssl_sign($stringToSign, $signature, $privateKey, OPENSSL_ALGO_SHA256);
 
         if (!$signResult) {
-            throw new \RuntimeException("Failed to sign DKIM headers: " . openssl_error_string());
+            throw new RuntimeException("Failed to sign DKIM headers: " . openssl_error_string());
         }
 
         $b64Signature = base64_encode($signature);
@@ -133,7 +168,7 @@ class DkimSigner
         // Validate the key can be loaded
         $testKey = openssl_pkey_get_private($formattedKey);
         if ($testKey === false) {
-            throw new \RuntimeException("Invalid private key format: " . openssl_error_string());
+            throw new RuntimeException("Invalid private key format: " . openssl_error_string());
         }
 
         return $formattedKey;

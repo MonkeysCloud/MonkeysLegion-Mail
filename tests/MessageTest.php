@@ -1,0 +1,161 @@
+<?php
+
+namespace MonkeysLegion\Mailer\Tests;
+
+use MonkeysLegion\Mail\Message;
+use PHPUnit\Framework\TestCase;
+
+class MessageTest extends TestCase
+{
+    public function testMessageConstructorSetsProperties()
+    {
+        $message = new Message(
+            'test@example.com',
+            'Test Subject',
+            'Test Content',
+            Message::CONTENT_TYPE_HTML,
+            ['/path/to/file.pdf'],
+            ['/path/to/image.png']
+        );
+
+        $this->assertEquals('test@example.com', $message->getTo());
+        $this->assertEquals('Test Subject', $message->getSubject());
+        $this->assertEquals('Test Content', $message->getContent());
+        $this->assertEquals(Message::CONTENT_TYPE_HTML, $message->getContentType());
+        $this->assertEquals(['/path/to/file.pdf'], $message->getAttachments());
+        $this->assertEquals(['/path/to/image.png'], $message->getInlineImages());
+    }
+
+    public function testMessageDefaultValues()
+    {
+        $message = new Message('test@example.com', 'Subject');
+
+        $this->assertEquals('', $message->getContent());
+        $this->assertEquals(Message::CONTENT_TYPE_TEXT, $message->getContentType());
+        $this->assertEquals([], $message->getAttachments());
+        $this->assertEquals([], $message->getInlineImages());
+    }
+
+    public function testGetHeadersReturnsCorrectFormat()
+    {
+        $message = new Message('test@example.com', 'Test Subject', 'Content');
+        $message->setFrom('sender@example.com');
+
+        $headers = $message->getHeaders();
+
+        $this->assertArrayHasKey('From', $headers);
+        $this->assertArrayHasKey('To', $headers);
+        $this->assertArrayHasKey('Subject', $headers);
+        $this->assertArrayHasKey('Date', $headers);
+        $this->assertArrayHasKey('Message-ID', $headers);
+        $this->assertArrayHasKey('Content-Type', $headers);
+        $this->assertArrayHasKey('MIME-Version', $headers);
+
+        $this->assertEquals('sender@example.com', $headers['From']);
+        $this->assertEquals('test@example.com', $headers['To']);
+        $this->assertEquals('Test Subject', $headers['Subject']);
+        $this->assertEquals('1.0', $headers['MIME-Version']);
+        $this->assertStringContainsString('charset=UTF-8', $headers['Content-Type']);
+    }
+
+    public function testSetAndGetFrom()
+    {
+        $message = new Message('test@example.com', 'Subject');
+
+        $message->setFrom('John Doe <john@example.com>');
+
+        $this->assertEquals('John Doe <john@example.com>', $message->getFrom());
+    }
+
+    public function testSetAndGetDkimSignature()
+    {
+        $message = new Message('test@example.com', 'Subject');
+        $dkimSignature = 'DKIM-Signature: v=1; a=rsa-sha256; d=example.com; s=default; b=...';
+
+        $message->setDkimSignature($dkimSignature);
+
+        $this->assertEquals($dkimSignature, $message->getDkimSignature());
+    }
+
+    public function testMessageIdIsGenerated()
+    {
+        $message = new Message('test@example.com', 'Subject');
+
+        $messageId = $message->getMessageId();
+
+        $this->assertIsString($messageId);
+        $this->assertStringStartsWith('<', $messageId);
+        $this->assertStringEndsWith('>', $messageId);
+        $this->assertStringContainsString('@', $messageId);
+    }
+
+    public function testDateIsGenerated()
+    {
+        $message = new Message('test@example.com', 'Subject');
+
+        $date = $message->getDate();
+
+        $this->assertIsString($date);
+        $this->assertNotEmpty($date);
+        // Verify it's a valid RFC 2822 date
+        $this->assertNotFalse(strtotime($date));
+    }
+
+    public function testWithSubjectCreatesNewInstance()
+    {
+        $original = new Message('test@example.com', 'Original Subject');
+        $modified = $original->withSubject('New Subject');
+
+        $this->assertNotSame($original, $modified);
+        $this->assertEquals('Original Subject', $original->getSubject());
+        $this->assertEquals('New Subject', $modified->getSubject());
+    }
+
+    public function testWithContentTypeCreatesNewInstance()
+    {
+        $original = new Message('test@example.com', 'Subject', 'Content', Message::CONTENT_TYPE_TEXT);
+        $modified = $original->withContentType(Message::CONTENT_TYPE_HTML);
+
+        $this->assertNotSame($original, $modified);
+        $this->assertEquals(Message::CONTENT_TYPE_TEXT, $original->getContentType());
+        $this->assertEquals(Message::CONTENT_TYPE_HTML, $modified->getContentType());
+    }
+
+    public function testEqualsReturnsTrueForIdenticalMessages()
+    {
+        $message1 = new Message('test@example.com', 'Subject', 'Content');
+        $message2 = new Message('test@example.com', 'Subject', 'Content');
+
+        $this->assertTrue($message1->equals($message2));
+    }
+
+    public function testEqualsReturnsFalseForDifferentMessages()
+    {
+        $message1 = new Message('test@example.com', 'Subject', 'Content');
+        $message2 = new Message('other@example.com', 'Subject', 'Content');
+
+        $this->assertFalse($message1->equals($message2));
+    }
+
+    public function testToStringReturnsFormattedMessage()
+    {
+        $message = new Message('test@example.com', 'Subject', 'Content');
+        $message->setFrom('sender@example.com');
+
+        $string = $message->toString();
+
+        $this->assertStringContainsString('From: sender@example.com', $string);
+        $this->assertStringContainsString('To: test@example.com', $string);
+        $this->assertStringContainsString('Subject: Subject', $string);
+        $this->assertStringContainsString('Content', $string);
+        $this->assertStringContainsString("\r\n\r\n", $string); // Headers/body separator
+    }
+
+    public function testContentTypeConstants()
+    {
+        $this->assertEquals('text/plain', Message::CONTENT_TYPE_TEXT);
+        $this->assertEquals('text/html', Message::CONTENT_TYPE_HTML);
+        $this->assertEquals('multipart/mixed', Message::CONTENT_TYPE_MIXED);
+        $this->assertEquals('multipart/alternative', Message::CONTENT_TYPE_ALTERNATIVE);
+    }
+}

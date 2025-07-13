@@ -36,8 +36,13 @@ class Mailer
      */
     public function send(string $to, string $subject, string $content, string $contentType = 'text/html', array $attachments = [], array $inlineImages = []): void
     {
+        $startTime = microtime(true); // Initialize at the beginning
+
         try {
-            if (!$this->rateLimiter->allow()) {
+            $this->validateEmail($to, $subject);
+            $allowed = $this->rateLimiter->allow();
+
+            if (!$allowed) {
                 $this->logger->log("Rate limit exceeded for sending emails", [
                     'to' => $to,
                     'subject' => $subject,
@@ -50,8 +55,7 @@ class Mailer
                 ]);
                 throw new \RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
             }
-            
-            $startTime = microtime(true);
+
             $this->logger->log("Attempting to send email", [
                 'to' => $to,
                 'subject' => $subject,
@@ -99,6 +103,8 @@ class Mailer
             // Create event - logging is handled inside event constructor
             $messageId = uniqid('direct_', true);
             $sentEvent = new MessageSent($messageId, $messageData, (int)$duration, $this->logger);
+        } catch (\InvalidArgumentException $e) {
+            throw new \InvalidArgumentException("Failed to send email => " . $e->getMessage(), 0, $e);
         } catch (\Exception $e) {
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
@@ -112,8 +118,7 @@ class Mailer
                 'trace' => $e->getTraceAsString()
             ]);
 
-            error_log("Mail sending failed: " . $e->getMessage());
-            throw new \RuntimeException("Failed to send email to $to: " . $e->getMessage(), 0, $e);
+            throw new \RuntimeException("Failed to send email => " . $e->getMessage(), 0, $e);
         }
     }
 
@@ -216,14 +221,14 @@ class Mailer
 
             if (!empty($config)) {
                 // Merge with existing config
-                $driverConfig = array_merge($mailConfig['drivers'][$driverName] ?? [], $config);
+                $driverConfig = array_replace_recursive($mailConfig['drivers'][$driverName] ?? [], $config);
             } else {
                 $driverConfig = $mailConfig['drivers'][$driverName] ?? [];
             }
 
-            $fullConfig = array_merge($mailConfig, [
+            $fullConfig = array_replace_recursive($mailConfig, [
                 'driver' => $driverName,
-                'drivers' => array_merge($mailConfig['drivers'] ?? [], [$driverName => $driverConfig])
+                'drivers' => array_replace_recursive($mailConfig['drivers'] ?? [], [$driverName => $driverConfig])
             ]);
 
             $this->driver = MailerFactory::make($fullConfig, $this->logger);
@@ -383,5 +388,18 @@ class Mailer
         ]);
 
         return $m;
+    }
+
+    private function validateEmail(string $to, string $subject): bool
+    {
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            throw new \InvalidArgumentException("Invalid email address: $to");
+        }
+
+        if (empty($subject)) {
+            throw new \InvalidArgumentException("Email subject cannot be empty");
+        }
+
+        return true;
     }
 }
