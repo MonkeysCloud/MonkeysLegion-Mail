@@ -40,20 +40,19 @@ $envFiles = [
     '.env',
     '.env.local',
     '.env.dev',
+    '.env.dev.local',
     '.env.test',
+    '.env.test.local',
     '.env.prod',
+    '.env.prod.local',
 ];
 
 try {
     foreach ($envFiles as $envFile) {
-        if (file_exists(WORKING_DIRECTORY . "/$envFile")) {
-            $dotenv = Dotenv::createImmutable(WORKING_DIRECTORY . '/', $envFile);
-            $dotenv->safeLoad();
-            break; // Stop after the first found file
-        } else if (file_exists(base_path() . "/$envFile")) {
-            $dotenv = Dotenv::createImmutable(base_path(), $envFile);
-            $dotenv->safeLoad();
-            break; // Stop after the first found file
+        $path = WORKING_DIRECTORY . "/$envFile";
+        if (file_exists($path)) {
+            $dotenv = Dotenv::createImmutable(WORKING_DIRECTORY, $envFile);
+            $dotenv->safeLoad(); // Loads without overwriting already-loaded variables
         }
     }
 } catch (Exception $e) {
