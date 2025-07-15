@@ -30,7 +30,7 @@ return [
             'encryption' => $_ENV['MAIL_ENCRYPTION'] ?? 'tls', // tls / ssl / null
             'username' => $_ENV['MAIL_USERNAME'] ?? '',
             'password' => $_ENV['MAIL_PASSWORD'] ?? '',
-            'timeout' => (int) $_ENV['MAIL_TIMEOUT'] ?? 30,
+            'timeout' => $_ENV['MAIL_TIMEOUT'] ?? 30,
             'from' => [
                 'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com',
                 'name' => $_ENV['MAIL_FROM_NAME'] ?? 'My App'
@@ -76,8 +76,8 @@ return [
             'region' => $_ENV['MAILGUN_REGION'] ?? 'us',
 
             // Optional timeouts
-            'timeout' => (int) ($_ENV['MAILGUN_TIMEOUT'] ?? 30),
-            'connect_timeout' => (int) ($_ENV['MAILGUN_CONNECT_TIMEOUT'] ?? 10),
+            'timeout' => ($_ENV['MAILGUN_TIMEOUT'] ?? 30),
+            'connect_timeout' => ($_ENV['MAILGUN_CONNECT_TIMEOUT'] ?? 10),
 
             // DKIM signing (used if you generate DKIM manually)
             'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',

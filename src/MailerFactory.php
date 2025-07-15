@@ -6,6 +6,7 @@ namespace MonkeysLegion\Mail;
 
 use MonkeysLegion\Mail\Logger\Logger;
 use MonkeysLegion\Mail\Service\ServiceContainer;
+use MonkeysLegion\Mail\Transport\MailgunTransport;
 use MonkeysLegion\Mail\Transport\NullTransport;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
 use MonkeysLegion\Mail\Transport\SmtpTransport;
@@ -33,6 +34,7 @@ class MailerFactory
         return match ($driver) {
             'smtp' => new SmtpTransport($config, $logger),
             'sendmail' => new SendmailTransport(),
+            'mailgun' => new MailgunTransport($config, $logger),
             'null' => new NullTransport($logger),
             default => throw new \InvalidArgumentException("Unknown driver: $driver"),
         };
