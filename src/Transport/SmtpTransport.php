@@ -52,6 +52,8 @@ final class SmtpTransport implements TransportInterface
         ]);
 
         try {
+            $this->validateEmail($m->getTo(), $m->getSubject());
+
             $this->connect();
 
             $this->sendCommand("MAIL FROM:<{$this->config['from']['address']}>");
@@ -95,57 +97,65 @@ final class SmtpTransport implements TransportInterface
     private function formatMessageWithDkim(Message $message): string
     {
         $headers = [];
-        $messageHeaders = $message->getHeaders();
+        $boundary = uniqid('boundary_');
 
-        // Check if there's a DKIM signature in the message
-        $dkimSignature = $message->getDkimSignature() ?? null;
-
-        // CRITICAL: Add DKIM signature FIRST before any other headers
-        if ($dkimSignature) {
-            $headers[] = $dkimSignature;
-
-            $this->logger->log("Adding DKIM signature to SMTP message", [
-                'has_dkim' => true,
-                'signature_length' => strlen($dkimSignature)
-            ]);
+        // Add DKIM signature first
+        if ($message->getDkimSignature()) {
+            $headers[] = $message->getDkimSignature();
         }
 
-        // Add headers in EXACT same order as they were when we signed
-        $headerOrder = ['From', 'To', 'Subject', 'Date', 'Message-ID', 'Content-Type', 'MIME-Version'];
+        $headers[] = "MIME-Version: 1.0";
 
-        foreach ($headerOrder as $headerName) {
-            if (isset($messageHeaders[$headerName]) && !empty($messageHeaders[$headerName])) {
-                $headers[] = "$headerName: " . $messageHeaders[$headerName];
+        $hasAttachments = !empty($message->getAttachments());
+        if ($hasAttachments) {
+            $headers[] = "Content-Type: multipart/mixed; boundary=\"$boundary\"";
+        } else {
+            $headers[] = "Content-Type: text/html; charset=\"UTF-8\"";
+        }
+
+        $bodyParts = [];
+
+        // Text/HTML body
+        $body = rtrim($message->getContent(), "\r\n") . "\r\n";
+        if ($hasAttachments) {
+            $bodyParts[] = "--$boundary\r\n" .
+                "Content-Type: text/html; charset=\"UTF-8\"\r\n" .
+                "Content-Transfer-Encoding: 7bit\r\n\r\n" .
+                $body;
+        } else {
+            $bodyParts[] = $body;
+        }
+
+        // Add attachments
+        foreach ($message->getAttachments() as $attachment) {
+            $path = $attachment['path'];
+
+            if (!file_exists($path)) {
+                throw new \RuntimeException("Attachment file not found: $path");
             }
+
+            $fileData = file_get_contents($path);
+            $fileContent = base64_encode($fileData);
+            $filename = $attachment['name'] ?? basename($attachment['path']);
+            $mimeType = $attachment['mime_type'] ?? mime_content_type($path) ?? 'application/octet-stream';
+
+            $bodyParts[] = "--$boundary\r\n" .
+                "Content-Type: $mimeType; name=\"$filename\"\r\n" .
+                "Content-Transfer-Encoding: base64\r\n" .
+                "Content-Disposition: attachment; filename=\"$filename\"\r\n\r\n" .
+                chunk_split($fileContent);
         }
 
-        // Add any remaining headers not in our standard order
-        foreach ($messageHeaders as $key => $value) {
-            if (!in_array($key, $headerOrder) && !empty($value)) {
-                $headers[] = "$key: $value";
-            }
+        if ($hasAttachments) {
+            $bodyParts[] = "--$boundary--";
         }
 
-        $body = $message->getContent();
-
-        // CRITICAL: Body must have same line endings as when we calculated the hash
-        // Remove any existing line endings and add exactly one CRLF
-        $body = rtrim($body, "\r\n") . "\r\n";
-
-        // Handle attachments and inline images
-        if (!empty($message->getAttachments())) {
-            foreach ($message->getAttachments() as $attachment) {
-                $body .= "Attachment: {$attachment}\r\n";
-            }
+        // Add headers like From, To, Subject
+        foreach ($message->getHeaders() as $key => $value) {
+            $headers[] = "$key: $value";
         }
 
-        if (!empty($message->getInlineImages())) {
-            foreach ($message->getInlineImages() as $image) {
-                $body .= "Inline Image: {$image}\r\n";
-            }
-        }
-
-        return implode("\r\n", $headers) . "\r\n\r\n" . $body;
+        return implode("\r\n", $headers) . "\r\n\r\n" . implode("\r\n", $bodyParts);
     }
 
     /**
@@ -643,5 +653,18 @@ final class SmtpTransport implements TransportInterface
     public function getName(): string
     {
         return 'smtp';
+    }
+
+    private function validateEmail(string $to, string $subject): bool
+    {
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            throw new \InvalidArgumentException("Invalid email address: $to");
+        }
+
+        if (empty($subject)) {
+            throw new \InvalidArgumentException("Email subject cannot be empty");
+        }
+
+        return true;
     }
 }
