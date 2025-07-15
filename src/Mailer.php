@@ -32,14 +32,12 @@ class Mailer
      * @param string $content The content of the email.
      * @param string $contentType The content type of the email 'text/plain' / 'text/html' / 'multipart/mixed' / 'multipart/alternative'.
      * @param array $attachments Any attachments to include with the email.
-     * @param array $inlineImages Any inline images to include with the email.
      */
-    public function send(string $to, string $subject, string $content, string $contentType = 'text/html', array $attachments = [], array $inlineImages = []): void
+    public function send(string $to, string $subject, string $content, string $contentType = 'text/html', array $attachments = []): void
     {
         $startTime = microtime(true); // Initialize at the beginning
 
         try {
-            $this->validateEmail($to, $subject);
             $allowed = $this->rateLimiter->allow();
 
             if (!$allowed) {
@@ -49,8 +47,6 @@ class Mailer
                     'content_type' => $contentType,
                     'has_attachments' => !empty($attachments),
                     'attachment_count' => count($attachments),
-                    'has_inline_images' => !empty($inlineImages),
-                    'inline_image_count' => count($inlineImages),
                     'driver' => get_class($this->driver)
                 ]);
                 throw new \RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
@@ -62,8 +58,6 @@ class Mailer
                 'content_type' => $contentType,
                 'has_attachments' => !empty($attachments),
                 'attachment_count' => count($attachments),
-                'has_inline_images' => !empty($inlineImages),
-                'inline_image_count' => count($inlineImages),
                 'driver' => get_class($this->driver)
             ]);
 
@@ -72,8 +66,7 @@ class Mailer
                 $subject,
                 $content,
                 $contentType,
-                $attachments,
-                $inlineImages
+                $attachments
             );
 
             // Set From header from driver config
@@ -97,7 +90,6 @@ class Mailer
                 'content' => $content,
                 'contentType' => $contentType,
                 'attachments' => $attachments,
-                'inlineImages' => $inlineImages
             ];
 
             // Create event - logging is handled inside event constructor
@@ -130,7 +122,6 @@ class Mailer
      * @param string $content The content of the email
      * @param string $contentType The content type (default: text/html)
      * @param array $attachments File attachments
-     * @param array $inlineImages Inline images
      * @param string|null $queue Queue name (optional)
      * @return mixed Job ID
      */
@@ -140,7 +131,6 @@ class Mailer
         string $content,
         string $contentType = 'text/html',
         array $attachments = [],
-        array $inlineImages = [],
         ?string $queue = null
     ): mixed {
         $this->logger->log("Queuing email for background processing", [
@@ -149,8 +139,6 @@ class Mailer
             'content_type' => $contentType,
             'has_attachments' => !empty($attachments),
             'attachment_count' => count($attachments),
-            'has_inline_images' => !empty($inlineImages),
-            'inline_image_count' => count($inlineImages),
             'queue' => $queue ?? 'default'
         ]);
 
@@ -161,8 +149,7 @@ class Mailer
                 $subject,
                 $content,
                 $contentType,
-                $attachments,
-                $inlineImages
+                $attachments
             );
 
             // Set From header from driver config
@@ -388,18 +375,5 @@ class Mailer
         ]);
 
         return $m;
-    }
-
-    private function validateEmail(string $to, string $subject): bool
-    {
-        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-            throw new \InvalidArgumentException("Invalid email address: $to");
-        }
-
-        if (empty($subject)) {
-            throw new \InvalidArgumentException("Email subject cannot be empty");
-        }
-
-        return true;
     }
 }

@@ -23,7 +23,6 @@ class MessageTest extends TestCase
         $this->assertEquals('Test Content', $message->getContent());
         $this->assertEquals(Message::CONTENT_TYPE_HTML, $message->getContentType());
         $this->assertEquals(['/path/to/file.pdf'], $message->getAttachments());
-        $this->assertEquals(['/path/to/image.png'], $message->getInlineImages());
     }
 
     public function testMessageDefaultValues()
@@ -33,7 +32,6 @@ class MessageTest extends TestCase
         $this->assertEquals('', $message->getContent());
         $this->assertEquals(Message::CONTENT_TYPE_TEXT, $message->getContentType());
         $this->assertEquals([], $message->getAttachments());
-        $this->assertEquals([], $message->getInlineImages());
     }
 
     public function testGetHeadersReturnsCorrectFormat()

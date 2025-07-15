@@ -44,8 +44,7 @@ class SendMailJob
                 'content' => $this->m->getContent(),
                 'to' => $this->m->getTo(),
                 'subject' => $this->m->getSubject(),
-                'attachments' => $this->m->getAttachments(),
-                'inline_images' => $this->m->getInlineImages(),
+                'attachments' => $this->m->getAttachments()
             ]);
             throw $e; // Re-throw to trigger job failure handling
         }
@@ -60,8 +59,7 @@ class SendMailJob
             'content' => $this->m->getContent(),
             'to' => $this->m->getTo(),
             'subject' => $this->m->getSubject(),
-            'attachments' => $this->m->getAttachments(),
-            'inline_images' => $this->m->getInlineImages(),
+            'attachments' => $this->m->getAttachments()
         ];
     }
 }

@@ -33,9 +33,6 @@ abstract class Mailable
     /** File attachments */
     protected array $attachments = [];
 
-    /** Inline images */
-    protected array $inlineImages = [];
-
     /** Queue name for background processing */
     protected ?string $queue = null;
 
@@ -95,8 +92,7 @@ abstract class Mailable
                 $this->subject,
                 $content,
                 $this->contentType,
-                $this->attachments,
-                $this->inlineImages
+                $this->attachments
             );
         } catch (\Exception $e) {
             $this->logger->log("Mailable sending failed", [
@@ -133,7 +129,6 @@ abstract class Mailable
                 $content,
                 $this->contentType,
                 $this->attachments,
-                $this->inlineImages,
                 $this->queue
             );
 
@@ -205,18 +200,6 @@ abstract class Mailable
             'path' => $path,
             'name' => $name,
             'mime_type' => $mimeType
-        ];
-        return $this;
-    }
-
-    /**
-     * Add an inline image
-     */
-    protected function embed(string $path, string $cid): self
-    {
-        $this->inlineImages[] = [
-            'path' => $path,
-            'cid' => $cid
         ];
         return $this;
     }
@@ -438,14 +421,6 @@ abstract class Mailable
         return $this->attachments;
     }
 
-    /**
-     * Get all inline images
-     */
-    public function getInlineImages(): array
-    {
-        return $this->inlineImages;
-    }
-
     // =================================================================
     // PRIVATE METHODS
     // =================================================================
@@ -586,27 +561,6 @@ abstract class Mailable
     public function setAttachments(array $attachments): self
     {
         $this->attachments = $attachments;
-        return $this;
-    }
-
-    /**
-     * Add inline image to this mail
-     */
-    public function addInlineImage(string $path, string $cid): self
-    {
-        $this->inlineImages[] = [
-            'path' => $path,
-            'cid' => $cid
-        ];
-        return $this;
-    }
-
-    /**
-     * Set all inline images
-     */
-    public function setInlineImages(array $inlineImages): self
-    {
-        $this->inlineImages = $inlineImages;
         return $this;
     }
 }

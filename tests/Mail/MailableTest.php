@@ -62,19 +62,6 @@ class MailableTest extends TestCase
         $this->assertEquals('document.pdf', $attachments[0]['name']);
     }
 
-    public function testMailableInlineImages()
-    {
-        $mailable = new TestMailable();
-
-        $mailable->addInlineImage('/path/to/logo.png', 'logo')
-            ->addInlineImage('/path/to/banner.jpg', 'banner');
-
-        $images = $mailable->getInlineImages();
-        $this->assertCount(2, $images);
-        $this->assertEquals('/path/to/logo.png', $images[0]['path']);
-        $this->assertEquals('logo', $images[0]['cid']);
-    }
-
     public function testMailableConfigureMethod()
     {
         $mailable = new TestMailable();

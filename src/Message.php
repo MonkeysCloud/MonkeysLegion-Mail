@@ -24,15 +24,13 @@ class Message
      * @param string $content The content of the email.
      * @param string $contentType The content type of the email (default is text/plain).
      * @param array $attachments An array of file paths to attach to the email.
-     * @param array $inlineImages An array of inline images to include in the email.
      */
     public function __construct(
         private string $to,
         private string $subject,
         private string $content = '',
         private string $contentType = self::CONTENT_TYPE_TEXT,
-        private array $attachments = [],
-        private array $inlineImages = []
+        private array $attachments = []
     ) {
         $this->messageId = $this->generateMessageId();
         $this->date = date('r'); // RFC 2822 format
@@ -79,11 +77,6 @@ class Message
     public function getContentType(): string
     {
         return $this->contentType;
-    }
-
-    public function getInlineImages(): array
-    {
-        return $this->inlineImages;
     }
 
     public function getAttachments(): array
@@ -161,8 +154,7 @@ class Message
             && $this->subject === $other->getSubject()
             && $this->content === $other->getContent()
             && $this->contentType === $other->getContentType()
-            && $this->attachments === $other->getAttachments()
-            && $this->inlineImages === $other->getInlineImages();
+            && $this->attachments === $other->getAttachments();
     }
 
     public function toString(): string
@@ -179,12 +171,6 @@ class Message
         if (!empty($this->attachments)) {
             foreach ($this->attachments as $attachment) {
                 $body .= "\nAttachment: {$attachment}";
-            }
-        }
-
-        if (!empty($this->inlineImages)) {
-            foreach ($this->inlineImages as $image) {
-                $body .= "\nInline Image: {$image}";
             }
         }
 

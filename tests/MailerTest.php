@@ -109,33 +109,6 @@ class MailerTest extends TestCase
         $this->mailer->send('test@example.com', 'Subject', 'Body');
     }
 
-    public function testSendWithAttachmentsAndInlineImages()
-    {
-        $this->rateLimiter->method('allow')->willReturn(true);
-        $this->transport->expects($this->once())->method('send')
-            ->with($this->callback(function (Message $message) {
-                return count($message->getAttachments()) === 2
-                    && count($message->getInlineImages()) === 1;
-            }));
-
-        $attachments = [
-            ['path' => '/path/to/file.pdf', 'name' => 'document.pdf'],
-            ['path' => '/path/to/image.jpg', 'name' => 'photo.jpg']
-        ];
-        $inlineImages = [
-            ['path' => '/path/to/logo.png', 'cid' => 'logo']
-        ];
-
-        $this->mailer->send(
-            'test@example.com',
-            'Subject with attachments',
-            'Body content',
-            'text/html',
-            $attachments,
-            $inlineImages
-        );
-    }
-
     public function testQueueEmailSuccessfully()
     {
         $queue = $this->createMock(QueueInterface::class);

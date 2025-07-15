@@ -1,19 +1,43 @@
-driver             $_ENV['MAIL_DRIVER'] ?? 'null'
+# General Driver
+driver                     $_ENV['MAIL_DRIVER'] ?? 'null'
 
-smtp_host          $_ENV['MAIL_HOST'] ?? 'smtp.mailtrap.io'
-smtp_port          $_ENV['MAIL_PORT'] ?? 587
-smtp_encryption    $_ENV['MAIL_ENCRYPTION'] ?? 'tls'
-smtp_username      $_ENV['MAIL_USERNAME'] ?? ''
-smtp_password      $_ENV['MAIL_PASSWORD'] ?? ''
-smtp_timeout       $_ENV['MAIL_TIMEOUT'] ?? 30
-smtp_from_address  $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com'
-smtp_from_name     $_ENV['MAIL_FROM_NAME'] ?? 'My App'
+# SMTP Configuration
+smtp_host                 $_ENV['MAIL_HOST'] ?? 'smtp.mailtrap.io'
+smtp_port                 $_ENV['MAIL_PORT'] ?? 587
+smtp_encryption           $_ENV['MAIL_ENCRYPTION'] ?? 'tls'
+smtp_username             $_ENV['MAIL_USERNAME'] ?? ''
+smtp_password             $_ENV['MAIL_PASSWORD'] ?? ''
+smtp_timeout              $_ENV['MAIL_TIMEOUT'] ?? 30
+smtp_from_address         $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com'
+smtp_from_name            $_ENV['MAIL_FROM_NAME'] ?? 'My App'
+smtp_dkim_private_key     $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? ''
+smtp_dkim_selector        $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default'
+smtp_dkim_domain          $_ENV['MAIL_DKIM_DOMAIN'] ?? ''
 
-mailgun_api_key        $_ENV['MAILGUN_API_KEY'] ?? ''
-mailgun_domain         $_ENV['MAILGUN_DOMAIN'] ?? ''
-mailgun_from_address   $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com'
-mailgun_from_name      $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+# Mailgun Configuration
+mailgun_api_key           $_ENV['MAILGUN_API_KEY'] ?? ''
+mailgun_domain            $_ENV['MAILGUN_DOMAIN'] ?? ''
+mailgun_from_address      $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com'
+mailgun_from_name         $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+mailgun_track_clicks      $_ENV['MAILGUN_TRACK_CLICKS'] ?? true
+mailgun_track_opens       $_ENV['MAILGUN_TRACK_OPENS'] ?? true
+mailgun_delivery_time     $_ENV['MAILGUN_DELIVERY_TIME'] ?? null
+mailgun_tags              $_ENV['MAILGUN_TAGS'] ?? ''
+mailgun_region            $_ENV['MAILGUN_REGION'] ?? 'us'
+mailgun_timeout           $_ENV['MAILGUN_TIMEOUT'] ?? 30
+mailgun_connect_timeout   $_ENV['MAILGUN_CONNECT_TIMEOUT'] ?? 10
+mailgun_dkim_private_key  $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? ''
+mailgun_dkim_selector     $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default'
+mailgun_dkim_domain       $_ENV['MAIL_DKIM_DOMAIN'] ?? ''
 
-sendmail_path          $_ENV['MAIL_SENDMAIL_PATH'] ?? '/usr/sbin/sendmail'
-sendmail_from_address  $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com'
-sendmail_from_name     $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+# Sendmail Configuration
+sendmail_path             $_ENV['MAIL_SENDMAIL_PATH'] ?? '/usr/sbin/sendmail'
+sendmail_from_address     $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com'
+sendmail_from_name        $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+sendmail_dkim_private_key $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? ''
+sendmail_dkim_selector    $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default'
+sendmail_dkim_domain      $_ENV['MAIL_DKIM_DOMAIN'] ?? ''
+
+# Null Mailer
+null_from_address         $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com'
+null_from_name            $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
