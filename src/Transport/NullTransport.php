@@ -19,18 +19,48 @@ final class NullTransport implements TransportInterface
 
     public function send(Message $message): void
     {
-        $logData = [
-            'to' => $message->getTo(),
-            'subject' => $message->getSubject(),
-            'content_type' => $message->getContentType(),
-            'content' => substr($message->getContent(), 0, 100) . '...', // Truncate for readability
-            'timestamp' => date('Y-m-d H:i:s')
-        ];
-        $this->logger->log("NullTransport: Email to {$message->getTo()} with subject '{$message->getSubject()}'", $logData);
+        try {
+            $to = $message->getTo();
+            $subject = $message->getSubject();
+            // Validate email and subject
+            $this->validateEmail($to, $subject);
+
+            // Log the message details
+            $logData = [
+                'to' => $to,
+                'subject' => $subject,
+                'content_type' => $message->getContentType(),
+                'content' => substr($message->getContent(), 0, 100) . '...', // Truncate for readability
+                'timestamp' => date('Y-m-d H:i:s')
+            ];
+            $this->logger->log("NullTransport: Email to {$to} with subject '{$subject}'", $logData);
+        } catch (\InvalidArgumentException $e) {
+            $this->logger->log("NullTransport send failed due to invalid argument", [
+                'to' => $to,
+                'subject' => $subject,
+                'exception' => $e,
+                'error_message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
+        }
     }
 
     public function getName(): string
     {
         return 'null';
+    }
+
+    private function validateEmail(string $to, string $subject): bool
+    {
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+            throw new \InvalidArgumentException("Invalid email address: $to");
+        }
+
+        if (empty($subject)) {
+            throw new \InvalidArgumentException("Email subject cannot be empty");
+        }
+
+        return true;
     }
 }

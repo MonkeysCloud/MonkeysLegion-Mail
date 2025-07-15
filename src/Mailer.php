@@ -96,7 +96,7 @@ class Mailer
             $messageId = uniqid('direct_', true);
             $sentEvent = new MessageSent($messageId, $messageData, (int)$duration, $this->logger);
         } catch (\InvalidArgumentException $e) {
-            throw new \InvalidArgumentException("Failed to send email => " . $e->getMessage(), 0, $e);
+            throw new \InvalidArgumentException($e->getMessage(), 0, $e);
         } catch (\Exception $e) {
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
@@ -110,7 +110,7 @@ class Mailer
                 'trace' => $e->getTraceAsString()
             ]);
 
-            throw new \RuntimeException("Failed to send email => " . $e->getMessage(), 0, $e);
+            throw new \RuntimeException($e->getMessage(), 0, $e);
         }
     }
 
@@ -183,7 +183,7 @@ class Mailer
             ]);
 
             error_log("Failed to queue email: " . $e->getMessage());
-            throw new \RuntimeException("Failed to queue email to $to: " . $e->getMessage(), 0, $e);
+            throw new \RuntimeException($e->getMessage(), 0, $e);
         }
     }
 

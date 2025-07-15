@@ -466,7 +466,7 @@ abstract class Mailable
         }
 
         if (!filter_var($this->to, FILTER_VALIDATE_EMAIL)) {
-            $errors[] = "Invalid recipient email address: {$this->to}";
+            $errors[] = "Invalid recipient email address: '{$this->to}'";
         }
 
         if (!empty($errors)) {
@@ -474,7 +474,7 @@ abstract class Mailable
                 'class' => static::class,
                 'errors' => $errors
             ]);
-            throw new \InvalidArgumentException("Mail validation failed: " . implode(', ', $errors));
+            throw new \InvalidArgumentException(implode(', ', $errors));
         }
     }
 

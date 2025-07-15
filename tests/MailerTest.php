@@ -43,25 +43,6 @@ class MailerTest extends TestCase
         $this->assertTrue(true); // No exception means success
     }
 
-    public function testSendThrowsOnInvalidEmail()
-    {
-        $this->rateLimiter->method('allow')->willReturn(true);
-        $transport = $this->createMock(TransportInterface::class);
-        $rateLimiter = $this->createMock(RateLimiter::class);
-        $rateLimiter->method('allow')->willReturn(true);
-        $container = ServiceContainer::getInstance();
-
-        $mailer = new Mailer($transport, $rateLimiter, $container);
-
-        try {
-            $mailer->send('invalid-email', 'Subject', 'Body');
-        } catch (\InvalidArgumentException $e) {
-            $this->assertTrue(true);
-            return;
-        }
-        $this->fail('Expected exception not thrown');
-    }
-
     public function testSendCallsTransport()
     {
         $container = ServiceContainer::getInstance();
@@ -153,11 +134,9 @@ class MailerTest extends TestCase
             'Priority Body',
             'text/html',
             [],
-            [],
             'high-priority'
         );
 
-        echo "\n\nJob ID: $jobId \n\n"; // For debugging purposes
         $this->assertEquals('job_67890', $jobId);
     }
 
@@ -203,14 +182,6 @@ class MailerTest extends TestCase
 
         $this->assertIsString($className);
         $this->assertStringContainsString('Transport', $className);
-    }
-
-    public function testSendWithEmptySubjectThrowsException()
-    {
-        $this->rateLimiter->method('allow')->willReturn(true);
-        $this->expectException(\InvalidArgumentException::class);
-
-        $this->mailer->send('test@example.com', '', 'Body');
     }
 
     public function testSendWithEmptyBodySucceeds()

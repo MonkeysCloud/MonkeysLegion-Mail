@@ -77,6 +77,15 @@ final class SmtpTransport implements TransportInterface
                 'to' => $m->getTo(),
                 'subject' => $m->getSubject()
             ]);
+        } catch (\InvalidArgumentException $e) {
+            $this->logger->log("SMTP send failed due to invalid argument", [
+                'to' => $m->getTo(),
+                'subject' => $m->getSubject(),
+                'exception' => $e,
+                'error_message' => $e->getMessage(),
+                'trace' => $e->getTraceAsString()
+            ]);
+            throw $e;
         } catch (\Exception $e) {
             $this->logger->log("SMTP send failed", [
                 'to' => $m->getTo(),
