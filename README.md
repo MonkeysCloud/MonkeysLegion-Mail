@@ -68,8 +68,10 @@ MAIL_PORT=587
 MAIL_USERNAME=your-email@gmail.com
 MAIL_PASSWORD=your-app-password
 MAIL_ENCRYPTION=tls
-MAIL_FROM_ADDRESS=your-email@gmail.com
-MAIL_FROM_NAME="Your App Name"
+
+# OR Mailgun Configuration
+MAILGUN_API_KEY=YOUR_MAILGUN_API_KEY
+MAILGUN_DOMAIN=YOUR_MAILGUN_DOMAIN
 
 # DKIM Configuration (Optional but Recommended)
 MAIL_DKIM_PRIVATE_KEY=your-raw-private-key-without-headers
@@ -80,7 +82,12 @@ MAIL_DKIM_DOMAIN=yourdomain.com
 REDIS_HOST=127.0.0.1
 REDIS_PORT=6379
 QUEUE_DEFAULT=emails
+
+# A Global Configuration
+MAIL_FROM_ADDRESS=your-email@gmail.com
+MAIL_FROM_NAME="Your App Name"
 ```
+### You can always check the mail.php config file to see all the available options you can set in your .env
 
 ### Test Your Setup
 
@@ -241,8 +248,7 @@ class OrderConfirmationMail extends Mailable
                     ->setTimeout(180)           // Override timeout
                     ->setMaxTries(3)           // Override max tries
                     ->setContentType('text/html') // Override content type
-                    ->addAttachment('/path/to/invoice.pdf')
-                    ->addInlineImage('/path/to/logo.png', 'logo');
+                    ->addAttachment('/path/to/invoice.pdf');
     }
 }
 ```
@@ -256,16 +262,13 @@ class OrderConfirmationMail extends Mailable
 | `setContentType(string $type)` | Set content type | `->setContentType('text/plain')` |
 | `addAttachment(string $path, ?string $name, ?string $mime)` | Add file attachment | `->addAttachment('/path/file.pdf', 'Invoice.pdf')` |
 | `setAttachments(array $attachments)` | Set all attachments | `->setAttachments($fileArray)` |
-| `addInlineImage(string $path, string $cid)` | Add inline image | `->addInlineImage('/path/logo.png', 'logo')` |
-| `setInlineImages(array $images)` | Set all inline images | `->setInlineImages($imageArray)` |
 
-#### Attachments and Inline Images
+#### Attachments
 ```php
 public function build(): self
 {
     return $this->view('emails.newsletter')
                 ->addAttachment('/path/to/file.pdf', 'Newsletter.pdf')
-                ->addInlineImage('/path/to/logo.png', 'logo')
                 ->setAttachments([
                     ['path' => '/path/file1.pdf', 'name' => 'File1.pdf'],
                     ['path' => '/path/file2.pdf', 'name' => 'File2.pdf']
@@ -317,7 +320,6 @@ $jobId = $mailer->queue(
     $htmlContent,
     'text/html',
     [], // attachments
-    [], // inline images  
     'newsletters' // specific queue
 );
 
@@ -475,33 +477,80 @@ php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:test test@gmail.
 #### SMTP Driver
 ```php
 'smtp' => [
-    'host' => 'smtp.gmail.com',
-    'port' => 587,
-    'encryption' => 'tls', // tls, ssl, or null
-    'username' => 'your-email@gmail.com',
-    'password' => 'your-app-password',
-    'timeout' => 30,
+    'host' => $_ENV['MAIL_HOST'] ?? 'smtp.mailtrap.io',
+    'port' => $_ENV['MAIL_PORT'] ?? 587,
+    'encryption' => $_ENV['MAIL_ENCRYPTION'] ?? 'tls', // tls / ssl / null
+    'username' => $_ENV['MAIL_USERNAME'] ?? '',
+    'password' => $_ENV['MAIL_PASSWORD'] ?? '',
+    'timeout' => $_ENV['MAIL_TIMEOUT'] ?? 30,
     'from' => [
-        'address' => 'noreply@yourapp.com',
-        'name' => 'Your App'
+        'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com',
+        'name' => $_ENV['MAIL_FROM_NAME'] ?? 'My App'
     ],
-    // DKIM Configuration
-    'dkim_private_key' => 'your-private-key',
-    'dkim_selector' => 'default',
-    'dkim_domain' => 'yourdomain.com',
+    'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
+    'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
+    'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
 ],
 ```
 
 #### Mailgun Driver
 ```php
 'mailgun' => [
-    'api_key' => 'your-mailgun-api-key',
-    'domain' => 'yourdomain.com',
+    'api_key' => $_ENV['MAILGUN_API_KEY'] ?? '',
+    'domain' => $_ENV['MAILGUN_DOMAIN'] ?? '',
+
     'from' => [
-        'address' => 'noreply@yourdomain.com',
-        'name' => 'Your App'
+        'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
+        'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App',
     ],
-    // DKIM settings (same as SMTP)
+
+    // Optional tracking options (used by addOptionalParameters)
+    'tracking' => [
+        'clicks' => filter_var($_ENV['MAILGUN_TRACK_CLICKS'] ?? true, FILTER_VALIDATE_BOOLEAN),
+        'opens'  => filter_var($_ENV['MAILGUN_TRACK_OPENS'] ?? true, FILTER_VALIDATE_BOOLEAN),
+    ],
+
+    // Optional delivery time in RFC2822 or ISO 8601 format
+    'delivery_time' => $_ENV['MAILGUN_DELIVERY_TIME'] ?? null,
+
+    // Optional array of tags (Mailgun supports up to 3 tags per message)
+    'tags' => explode(',', $_ENV['MAILGUN_TAGS'] ?? ''), // e.g. "welcome,new-user"
+
+    // Optional custom variables to include with the message
+    'variables' => [
+        // Dynamically assign or leave empty if not used
+    ],
+
+    // Mailgun region (us or eu)
+    'region' => $_ENV['MAILGUN_REGION'] ?? 'us',
+
+    // Optional timeouts
+    'timeout' => ($_ENV['MAILGUN_TIMEOUT'] ?? 30),
+    'connect_timeout' => ($_ENV['MAILGUN_CONNECT_TIMEOUT'] ?? 10),
+
+    // DKIM signing as SMTP configuration
+],
+```
+
+#### Null Driver
+```php
+'null' => [
+    'from' => [
+        'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
+        'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+    ]
+]
+```
+
+#### Sendmail Driver
+```php
+'sendmail' => [
+    'path' => $_ENV['MAIL_SENDMAIL_PATH'] ?? '/usr/sbin/sendmail',
+    'from' => [
+        'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
+        'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+    ],
+    // DKIM signing as SMTP configuration
 ],
 ```
 
@@ -589,29 +638,7 @@ For complete template documentation, see: [MonkeysLegion Template Engine](https:
 
 ### Email Components
 
-The package includes pre-built email components:
-
-```php
-<!-- Email Layout -->
-@component('email-layout')
-    @component('email-header')
-        <h1>Welcome to Our App</h1>
-    @endcomponent
-    
-    @component('email-content')
-        <p>Hello {{ $user->name }},</p>
-        <p>Thanks for joining us!</p>
-        
-        @component('email-button', ['url' => $loginUrl])
-            Get Started
-        @endcomponent
-    @endcomponent
-    
-    @component('email-footer')
-        <p>Best regards,<br>The Team</p>
-    @endcomponent
-@endcomponent
-```
+The package includes pre-built email components
 
 ## 📝 Logging
 
@@ -651,7 +678,7 @@ MAIL_DEBUG=false    # Set to true for debugging
 
 ```php
 // Successful send (Production)
-[INFO] Email sent successfully {
+[Log TimeStamp] app.INFO Email sent successfully {
     "to": "user@example.com",
     "subject": "Welcome",
     "duration_ms": 1250,
@@ -659,7 +686,7 @@ MAIL_DEBUG=false    # Set to true for debugging
 }
 
 // DKIM signing (Development)
-[DEBUG] DKIM signature generated {
+[Log TimeStamp] app.DEBUG DKIM signature generated {
     "domain": "yourdomain.com", 
     "selector": "default",
     "signature_length": 344,
@@ -667,7 +694,7 @@ MAIL_DEBUG=false    # Set to true for debugging
 }
 
 // Queue processing (All modes)
-[INFO] Job processed successfully {
+[Log TimeStamp] app.INFO Job processed successfully {
     "job_id": "job_64f8a2b1c3d4e",
     "duration_ms": 890,
     "memory_usage_mb": 15.2,
@@ -675,7 +702,7 @@ MAIL_DEBUG=false    # Set to true for debugging
 }
 
 // Rate limiting (Production)
-[WARNING] Rate limit exceeded {
+[Log TimeStamp] app.WARNING Rate limit exceeded {
     "key": "user_123",
     "limit": 100,
     "window": 3600,
@@ -683,46 +710,19 @@ MAIL_DEBUG=false    # Set to true for debugging
 }
 
 // SMTP Debug (Development only)
-[DEBUG] SMTP command sent {
+[Log TimeStamp] app.DEBUG SMTP command sent {
     "command": "MAIL FROM:<sender@example.com>",
     "response_code": 250,
     "response": "2.1.0 Ok"
 }
 ```
 
-### Debug Mode
-
-Enable detailed debugging for troubleshooting:
-
-```env
-# Enable debug mode for detailed logs
-MAIL_DEBUG=true
-LOG_LEVEL=debug
-APP_ENV=development
-```
-
-When debug mode is enabled, you'll see:
-- Complete SMTP conversation logs
-- DKIM signing process details
-- Message serialization/deserialization
-- Queue worker internal operations
-- Transport-specific debugging information
-
 ### Log File Locations
 
 Logs are stored in different locations based on your environment:
 
 ```bash
-# Production
-storage/logs/mail.log           # Main mail operations
-storage/logs/mail-errors.log    # Errors and failures only
-
-# Development  
-storage/logs/mail-debug.log     # All debug information
-storage/logs/mail.log           # Standard operations
-
-# Testing
-storage/logs/test-mail.log      # Test-specific logging
+var/log/app.log
 ```
 
 ### Custom Logging
@@ -753,6 +753,9 @@ $mailer->send($to, $subject, $content);
 
 $mailer->useSendmail();
 $mailer->send($to, $subject, $content);
+
+$mailer->useNull();
+$mailer->send($to, $subject, $content);
 ```
 
 ### Bulk Email Processing
@@ -770,112 +773,6 @@ foreach ($recipients as $recipient) {
 
 // Process with dedicated worker
 // php bin/ml-mail.php mail:work newsletters
-```
-
----
-
-
-
-### Debug Mode
-
-Enable debug logging in your `.env`:
-
-```env
-MAIL_DEBUG=true
-LOG_LEVEL=debug
-```
-
----
-
-## 📚 API Reference
-
-### Mailer Class
-
-```php
-// Send email immediately
-$mailer->send(string $to, string $subject, string $content, string $contentType = 'text/html', array $attachments = [], array $inlineImages = []): void
-
-// Queue email for background processing  
-$mailer->queue(string $to, string $subject, string $content, string $contentType = 'text/html', array $attachments = [], array $inlineImages = [], ?string $queue = null): mixed
-
-// Change driver at runtime
-$mailer->setDriver(string $driverName, array $config = []): void
-
-// Get current driver
-$mailer->getCurrentDriver(): string
-```
-
-### Mailable Class
-
-```php
-// Build the mail (implement in subclass)
-abstract public function build(): self
-
-// Send immediately
-public function send(): void
-
-// Queue for background processing
-public function queue(): mixed
-
-// Configuration methods
-public function setTo(string $email): self
-public function setSubject(string $subject): self
-public function setView(string $view): self
-public function onQueue(string $queue): self
-```
-
-### CLI Commands
-
-| Command | Description |
-|---------|-------------|
-| `mail:test <email>` | Test email sending |
-| `mail:work [queue]` | Start queue worker |
-| `mail:list [queue]` | List pending jobs |
-| `mail:failed` | List failed jobs |
-| `mail:retry <job_id\|--all>` | Retry failed jobs |
-| `mail:clear [queue]` | Clear pending jobs |
-| `mail:flush` | Delete failed jobs |
-| `mail:purge` | Delete all jobs |
-| `make:mail <name>` | Generate mailable class |
-| `make:dkim-pkey <directory>` | Generate DKIM private and public key files |
-
----
-
-## 📈 Performance Tips
-
-### Optimization Strategies
-
-1. **Use Queues**: Always queue emails in production
-2. **Connection Pooling**: Keep SMTP connections alive
-3. **Batch Processing**: Group similar emails together
-4. **Rate Limiting**: Prevent overwhelming mail servers
-5. **DKIM Caching**: Private keys are cached automatically
-
-### Production Deployment
-
-```bash
-# Set up supervisor for queue workers
-[program:mail-worker]
-process_name=%(program_name)s_%(process_num)02d
-command=php /path/to/your/app/bin/ml-mail.php mail:work
-autostart=true
-autorestart=true
-numprocs=2
-redirect_stderr=true
-stdout_logfile=/path/to/logs/worker.log
-```
-
-### Monitoring
-
-```bash
-# Monitor queue health
-watch -n 5 'redis-cli llen queue:emails && redis-cli llen queue:failed'
-
-# Check worker process
-ps aux | grep "mail:work"
-
-# Monitor logs
-tail -f storage/logs/mail.log | grep ERROR
 ```
 
 ---

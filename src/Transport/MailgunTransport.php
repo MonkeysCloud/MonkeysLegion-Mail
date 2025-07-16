@@ -203,6 +203,8 @@ class MailgunTransport implements TransportInterface
 
     private function addAttachments(array &$postData, Message $message): void
     {
+        $attachmentIndex = 0;
+
         foreach ($message->getAttachments() as $attachment) {
             $path = is_array($attachment) ? ($attachment['path'] ?? null) : $attachment;
 
@@ -223,7 +225,7 @@ class MailgunTransport implements TransportInterface
             }
 
             // Get MIME type with fallback
-            $mimeType = is_array($attachment) ? ($attachment['mime'] ?? null) : null;
+            $mimeType = is_array($attachment) ? ($attachment['mime_type'] ?? null) : null;
             if (!$mimeType) {
                 $mimeType = mime_content_type($path) ?: 'application/octet-stream';
             }
@@ -234,7 +236,9 @@ class MailgunTransport implements TransportInterface
                 $filename = basename($path);
             }
 
-            $postData['attachment'][] = new CURLFile($path, $mimeType, $filename);
+            // Use indexed keys for multiple attachments to avoid array conversion issues
+            $postData["attachment[{$attachmentIndex}]"] = new CURLFile($path, $mimeType, $filename);
+            $attachmentIndex++;
         }
     }
 
