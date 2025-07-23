@@ -38,9 +38,9 @@
     "require": {
         "php": "^8.4",
         "league/commonmark": "^2.7",
-        "monkeyscloud/monkeyslegion-cli": "^1.0@dev",
-        "monkeyscloud/monkeyslegion-di": "dev-main",
-        "monkeyscloud/monkeyslegion-template": "^1.0@dev",
+        "monkeyscloud/monkeyslegion-cli": "^1.0",
+        "monkeyscloud/monkeyslegion-di": "^1.0",
+        "monkeyscloud/monkeyslegion-template": "^1.0",
         "psr/log": "^3.0",
         "vlucas/phpdotenv": "^5.6"
     },
@@ -62,7 +62,7 @@
             "service-provider": "MonkeysLegion\\\\Mail\\\\Provider\\\\MailProvider"
         },
         "branch-alias": {
-            "dev-main": "1.x-dev"
+            "dev-main": "1.0.x-dev"
         }
     }
 }
