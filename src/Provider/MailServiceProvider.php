@@ -13,6 +13,9 @@ define('REDIS_CONFIG_PATH', __DIR__ . '/../../config/redis.php');
 define('RATELIMITER_CONFIG_PATH', __DIR__ . '/../../config/rate_limiter.php');
 
 use MonkeysLegion\Cli\Console\Command;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Core\Logger\MonkeyLogger;
+use MonkeysLegion\DI\Container;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Mail\Cli\Command\MailInstallCommand;
 use MonkeysLegion\Mail\Cli\Command\MailMakeCommand;
@@ -42,7 +45,7 @@ class MailServiceProvider
         $in_container = ServiceContainer::getInstance();
         $logger = self::initializeLogger($in_container);
 
-        $logger->log("Starting mail service registration");
+        $logger->smartLog("Starting mail service registration");
 
         try {
             // Load configurations
@@ -84,13 +87,13 @@ class MailServiceProvider
     // INITIALIZATION
     // =================================================================
 
-    private static function initializeLogger(ServiceContainer $container): Logger
+    private static function initializeLogger(ServiceContainer $container): FrameworkLoggerInterface
     {
-        $container->set(Logger::class, fn() => new Logger());
-        return $container->get(Logger::class);
+        $container->set(FrameworkLoggerInterface::class, fn() => new MonkeyLogger());
+        return $container->get(FrameworkLoggerInterface::class);
     }
 
-    private static function loadConfigurations(Logger $logger): array
+    private static function loadConfigurations(FrameworkLoggerInterface $logger): array
     {
         $mailConfig = [];
 
@@ -110,7 +113,7 @@ class MailServiceProvider
 
         $rateLimiterConfig = file_exists(RATELIMITER_CONFIG_PATH) ? require RATELIMITER_CONFIG_PATH : [];
 
-        $logger->log("Mail configuration loaded", [
+        $logger->smartLog("Mail configuration loaded", [
             'has_custom_config' => file_exists(MAIL_CONFIG_PATH),
             'has_defaults' => file_exists(MAIL_CONFIG_DEFAULT_PATH),
             'driver' => $mergedMailConfig['driver'] ?? 'not_set'
@@ -168,12 +171,12 @@ class MailServiceProvider
         $container->set(Renderer::class, function () use ($container, $mlView) {
             return new Renderer(
                 $mlView,
-                $container->get(Logger::class)
+                $container->get(FrameworkLoggerInterface::class)
             );
         });
     }
 
-    private static function registerTransport(ServiceContainer $container, array $mailConfig, Logger $logger): void
+    private static function registerTransport(ServiceContainer $container, array $mailConfig, FrameworkLoggerInterface $logger): void
     {
         $container->set(TransportInterface::class, function () use ($mailConfig, $logger) {
             try {
@@ -185,7 +188,7 @@ class MailServiceProvider
 
                 return MailerFactory::make($fullConfig, $logger);
             } catch (\Exception $e) {
-                $logger->log("Failed to create mail transport", [
+                $logger->smartLog("Failed to create mail transport", [
                     'exception' => $e,
                     'error_message' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
@@ -223,7 +226,7 @@ class MailServiceProvider
     {
         $container->set(Worker::class, function () use ($container) {
             $queue = $container->get(QueueInterface::class);
-            $worker = new Worker($queue, $container->get(Logger::class));
+            $worker = new Worker($queue, $container->get(FrameworkLoggerInterface::class));
 
             $redisConfig = $container->getConfig('redis');
             $workerConfig = $redisConfig['queue']['worker'] ?? [];
@@ -282,15 +285,13 @@ class MailServiceProvider
     // ERROR HANDLING
     // =================================================================
 
-    private static function handleRegistrationFailure(Logger $logger, \Exception $e): void
+    private static function handleRegistrationFailure(FrameworkLoggerInterface $logger, \Exception $e): void
     {
-        $logger->log("Mail service provider registration failed", [
+        $logger->error("Mail service provider registration failed", [
             'exception' => $e,
             'error_message' => $e->getMessage(),
             'trace' => $e->getTraceAsString()
         ]);
-
-        error_log("Mail service provider registration failed: " . $e->getMessage());
         // Don't re-throw to prevent blocking the entire applicationn
     }
 
@@ -301,7 +302,7 @@ class MailServiceProvider
     public static function setLogger(LoggerInterface $logger): void
     {
         $container = ServiceContainer::getInstance();
-        $container->get(Logger::class)->setLogger($logger);
+        $container->get(FrameworkLoggerInterface::class)->setLogger($logger);
     }
 
     // =================================================================

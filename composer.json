@@ -38,8 +38,9 @@
     "require": {
         "php": "^8.4",
         "league/commonmark": "^2.7",
-        "monkeyscloud/monkeyslegion-cli": "^1.0@dev",
-        "monkeyscloud/monkeyslegion-di": "dev-main",
+        "monkeyscloud/monkeyslegion-core": "^1.0",
+        "monkeyscloud/monkeyslegion-cli": "^1.0",
+        "monkeyscloud/monkeyslegion-di": "^1.0",
         "monkeyscloud/monkeyslegion-template": "^1.0@dev",
         "psr/log": "^3.0",
         "vlucas/phpdotenv": "^5.6"

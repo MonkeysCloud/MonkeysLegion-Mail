@@ -6,7 +6,6 @@ use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mail\Service\ServiceContainer;
-use MonkeysLegion\Mail\Transport\NullTransport;
 use PHPUnit\Framework\TestCase;
 
 class FullWorkflowTest extends TestCase

@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Template;
 
-use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Template\MLView;
 
 class Renderer
 {
     public function __construct(
         private MLView $mlView,
-        private Logger $logger
+        private FrameworkLoggerInterface $logger
     ) {}
 
     /**
@@ -27,7 +27,7 @@ class Renderer
             $result = $this->mlView->render($template, $data);
             return $result;
         } catch (\Exception $e) {
-            $this->logger->log("Template rendering failed", [
+            $this->logger->error("Template rendering failed", [
                 'template' => $template,
                 'exception' => $e,
                 'error_message' => $e->getMessage(),
@@ -49,7 +49,7 @@ class Renderer
             $this->mlView->clearCache();
             return true;
         } catch (\Exception $e) {
-            $this->logger->log("Failed to clear template cache", [
+            $this->logger->error("Failed to clear template cache", [
                 'exception' => $e,
                 'error_message' => $e->getMessage()
             ]);

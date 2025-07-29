@@ -4,12 +4,12 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Console;
 
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mail\Queue\RedisQueue;
 use MonkeysLegion\Mail\Queue\Worker;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\DI\ContainerBuilder;
-use MonkeysLegion\Mail\Logger\Logger;
 
 /**
  * Mail Queue Worker CLI Command Class
@@ -22,13 +22,13 @@ class MailWorkerCommand
     private RedisQueue $queue;
     private array $redisConfig;
     private ?Worker $worker = null;
-    private Logger $logger;
+    private FrameworkLoggerInterface $logger;
 
     public function __construct()
     {
         $this->bootstrapServices();
         $this->container = ServiceContainer::getInstance();
-        $this->logger = $this->container->get(Logger::class);
+        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
         $this->initializeQueue();
         $this->setupSignalHandlers();
     }
@@ -42,7 +42,7 @@ class MailWorkerCommand
             // Register mail services (this loads configurations and registers services)
             MailServiceProvider::register(new ContainerBuilder());
         } catch (\Exception $e) {
-            $this->logger->log("Failed to bootstrap mail services: " . $e->getMessage(), [
+            $this->logger->error("Failed to bootstrap mail services: " . $e->getMessage(), [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -71,13 +71,13 @@ class MailWorkerCommand
                 $queueConfig['key_prefix'] ?? 'queue:'
             );
 
-            $this->logger->log("Redis queue initialized successfully", [
+            $this->logger->info("Redis queue initialized", [
                 'host' => $connectionConfig['host'] ?? '127.0.0.1',
                 'port' => $connectionConfig['port'] ?? 6379,
                 'queue' => $queueConfig['default_queue'] ?? 'emails'
             ]);
         } catch (\Exception $e) {
-            $this->logger->log("Failed to initialize queue: " . $e->getMessage(), [
+            $this->logger->error("Failed to initialize queue: " . $e->getMessage(), [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -104,8 +104,7 @@ class MailWorkerCommand
      */
     public function execute(string $command, ?string $argument = null): void
     {
-        $this->logger->log("Executing command: $command", ['argument' => $argument]);
-
+        $this->logger->info("Executing command: $command", ['argument' => $argument]);
         try {
             switch ($command) {
                 case 'mail:work':
@@ -138,7 +137,7 @@ class MailWorkerCommand
                     break;
             }
         } catch (\Exception $e) {
-            $this->logger->log("Command execution failed: $command", [
+            $this->logger->error("Command execution failed: $command", [
                 'exception' => $e,
                 'argument' => $argument,
                 'trace' => $e->getTraceAsString()
@@ -162,14 +161,14 @@ class MailWorkerCommand
             $this->worker->setMemory($workerConfig['memory'] ?? 128);
             $this->worker->setJobTimeout($workerConfig['timeout'] ?? 60);
 
-            $this->logger->log("Starting worker", [
+            $this->logger->notice("Worker started", [
                 'queue' => $queueName ?? 'default',
                 'config' => $workerConfig
             ]);
 
             $this->worker->work($queueName);
         } catch (\Exception $e) {
-            $this->logger->log("Worker command failed", [
+            $this->logger->error("Worker command failed", [
                 'exception' => $e,
                 'queue' => $queueName,
                 'trace' => $e->getTraceAsString()
@@ -186,7 +185,7 @@ class MailWorkerCommand
         try {
             $size = $this->queue->size($queueName);
 
-            $this->logger->log("Listed queue jobs", [
+            $this->logger->info("Queue jobs listed", [
                 'queue' => $queueName ?? 'default',
                 'count' => $size
             ]);
@@ -198,7 +197,7 @@ class MailWorkerCommand
                 echo "\nNote: Use 'mail:work' to process these jobs\n";
             }
         } catch (\Exception $e) {
-            $this->logger->log("List command failed", [
+            $this->logger->error("List command failed", [
                 'exception' => $e,
                 'queue' => $queueName,
                 'trace' => $e->getTraceAsString()
@@ -216,7 +215,7 @@ class MailWorkerCommand
             $failedJobs = $this->queue->getFailedJobs(50);
             $totalFailed = $this->queue->getFailedJobsCount();
 
-            $this->logger->log("Listed failed jobs", ['count' => $totalFailed]);
+            $this->logger->notice("Failed jobs listed", ['count' => $totalFailed]);
 
             echo "Failed jobs: $totalFailed\n";
 
@@ -237,7 +236,7 @@ class MailWorkerCommand
                 echo "Use 'mail:retry --all' to retry all failed jobs\n";
             }
         } catch (\Exception $e) {
-            $this->logger->log("Failed command failed", [
+            $this->logger->error("Failed command failed", [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -260,7 +259,7 @@ class MailWorkerCommand
                 exit(1);
             }
         } catch (\Exception $e) {
-            $this->logger->log("Retry command failed", [
+            $this->logger->error("Retry command failed", [
                 'exception' => $e,
                 'argument' => $argument,
                 'trace' => $e->getTraceAsString()
@@ -285,10 +284,10 @@ class MailWorkerCommand
                 }
             }
 
-            $this->logger->log("Retried all failed jobs", ['count' => $retried]);
+            $this->logger->notice("Retried all failed jobs", ['count' => $retried]);
             echo "Retried $retried failed jobs\n";
         } catch (\Exception $e) {
-            $this->logger->log("Retry all failed jobs failed", [
+            $this->logger->error("Retry all failed jobs failed", [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -303,15 +302,15 @@ class MailWorkerCommand
     {
         try {
             if ($this->queue->retryFailedJob($jobId)) {
-                $this->logger->log("Retried specific job", ['job_id' => $jobId]);
+                $this->logger->info("Retried specific job", ['job_id' => $jobId]);
                 echo "Job $jobId has been queued for retry\n";
             } else {
-                $this->logger->log("Failed to retry specific job", ['job_id' => $jobId]);
+                $this->logger->warning("Failed to retry specific job", ['job_id' => $jobId]);
                 echo "Failed to retry job $jobId (job not found or error occurred)\n";
                 exit(1);
             }
         } catch (\Exception $e) {
-            $this->logger->log("Retry specific job failed", [
+            $this->logger->error("Retry specific job failed", [
                 'exception' => $e,
                 'job_id' => $jobId,
                 'trace' => $e->getTraceAsString()
@@ -335,10 +334,10 @@ class MailWorkerCommand
 
             if ($this->confirmAction("Are you sure you want to delete $count failed jobs?")) {
                 if ($this->queue->clearFailedJobs()) {
-                    $this->logger->log("Flushed failed jobs", ['count' => $count]);
+                    $this->logger->notice("Flushed failed jobs", ['count' => $count]);
                     echo "Flushed $count failed jobs\n";
                 } else {
-                    $this->logger->log("Failed to flush jobs", ['count' => $count]);
+                    $this->logger->warning("Failed to flush jobs", ['count' => $count]);
                     echo "Failed to flush jobs\n";
                     exit(1);
                 }
@@ -346,7 +345,7 @@ class MailWorkerCommand
                 echo "Operation cancelled\n";
             }
         } catch (\Exception $e) {
-            $this->logger->log("Flush command failed", [
+            $this->logger->error("Flush command failed", [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -370,13 +369,13 @@ class MailWorkerCommand
             $queueDisplayName = $queueName ?? 'default';
             if ($this->confirmAction("Are you sure you want to clear $size pending jobs from queue '$queueDisplayName'?")) {
                 if ($this->queue->clear($queueName)) {
-                    $this->logger->log("Cleared pending jobs", [
+                    $this->logger->notice("Cleared pending jobs", [
                         'queue' => $queueName,
                         'count' => $size
                     ]);
                     echo "Cleared $size pending jobs\n";
                 } else {
-                    $this->logger->log("Failed to clear jobs", [
+                    $this->logger->warning("Failed to clear jobs", [
                         'queue' => $queueName,
                         'count' => $size
                     ]);
@@ -387,7 +386,7 @@ class MailWorkerCommand
                 echo "Operation cancelled\n";
             }
         } catch (\Exception $e) {
-            $this->logger->log("Clear command failed", [
+            $this->logger->error("Clear command failed", [
                 'exception' => $e,
                 'queue' => $queueName,
                 'trace' => $e->getTraceAsString()
@@ -431,7 +430,7 @@ class MailWorkerCommand
                     }
                 }
 
-                $this->logger->log("Purged all jobs", [
+                $this->logger->notice("Purged all jobs", [
                     'pending_count' => $pendingCount,
                     'failed_count' => $failedCount,
                     'total_cleared' => $cleared
@@ -442,7 +441,7 @@ class MailWorkerCommand
                 echo "Operation cancelled\n";
             }
         } catch (\Exception $e) {
-            $this->logger->log("Purge command failed", [
+            $this->logger->error("Purge command failed", [
                 'exception' => $e,
                 'trace' => $e->getTraceAsString()
             ]);
@@ -464,7 +463,7 @@ class MailWorkerCommand
 
             // Validate email
             if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                $this->logger->log("Invalid email address provided for test", ['email' => $email]);
+                $this->logger->warning("Invalid email address provided for test", ['email' => $email]);
                 echo "Error: Invalid email address '$email'\n";
                 exit(1);
             }
@@ -480,10 +479,10 @@ class MailWorkerCommand
                 'text/plain'
             );
 
-            $this->logger->log("Test email sent successfully", ['email' => $email]);
+            $this->logger->info("Test email sent", ['email' => $email]);
             echo "✓ Test email sent successfully!\n";
         } catch (\Exception $e) {
-            $this->logger->log("Test email failed", [
+            $this->logger->error("Test email failed", [
                 'exception' => $e,
                 'email' => $email,
                 'trace' => $e->getTraceAsString()
@@ -536,7 +535,7 @@ class MailWorkerCommand
      */
     public function stop(): void
     {
-        $this->logger->log("Worker stopping gracefully");
+        $this->logger->notice("Worker stopping gracefully");
         if ($this->worker) {
             $this->worker->stop();
         }

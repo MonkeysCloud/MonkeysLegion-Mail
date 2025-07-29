@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Transport;
 
-use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
 
@@ -15,7 +15,7 @@ use MonkeysLegion\Mail\TransportInterface;
 final class NullTransport implements TransportInterface
 {
 
-    public function __construct(private Logger $logger) {}
+    public function __construct(private FrameworkLoggerInterface $logger) {}
 
     public function send(Message $message): void
     {
@@ -33,9 +33,9 @@ final class NullTransport implements TransportInterface
                 'content' => substr($message->getContent(), 0, 100) . '...', // Truncate for readability
                 'timestamp' => date('Y-m-d H:i:s')
             ];
-            $this->logger->log("NullTransport: Email to {$to} with subject '{$subject}'", $logData);
+            $this->logger->smartLog("NullTransport: Email to {$to} with subject '{$subject}'", $logData);
         } catch (\InvalidArgumentException $e) {
-            $this->logger->log("NullTransport send failed due to invalid argument", [
+            $this->logger->error("NullTransport send failed due to invalid argument", [
                 'to' => $to,
                 'subject' => $subject,
                 'exception' => $e,

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Jobs;
 
-use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\TransportInterface;
@@ -15,13 +15,13 @@ use MonkeysLegion\Mail\TransportInterface;
  */
 class SendMailJob
 {
-    private Logger $logger;
+    private FrameworkLoggerInterface $logger;
     private ServiceContainer $container;
 
     public function __construct(private Message $m)
     {
         $this->container = ServiceContainer::getInstance();
-        $this->logger = $this->container->get(Logger::class);
+        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
     }
 
     /**
@@ -33,14 +33,14 @@ class SendMailJob
         try {
             // Ensure mailer service is available
             if (!$this->container->getConfig('mail')) {
-                $this->logger->log("Mail configuration not found. Services may not be properly bootstrapped.", ['data' => $this->m]);
+                $this->logger->critical("Mail configuration not found. Services may not be properly bootstrapped.", ['data' => $this->m]);
                 throw new \RuntimeException("Mail configuration not found. Services may not be properly bootstrapped.");
             }
 
             $transport = $this->container->get(TransportInterface::class);
             $transport->send($this->m);
         } catch (\Exception $e) {
-            $this->logger->log("SendMailJob failed: " . $e->getMessage(), [
+            $this->logger->error("SendMailJob failed: " . $e->getMessage(), [
                 'content' => $this->m->getContent(),
                 'to' => $this->m->getTo(),
                 'subject' => $this->m->getSubject(),

@@ -4,25 +4,25 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail;
 
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Jobs\SendMailJob;
 use MonkeysLegion\Mail\Queue\QueueInterface;
 use MonkeysLegion\Mail\Queue\RedisQueue;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Event\MessageSent;
-use MonkeysLegion\Mail\Logger\Logger;
 use MonkeysLegion\Mail\RateLimiter\RateLimiter;
 use MonkeysLegion\Mail\Security\DkimSigner;
 
 class Mailer
 {
-    private Logger $logger;
+    private FrameworkLoggerInterface $logger;
 
     public function __construct(
         private TransportInterface $driver,
         private RateLimiter $rateLimiter,
         private ?ServiceContainer $container = null
     ) {
-        $this->logger = $this->container->get(Logger::class);
+        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
     }
 
     /**
@@ -41,7 +41,7 @@ class Mailer
             $allowed = $this->rateLimiter->allow();
 
             if (!$allowed) {
-                $this->logger->log("Rate limit exceeded for sending emails", [
+                $this->logger->smartLog("Rate limit exceeded for sending emails", [
                     'to' => $to,
                     'subject' => $subject,
                     'content_type' => $contentType,
@@ -52,7 +52,7 @@ class Mailer
                 throw new \RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
             }
 
-            $this->logger->log("Attempting to send email", [
+            $this->logger->smartLog("Attempting to send email", [
                 'to' => $to,
                 'subject' => $subject,
                 'content_type' => $contentType,
@@ -77,7 +77,7 @@ class Mailer
 
             $this->driver->send($message);
             $duration = round((microtime(true) - $startTime) * 1000, 2); // Convert to milliseconds
-            $this->logger->log("Email sent successfully", [
+            $this->logger->smartLog("Email sent successfully", [
                 'to' => $to,
                 'subject' => $subject,
                 'duration_ms' => $duration,
@@ -94,13 +94,13 @@ class Mailer
 
             // Create event - logging is handled inside event constructor
             $messageId = uniqid('direct_', true);
-            $sentEvent = new MessageSent($messageId, $messageData, (int)$duration, $this->logger);
+            new MessageSent($messageId, $messageData, (int)$duration, $this->logger);
         } catch (\InvalidArgumentException $e) {
             throw new \InvalidArgumentException($e->getMessage(), 0, $e);
         } catch (\Exception $e) {
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
-            $this->logger->log("Email sending failed", [
+            $this->logger->warning("Email sending failed", [
                 'to' => $to,
                 'subject' => $subject,
                 'duration_ms' => $duration,
@@ -133,7 +133,7 @@ class Mailer
         array $attachments = [],
         ?string $queue = null
     ): mixed {
-        $this->logger->log("Queuing email for background processing", [
+        $this->logger->smartLog("Queuing email for background processing", [
             'to' => $to,
             'subject' => $subject,
             'content_type' => $contentType,
@@ -163,7 +163,7 @@ class Mailer
 
             $jobId = $queueInstance->push(SendMailJob::class, $message, $queue);
 
-            $this->logger->log("Email queued successfully", [
+            $this->logger->smartLog("Email queued successfully", [
                 'job_id' => $jobId,
                 'to' => $to,
                 'subject' => $subject,
@@ -173,7 +173,7 @@ class Mailer
 
             return $jobId;
         } catch (\Exception $e) {
-            $this->logger->log("Failed to queue email", [
+            $this->logger->warning("Failed to queue email", [
                 'to' => $to,
                 'subject' => $subject,
                 'queue' => $queue ?? 'default',
@@ -197,7 +197,7 @@ class Mailer
     {
         $oldDriver = get_class($this->driver);
 
-        $this->logger->log("Changing mail driver", [
+        $this->logger->smartLog("Changing mail driver", [
             'old_driver' => $oldDriver,
             'new_driver' => $driverName,
             'has_custom_config' => !empty($config)
@@ -220,13 +220,13 @@ class Mailer
 
             $this->driver = MailerFactory::make($fullConfig, $this->logger);
 
-            $this->logger->log("Mail driver changed successfully", [
+            $this->logger->smartLog("Mail driver changed successfully", [
                 'old_driver' => $oldDriver,
                 'new_driver' => get_class($this->driver),
                 'driver_name' => $driverName
             ]);
         } catch (\Exception $e) {
-            $this->logger->log("Failed to change mail driver", [
+            $this->logger->error("Failed to change mail driver", [
                 'old_driver' => $oldDriver,
                 'attempted_driver' => $driverName,
                 'exception' => $e,
@@ -254,7 +254,7 @@ class Mailer
      */
     public function useSmtp(array $config = []): void
     {
-        $this->logger->log("Switching to SMTP driver", [
+        $this->logger->info("Switching to SMTP driver", [
             'current_driver' => get_class($this->driver),
             'has_custom_config' => !empty($config)
         ]);
@@ -266,7 +266,7 @@ class Mailer
      */
     public function useNull(): void
     {
-        $this->logger->log("Switching to null driver for testing", [
+        $this->logger->info("Switching to null driver for testing", [
             'current_driver' => get_class($this->driver)
         ]);
         $this->setDriver('null');
@@ -277,7 +277,7 @@ class Mailer
      */
     public function useSendmail(): void
     {
-        $this->logger->log("Switching to sendmail driver", [
+        $this->logger->info("Switching to sendmail driver", [
             'current_driver' => get_class($this->driver)
         ]);
         $this->setDriver('sendmail');
@@ -292,13 +292,13 @@ class Mailer
             // Try to get queue from container
             $queue = $this->container->get(QueueInterface::class);
 
-            $this->logger->log("Using queue from container", [
+            $this->logger->debug("Using queue from container", [
                 'queue_class' => get_class($queue)
             ]);
 
             return $queue;
         } catch (\Exception $e) {
-            $this->logger->log("Container queue not available, using fallback Redis queue", [
+            $this->logger->error("Container queue not available, using fallback Redis queue", [
                 'exception' => $e,
                 'error_message' => $e->getMessage()
             ]);
@@ -329,16 +329,17 @@ class Mailer
 
             $message->setFrom($fromHeader);
 
-            $this->logger->log("From header set on message", [
+            $this->logger->debug("From header set on message", [
                 'from_address' => $fromAddress,
                 'from_name' => $fromName,
                 'from_header' => $fromHeader
             ]);
         } else {
-            $this->logger->log("No from address configured in driver config", [
+            $this->logger->warning("No from address configured in driver config", [
                 'driver' => $config['driver'],
                 'config_keys' => array_keys($driverConfig)
             ]);
+            throw new \RuntimeException("No from address configured in driver config. Please set 'from' in your mail configuration.");
         }
     }
 
@@ -348,7 +349,7 @@ class Mailer
         $config = $config['drivers'][$config['driver']];
 
         if (!DkimSigner::shouldSign(get_class($this->driver), $config)) {
-            $this->logger->log("DKIM signing skipped for local transport", [
+            $this->logger->debug("DKIM signing skipped for local transport", [
                 'driver' => get_class($this->driver)
             ]);
             return $m;
@@ -368,7 +369,7 @@ class Mailer
         // Set the DKIM signature on the message
         $m->setDkimSignature($dkimSignature);
 
-        $this->logger->log("DKIM signature generated and attached to message", [
+        $this->logger->debug("DKIM signature generated and attached to message", [
             'signature_length' => strlen($dkimSignature),
             'domain' => $config['dkim_domain'],
             'selector' => $config['dkim_selector']

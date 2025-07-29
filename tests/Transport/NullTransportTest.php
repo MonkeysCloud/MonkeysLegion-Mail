@@ -2,7 +2,7 @@
 
 namespace MonkeysLegion\Mailer\Tests\Transport;
 
-use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Core\Logger\MonkeyLogger;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\NullTransport;
 use PHPUnit\Framework\TestCase;
@@ -11,7 +11,7 @@ class NullTransportTest extends TestCase
 {
     public function testSendDoesNotThrowException()
     {
-        $transport = new NullTransport(new Logger());
+        $transport = new NullTransport(new MonkeyLogger());
         $message = new Message('test@example.com', 'Subject', 'Body');
 
         // Should not throw any exception
@@ -22,14 +22,14 @@ class NullTransportTest extends TestCase
 
     public function testGetNameReturnsNull()
     {
-        $transport = new NullTransport(new Logger());
+        $transport = new NullTransport(new MonkeyLogger());
 
         $this->assertEquals('null', $transport->getName());
     }
 
     public function testSendWithComplexMessage()
     {
-        $transport = new NullTransport(new Logger());
+        $transport = new NullTransport(new MonkeyLogger());
         $message = new Message(
             'test@example.com',
             'Complex Subject',

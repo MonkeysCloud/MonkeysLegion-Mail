@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Event;
 
-use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 
 class MessageSent
 {
@@ -14,7 +14,7 @@ class MessageSent
         private string $jobId,
         private array $jobData,
         private int $duration,
-        private Logger $logger
+        private FrameworkLoggerInterface $logger
     ) {
         $this->sentAt = time();
         $this->log();
@@ -22,7 +22,7 @@ class MessageSent
 
     private function log()
     {
-        $this->logger->log("MessageSent event created", [
+        $this->logger->smartLog("MessageSent event created", [
             'job_id' => $this->jobId,
             'job_class' => $this->jobData['job'] ?? 'unknown',
             'duration_ms' => $this->duration,

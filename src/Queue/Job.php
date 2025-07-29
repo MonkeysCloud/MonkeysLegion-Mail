@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Queue;
 
-use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Message;
 
 class Job implements JobInterface
@@ -16,7 +16,7 @@ class Job implements JobInterface
     public function __construct(
         private array $data,
         private QueueInterface $queue,
-        private Logger $logger
+        private FrameworkLoggerInterface $logger
     ) {
         try {
             $this->fullJobData = $data; // Store complete structure
@@ -29,7 +29,7 @@ class Job implements JobInterface
                 $this->message = $data['message'];
             }
 
-            $this->logger->log("Job constructed", [
+            $this->logger->smartLog("Job constructed", [
                 'job_id' => $this->getId(),
                 'job_class' => $this->fullJobData['job'] ?? 'unknown',
                 'attempts' => $this->attempts,
@@ -45,7 +45,7 @@ class Job implements JobInterface
     {
         $jobClass = $this->fullJobData['job'];
 
-        $this->logger->log("Starting job execution", [
+        $this->logger->smartLog("Starting job execution", [
             'job_id' => $this->getId(),
             'job_class' => $jobClass,
             'attempts' => $this->attempts,
@@ -53,7 +53,7 @@ class Job implements JobInterface
         ]);
 
         if (!$jobClass || !class_exists($jobClass)) {
-            $this->logger->log("Job class does not exist", [
+            $this->logger->error("Job class does not exist", [
                 'job_id' => $this->getId(),
                 'job_class' => $jobClass
             ]);
@@ -64,7 +64,7 @@ class Job implements JobInterface
             $jobInstance = new $jobClass($this->message);
 
             if (!method_exists($jobInstance, 'handle')) {
-                $this->logger->log("Job class missing handle method", [
+                $this->logger->error("Job class missing handle method", [
                     'job_id' => $this->getId(),
                     'job_class' => $jobClass
                 ]);
@@ -73,7 +73,7 @@ class Job implements JobInterface
 
             $jobInstance->handle();
 
-            $this->logger->log("Job executed successfully", [
+            $this->logger->smartLog("Job executed successfully", [
                 'job_id' => $this->getId(),
                 'job_class' => $jobClass,
                 'attempts' => $this->attempts,
@@ -83,7 +83,7 @@ class Job implements JobInterface
             // Increment attempts and re-throw
             $this->attempts++;
 
-            $this->logger->log("Job execution failed", [
+            $this->logger->error("Job execution failed", [
                 'job_id' => $this->getId(),
                 'job_class' => $jobClass,
                 'attempts' => $this->attempts,
@@ -114,7 +114,7 @@ class Job implements JobInterface
 
     public function fail(\Exception $exception): void
     {
-        $this->logger->log("Job marked as failed", [
+        $this->logger->error("Job marked as failed", [
             'job_id' => $this->getId(),
             'job_class' => $this->fullJobData['job'] ?? 'unknown',
             'attempts' => $this->attempts,

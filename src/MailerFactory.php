@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail;
 
-use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
 use MonkeysLegion\Mail\Transport\NullTransport;
@@ -13,11 +13,11 @@ use MonkeysLegion\Mail\Transport\SmtpTransport;
 
 class MailerFactory
 {
-    private Logger $logger;
+    private FrameworkLoggerInterface $logger;
 
     public function __construct(private ServiceContainer $container)
     {
-        $this->logger = $this->container->get(Logger::class);
+        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
     }
 
     /**
@@ -27,7 +27,7 @@ class MailerFactory
      * @return TransportInterface
      * @throws \InvalidArgumentException If the driver is unknown.
      */
-    public static function make(array $config = [], ?Logger $logger = null): TransportInterface
+    public static function make(array $config = [], ?FrameworkLoggerInterface $logger = null): TransportInterface
     {
         $driver = $config['driver'] ?? 'null';
 
@@ -47,7 +47,7 @@ class MailerFactory
      * @param array $config The driver configuration
      * @return TransportInterface
      */
-    public static function createTransport($driver, $config, ?Logger $logger = null)
+    public static function createTransport($driver, $config, ?FrameworkLoggerInterface $logger = null)
     {
         return match ($driver) {
             'smtp' => new SmtpTransport($config, $logger),

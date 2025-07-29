@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Event;
 
-use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 
 class MessageQueued
 {
@@ -13,7 +13,7 @@ class MessageQueued
     public function __construct(
         private string $jobId,
         private array $jobData,
-        private Logger $logger
+        private FrameworkLoggerInterface $logger
     ) {
         $this->queuedAt = time();
         $this->log();
@@ -21,7 +21,7 @@ class MessageQueued
 
     private function log()
     {
-        $this->logger->log("MessageQueued event created", [
+        $this->logger->smartLog("MessageQueued event created", [
             'job_id' => $this->jobId,
             'job_class' => $this->jobData['job'] ?? 'unknown',
             'queued_at' => $this->queuedAt

@@ -2,7 +2,7 @@
 
 declare(strict_types=1);
 
-require_once dirname(__DIR__, 4) . '/autoload.php';
+require_once __DIR__ . '/../../vendor/autoload.php';
 
 use Dotenv\Dotenv;
 use Composer\InstalledVersions;

@@ -3,7 +3,7 @@
 namespace MonkeysLegion\Mail\Transport;
 
 use CURLFile;
-use MonkeysLegion\Mail\Logger\Logger;
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
 
@@ -16,7 +16,7 @@ class MailgunTransport implements TransportInterface
 
     public function __construct(
         private array $config,
-        private ?Logger $logger = null
+        private FrameworkLoggerInterface $logger
     ) {
         $this->validateConfig();
         $this->setupEndpoint();
@@ -27,7 +27,7 @@ class MailgunTransport implements TransportInterface
         $startTime = microtime(true);
 
         try {
-            $this->logger?->log("Preparing Mailgun API request", [
+            $this->logger->smartLog("Preparing Mailgun API request", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
                 'endpoint' => $this->endpoint
@@ -38,7 +38,7 @@ class MailgunTransport implements TransportInterface
 
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
-            $this->logger?->log("Mailgun API request successful", [
+            $this->logger->smartLog("Mailgun API request successful", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
                 'duration_ms' => $duration,
@@ -48,7 +48,7 @@ class MailgunTransport implements TransportInterface
         } catch (\Exception $e) {
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
-            $this->logger?->log("Mailgun API request failed", [
+            $this->logger->error("Mailgun API request failed", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
                 'duration_ms' => $duration,
@@ -178,7 +178,7 @@ class MailgunTransport implements TransportInterface
 
             $customHeaders['DKIM-Signature'] = $dkimSignature;
 
-            $this->logger?->log("Adding DKIM signature to Mailgun headers", [
+            $this->logger->smartLog("Adding DKIM signature to Mailgun headers", [
                 'signature_length' => strlen($dkimSignature),
                 'to' => $message->getTo()
             ]);
@@ -209,7 +209,7 @@ class MailgunTransport implements TransportInterface
             $path = is_array($attachment) ? ($attachment['path'] ?? null) : $attachment;
 
             if (!is_string($path) || !file_exists($path)) {
-                $this->logger?->log("Attachment file not found", [
+                $this->logger->warning("Attachment file not found", [
                     'file' => $attachment,
                     'to' => $message->getTo()
                 ]);
@@ -217,7 +217,7 @@ class MailgunTransport implements TransportInterface
             }
 
             if (!is_readable($path)) {
-                $this->logger?->log("Attachment file not readable", [
+                $this->logger->warning("Attachment file not readable", [
                     'file' => $attachment,
                     'to' => $message->getTo()
                 ]);

@@ -4,17 +4,17 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Queue;
 
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use Redis;
 use RedisException;
 use MonkeysLegion\Mail\Event\MessageQueued;
-use MonkeysLegion\Mail\Logger\Logger;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 
 class RedisQueue implements QueueInterface
 {
     private Redis $redis;
-    private Logger $logger;
+    private FrameworkLoggerInterface $logger;
     private ServiceContainer $container;
 
     public function __construct(
@@ -25,33 +25,33 @@ class RedisQueue implements QueueInterface
     ) {
         $this->redis = new Redis();
         $this->container = ServiceContainer::getInstance();
-        $this->logger = $this->container->get(Logger::class);
+        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
         $this->connect($host, $port);
     }
 
     private function connect(string $host, int $port): void
     {
         try {
-            $this->logger->log("Attempting to connect to Redis", [
+            $this->logger->smartLog("Attempting to connect to Redis", [
                 'host' => $host,
                 'port' => $port
             ]);
 
             $connected = $this->redis->connect($host, $port, 30);
             if (!$connected) {
-                $this->logger->log("Failed to connect to Redis", [
+                $this->logger->error("Failed to connect to Redis", [
                     'host' => $host,
                     'port' => $port
                 ]);
                 throw new \RuntimeException("Failed to connect to Redis at {$host}:{$port}");
             }
 
-            $this->logger->log("Successfully connected to Redis", [
+            $this->logger->smartLog("Successfully connected to Redis", [
                 'host' => $host,
                 'port' => $port
             ]);
         } catch (RedisException $e) {
-            $this->logger->log("Redis connection error", [
+            $this->logger->error("Redis connection error", [
                 'host' => $host,
                 'port' => $port,
                 'exception' => $e,
@@ -76,7 +76,7 @@ class RedisQueue implements QueueInterface
             'created_at' => microtime(true),
         ];
 
-        $this->logger->log("Pushing job to queue", [
+        $this->logger->smartLog("Pushing job to queue", [
             'job_id' => $jobData['id'],
             'job_class' => $job,
             'queue' => $queue,
@@ -90,9 +90,9 @@ class RedisQueue implements QueueInterface
 
             if ($result) {
                 // Create event - logging is handled inside event constructor
-                $queuedEvent = new MessageQueued($jobData['id'], $jobData, $this->logger);
+                new MessageQueued($jobData['id'], $jobData, $this->logger);
 
-                $this->logger->log("Job pushed successfully", [
+                $this->logger->smartLog("Job pushed successfully", [
                     'job_id' => $jobData['id'],
                     'queue' => $queue,
                     'queue_size' => $result
@@ -101,14 +101,14 @@ class RedisQueue implements QueueInterface
                 return $jobData['id'];
             }
 
-            $this->logger->log("Failed to push job - Redis returned false", [
+            $this->logger->warning("Failed to push job - Redis returned false", [
                 'job_id' => $jobData['id'],
                 'queue' => $queue
             ]);
 
             return false;
         } catch (RedisException $e) {
-            $this->logger->log("Redis exception while pushing job", [
+            $this->logger->error("Redis exception while pushing job", [
                 'job_id' => $jobData['id'],
                 'queue' => $queue,
                 'exception' => $e,
@@ -124,7 +124,7 @@ class RedisQueue implements QueueInterface
         $queue = $queue ?? $this->defaultQueue;
         $queueKey = $this->keyPrefix . $queue;
 
-        $this->logger->log("Attempting to pop job from queue", [
+        $this->logger->smartLog("Attempting to pop job from queue", [
             'queue' => $queue,
             'queue_key' => $queueKey
         ]);
@@ -132,7 +132,7 @@ class RedisQueue implements QueueInterface
         try {
             $jobJson = $this->redis->lPop($queueKey);
             if (!$jobJson) {
-                $this->logger->log("No jobs available in queue", [
+                $this->logger->smartLog("No jobs available in queue", [
                     'queue' => $queue
                 ]);
                 return null;
@@ -140,7 +140,7 @@ class RedisQueue implements QueueInterface
 
             $jobData = json_decode($jobJson, true);
             if (!$jobData) {
-                $this->logger->log("Failed to decode job JSON", [
+                $this->logger->error("Failed to decode job JSON", [
                     'queue' => $queue,
                     'job_json' => $jobJson
                 ]);
@@ -149,7 +149,7 @@ class RedisQueue implements QueueInterface
 
             $jobData['message'] = unserialize($jobData['message'] ?? '');
 
-            $this->logger->log("Job popped successfully", [
+            $this->logger->smartLog("Job popped successfully", [
                 'job_id' => $jobData['id'] ?? 'unknown',
                 'job_class' => $jobData['job'] ?? 'unknown',
                 'queue' => $queue,
@@ -158,7 +158,7 @@ class RedisQueue implements QueueInterface
 
             return new Job($jobData, $this, $this->logger);
         } catch (RedisException $e) {
-            $this->logger->log("Redis exception while popping job", [
+            $this->logger->error("Redis exception while popping job", [
                 'queue' => $queue,
                 'exception' => $e,
                 'error_message' => $e->getMessage(),
@@ -176,14 +176,14 @@ class RedisQueue implements QueueInterface
         try {
             $size = $this->redis->lLen($queueKey);
 
-            $this->logger->log("Queue size retrieved", [
+            $this->logger->smartLog("Queue size retrieved", [
                 'queue' => $queue,
                 'size' => $size
             ]);
 
             return $size;
         } catch (RedisException $e) {
-            $this->logger->log("Redis exception while getting queue size", [
+            $this->logger->error("Redis exception while getting queue size", [
                 'queue' => $queue,
                 'exception' => $e,
                 'error_message' => $e->getMessage(),
@@ -198,7 +198,7 @@ class RedisQueue implements QueueInterface
         $queue = $queue ?? $this->defaultQueue;
         $queueKey = $this->keyPrefix . $queue;
 
-        $this->logger->log("Clearing queue", [
+        $this->logger->smartLog("Clearing queue", [
             'queue' => $queue,
             'queue_key' => $queueKey
         ]);
@@ -206,14 +206,14 @@ class RedisQueue implements QueueInterface
         try {
             $result = $this->redis->del($queueKey) > 0;
 
-            $this->logger->log($result ? "Queue cleared successfully" : "Queue was already empty", [
+            $this->logger->smartLog($result ? "Queue cleared successfully" : "Queue was already empty", [
                 'queue' => $queue,
                 'success' => $result
             ]);
 
             return $result;
         } catch (RedisException $e) {
-            $this->logger->log("Redis exception while clearing queue", [
+            $this->logger->error("Redis exception while clearing queue", [
                 'queue' => $queue,
                 'exception' => $e,
                 'error_message' => $e->getMessage(),
@@ -241,11 +241,11 @@ class RedisQueue implements QueueInterface
     public function disconnect(): void
     {
         try {
-            $this->logger->log("Disconnecting from Redis");
+            $this->logger->smartLog("Disconnecting from Redis");
             $this->redis->close();
-            $this->logger->log("Redis connection closed successfully");
+            $this->logger->smartLog("Redis connection closed successfully");
         } catch (RedisException $e) {
-            $this->logger->log("Error while disconnecting from Redis", [
+            $this->logger->error("Error while disconnecting from Redis", [
                 'exception' => $e,
                 'error_message' => $e->getMessage()
             ]);
@@ -281,7 +281,7 @@ class RedisQueue implements QueueInterface
             'failed_at' => microtime(true),
         ];
 
-        $this->logger->log("Pushing job to failed queue", [
+        $this->logger->smartLog("Pushing job to failed queue", [
             'job_id' => $failedJobData['id'],
             'original_job_class' => $jobData['job'] ?? 'unknown',
             'attempts' => $jobData['attempts'] ?? 0,
@@ -292,18 +292,18 @@ class RedisQueue implements QueueInterface
             $result = $this->redis->rPush($failedKey, json_encode($failedJobData)) > 0;
 
             if ($result) {
-                $this->logger->log("Job pushed to failed queue successfully", [
+                $this->logger->smartLog("Job pushed to failed queue successfully", [
                     'job_id' => $failedJobData['id']
                 ]);
             } else {
-                $this->logger->log("Failed to push job to failed queue", [
+                $this->logger->error("Failed to push job to failed queue", [
                     'job_id' => $failedJobData['id']
                 ]);
             }
 
             return $result;
         } catch (RedisException $e) {
-            $this->logger->log("Redis exception while pushing to failed queue", [
+            $this->logger->error("Redis exception while pushing to failed queue", [
                 'job_id' => $failedJobData['id'],
                 'exception' => $e,
                 'error_message' => $e->getMessage(),
@@ -324,7 +324,7 @@ class RedisQueue implements QueueInterface
     {
         $failedKey = $this->keyPrefix . 'failed';
 
-        $this->logger->log("Retrieving failed jobs", [
+        $this->logger->smartLog("Retrieving failed jobs", [
             'limit' => $limit
         ]);
 
@@ -332,14 +332,14 @@ class RedisQueue implements QueueInterface
             $jobs = $this->redis->lRange($failedKey, 0, $limit - 1);
             $decodedJobs = array_map(fn($job) => json_decode($job, true), $jobs);
 
-            $this->logger->log("Failed jobs retrieved", [
+            $this->logger->smartLog("Failed jobs retrieved", [
                 'count' => count($decodedJobs),
                 'limit' => $limit
             ]);
 
             return $decodedJobs;
         } catch (RedisException $e) {
-            $this->logger->log("Redis exception while getting failed jobs", [
+            $this->logger->error("Redis exception while getting failed jobs", [
                 'limit' => $limit,
                 'exception' => $e,
                 'error_message' => $e->getMessage(),
@@ -359,7 +359,7 @@ class RedisQueue implements QueueInterface
     {
         $failedKey = $this->keyPrefix . 'failed';
 
-        $this->logger->log("Attempting to retry failed job", [
+        $this->logger->smartLog("Attempting to retry failed job", [
             'job_id' => $jobId
         ]);
 
@@ -393,7 +393,7 @@ class RedisQueue implements QueueInterface
                     $queueKey = $this->keyPrefix . $this->defaultQueue;
                     $result = $this->redis->rPush($queueKey, json_encode($retryJobData)) > 0;
 
-                    $this->logger->log($result ? "Failed job retried successfully" : "Failed to retry job", [
+                    $this->logger->smartLog($result ? "Failed job retried successfully" : "Failed to retry job", [
                         'job_id' => $jobId,
                         'new_attempts' => $retryJobData['attempts'],
                         'success' => $result
@@ -403,14 +403,14 @@ class RedisQueue implements QueueInterface
                 }
             }
 
-            $this->logger->log("Failed job not found for retry", [
+            $this->logger->warning("Failed job not found for retry", [
                 'job_id' => $jobId
             ]);
 
             return false; // Job not found
 
         } catch (RedisException $e) {
-            $this->logger->log("Redis exception while retrying job", [
+            $this->logger->error("Redis exception while retrying job", [
                 'job_id' => $jobId,
                 'exception' => $e,
                 'error_message' => $e->getMessage(),
@@ -429,18 +429,18 @@ class RedisQueue implements QueueInterface
     {
         $failedKey = $this->keyPrefix . 'failed';
 
-        $this->logger->log("Clearing failed jobs");
+        $this->logger->smartLog("Clearing failed jobs");
 
         try {
             $result = $this->redis->del($failedKey) >= 0;
 
-            $this->logger->log($result ? "Failed jobs cleared successfully" : "Failed jobs were already empty", [
+            $this->logger->smartLog($result ? "Failed jobs cleared successfully" : "Failed jobs were already empty", [
                 'success' => $result
             ]);
 
             return $result;
         } catch (RedisException $e) {
-            $this->logger->log("Redis exception while clearing failed jobs", [
+            $this->logger->error("Redis exception while clearing failed jobs", [
                 'exception' => $e,
                 'error_message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
@@ -461,13 +461,13 @@ class RedisQueue implements QueueInterface
         try {
             $count = $this->redis->lLen($failedKey);
 
-            $this->logger->log("Failed jobs count retrieved", [
+            $this->logger->smartLog("Failed jobs count retrieved", [
                 'count' => $count
             ]);
 
             return $count;
         } catch (RedisException $e) {
-            $this->logger->log("Redis exception while getting failed jobs count", [
+            $this->logger->error("Redis exception while getting failed jobs count", [
                 'exception' => $e,
                 'error_message' => $e->getMessage()
             ]);

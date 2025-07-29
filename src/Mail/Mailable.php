@@ -4,10 +4,10 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Mail;
 
+use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\Template\Renderer;
 use MonkeysLegion\Mail\Service\ServiceContainer;
-use MonkeysLegion\Mail\Logger\Logger;
 
 /**
  * Base Mailable class for creating structured mail classes
@@ -49,7 +49,7 @@ abstract class Mailable
     private ServiceContainer $container;
 
     /** Logger instance */
-    private Logger $logger;
+    private FrameworkLoggerInterface $logger;
 
     // =================================================================
     // CONSTRUCTOR & ABSTRACT METHODS
@@ -58,7 +58,7 @@ abstract class Mailable
     public function __construct()
     {
         $this->container = ServiceContainer::getInstance();
-        $this->logger = $this->container->get(Logger::class);
+        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
     }
 
     /**
@@ -95,7 +95,7 @@ abstract class Mailable
                 $this->attachments
             );
         } catch (\Exception $e) {
-            $this->logger->log("Mailable sending failed", [
+            $this->logger->error("Mailable sending failed", [
                 'class' => static::class,
                 'to' => $this->to,
                 'exception' => $e,
@@ -132,7 +132,7 @@ abstract class Mailable
                 $this->queue
             );
 
-            $this->logger->log("Mailable queued successfully", [
+            $this->logger->smartLog("Mailable queued successfully", [
                 'class' => static::class,
                 'job_id' => $jobId,
                 'to' => $this->to
@@ -140,7 +140,7 @@ abstract class Mailable
 
             return $jobId;
         } catch (\Exception $e) {
-            $this->logger->log("Mailable queueing failed", [
+            $this->logger->error("Mailable queueing failed", [
                 'class' => static::class,
                 'to' => $this->to,
                 'exception' => $e,
@@ -440,7 +440,7 @@ abstract class Mailable
             $content = $renderer->render($this->view, $this->viewData);
             return $content;
         } catch (\Exception $e) {
-            $this->logger->log("Failed to render mail content", [
+            $this->logger->error("Failed to render mail content", [
                 'class' => static::class,
                 'view' => $this->view,
                 'exception' => $e,
@@ -470,7 +470,7 @@ abstract class Mailable
         }
 
         if (!empty($errors)) {
-            $this->logger->log("Mail validation failed", [
+            $this->logger->error("Mail validation failed", [
                 'class' => static::class,
                 'errors' => $errors
             ]);
@@ -483,7 +483,7 @@ abstract class Mailable
      */
     public function setDriver(string $driver, array $config = []): self
     {
-        $this->logger->log("Setting mail driver from Mailable", [
+        $this->logger->smartLog("Setting mail driver from Mailable", [
             'class' => static::class,
             'driver' => $driver,
             'has_custom_config' => !empty($config)
@@ -493,13 +493,13 @@ abstract class Mailable
             $mailer = $this->container->get(Mailer::class);
             $mailer->setDriver($driver, $config);
 
-            $this->logger->log("Mail driver set successfully from Mailable", [
+            $this->logger->smartLog("Mail driver set successfully from Mailable", [
                 'class' => static::class,
                 'driver' => $driver,
                 'new_driver_class' => $mailer->getCurrentDriver()
             ]);
         } catch (\Exception $e) {
-            $this->logger->log("Failed to set mail driver from Mailable", [
+            $this->logger->error("Failed to set mail driver from Mailable", [
                 'class' => static::class,
                 'driver' => $driver,
                 'exception' => $e,
