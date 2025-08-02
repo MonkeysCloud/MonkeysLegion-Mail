@@ -109,12 +109,6 @@ class MailServiceProvider
 
         $rateLimiterConfig = file_exists(RATELIMITER_CONFIG_PATH) ? require RATELIMITER_CONFIG_PATH : [];
 
-        $logger->smartLog("Mail configuration loaded", [
-            'has_custom_config' => file_exists(MAIL_CONFIG_PATH),
-            'has_defaults' => file_exists(MAIL_CONFIG_DEFAULT_PATH),
-            'driver' => $mergedMailConfig['driver'] ?? 'not_set'
-        ]);
-
         return [
             'mail' => $mergedMailConfig,
             'redis' => $redisConfig,
@@ -184,7 +178,7 @@ class MailServiceProvider
 
                 return MailerFactory::make($fullConfig, $logger);
             } catch (\Exception $e) {
-                $logger->smartLog("Failed to create mail transport", [
+                $logger->error("Failed to create mail transport", [
                     'exception' => $e,
                     'error_message' => $e->getMessage(),
                     'trace' => $e->getTraceAsString()
