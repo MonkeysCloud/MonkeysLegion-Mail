@@ -2,20 +2,20 @@
 
 namespace MonkeysLegion\Mailer\Tests;
 
-use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Mail\Jobs\SendMailJob;
 use MonkeysLegion\Mail\Mailer;
-use MonkeysLegion\Mail\Message;
-use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mail\Queue\QueueInterface;
 use MonkeysLegion\Mail\RateLimiter\RateLimiter;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\TransportInterface;
-use PHPUnit\Framework\TestCase;
+use MonkeysLegion\Mailer\Tests\Abstracts\AbstractBaseTest;
+use PHPUnit\Framework\MockObject\MockObject;
 
-class MailerTest extends TestCase
+class MailerTest extends AbstractBaseTest
 {
+    /** @var TransportInterface&MockObject */
     private TransportInterface $transport;
+    /** @var RateLimiter&MockObject */
     private RateLimiter $rateLimiter;
     private ServiceContainer $container;
     private Mailer $mailer;
@@ -23,13 +23,14 @@ class MailerTest extends TestCase
     public function setUp(): void
     {
         $this->bootstrapServices();
+
         $this->transport = $this->createMock(TransportInterface::class);
         $this->rateLimiter = $this->createMock(RateLimiter::class);
         $this->container = ServiceContainer::getInstance();
         $this->mailer = new Mailer($this->transport, $this->rateLimiter, $this->container);
     }
 
-    public function testSendReturnsTrueOnSuccess()
+    public function testSendReturnsTrueOnSuccess(): void
     {
         $this->rateLimiter->method('allow')->willReturn(true);
         $this->transport->expects($this->once())->method('send');
@@ -39,11 +40,10 @@ class MailerTest extends TestCase
             subject: 'Test Subject',
             content: 'Test Body'
         );
-
-        $this->assertTrue(true); // No exception means success
+        // No exception means success
     }
 
-    public function testSendCallsTransport()
+    public function testSendCallsTransport(): void
     {
         $container = ServiceContainer::getInstance();
 
@@ -64,7 +64,7 @@ class MailerTest extends TestCase
         );
     }
 
-    public function testSendWithValidEmailSucceeds()
+    public function testSendWithValidEmailSucceeds(): void
     {
         $this->rateLimiter->method('allow')->willReturn(true);
         $this->transport->expects($this->once())->method('send');
@@ -76,10 +76,10 @@ class MailerTest extends TestCase
             'text/html'
         );
 
-        $this->assertTrue(true); // No exception means success
+        // No exception means success
     }
 
-    public function testSendWithRateLimitExceededThrowsException()
+    public function testSendWithRateLimitExceededThrowsException(): void
     {
         $this->rateLimiter->method('allow')->willReturn(false);
         $this->transport->expects($this->never())->method('send');
@@ -90,7 +90,7 @@ class MailerTest extends TestCase
         $this->mailer->send('test@example.com', 'Subject', 'Body');
     }
 
-    public function testQueueEmailSuccessfully()
+    public function testQueueEmailSuccessfully(): void
     {
         $queue = $this->createMock(QueueInterface::class);
         $queue->expects($this->once())
@@ -111,7 +111,7 @@ class MailerTest extends TestCase
         $this->assertEquals('job_12345', $jobId);
     }
 
-    public function testQueueEmailWithCustomQueue()
+    public function testQueueEmailWithCustomQueue(): void
     {
         $queue = $this->createMock(QueueInterface::class);
         $queue->expects($this->once())
@@ -140,7 +140,7 @@ class MailerTest extends TestCase
         $this->assertEquals('job_67890', $jobId);
     }
 
-    public function testSetDriverChangesTransport()
+    public function testSetDriverChangesTransport(): void
     {
         // Test that driver switching doesn't throw exceptions
         $this->mailer->setDriver('null');
@@ -150,56 +150,64 @@ class MailerTest extends TestCase
         $this->assertStringContainsString('Transport', $currentDriver);
     }
 
-    public function testUseSmtpSwitchesDriver()
+    public function testUseSmtpSwitchesDriver(): void
     {
-        $config = ['host' => 'test.gmail.com', 'port' => 587, 'encryption' => 'testtls', 'username' => 'user', 'password' => 'pass'];
+        $this->expectNotToPerformAssertions();
+
+        $config = ['host' => 'test.gmail.com', 'port' => 587, 'encryption' => 'tls', 'username' => 'user', 'password' => 'pass'];
 
         $this->mailer->useSmtp($config);
 
         // Should not throw exception
-        $this->assertTrue(true);
+
     }
 
-    public function testUseNullSwitchesDriver()
+    public function testUseNullSwitchesDriver(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $this->mailer->useNull();
 
         // Should not throw exception
-        $this->assertTrue(true);
+
     }
 
-    public function testUseSendmailSwitchesDriver()
+    public function testUseSendmailSwitchesDriver(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $this->mailer->useSendmail();
 
         // Should not throw exception
-        $this->assertTrue(true);
+
     }
 
-    public function testGetCurrentDriverReturnsClassName()
+    public function testUseMailgunSwitchesDriver(): void
+    {
+        $this->expectNotToPerformAssertions();
+
+        $config = [
+            'api_key' => 'test_api_key',
+            'domain' => 'test_domain'
+        ];
+        $this->mailer->useMailgun($config);
+
+        // Should not throw exception
+
+    }
+
+    public function testGetCurrentDriverReturnsClassName(): void
     {
         $className = $this->mailer->getCurrentDriver();
 
-        $this->assertIsString($className);
         $this->assertStringContainsString('Transport', $className);
     }
 
-    public function testSendWithEmptyBodySucceeds()
+    public function testSendWithEmptyBodySucceeds(): void
     {
         $this->rateLimiter->method('allow')->willReturn(true);
         $this->transport->expects($this->once())->method('send');
 
         $this->mailer->send('test@example.com', 'Subject', '');
-
-        $this->assertTrue(true);
-    }
-
-    private function bootstrapServices(): void
-    {
-        try {
-            MailServiceProvider::register(new ContainerBuilder());
-        } catch (\Exception $e) {
-            throw new \RuntimeException("Failed to bootstrap mail services: " . $e->getMessage(), 0, $e);
-        }
     }
 }

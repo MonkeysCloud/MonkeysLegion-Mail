@@ -37,7 +37,7 @@ class RedisQueueTest extends TestCase
         }
     }
 
-    public function testPushAddsJobToQueue()
+    public function testPushAddsJobToQueue(): void
     {
         $message = new Message('test@example.com', 'Subject', 'Body');
 
@@ -47,7 +47,7 @@ class RedisQueueTest extends TestCase
         $this->assertEquals(1, $this->queue->size());
     }
 
-    public function testPopReturnsJobFromQueue()
+    public function testPopReturnsJobFromQueue(): void
     {
         $message = new Message('test@example.com', 'Subject', 'Body');
         $this->queue->push(SendMailJob::class, $message);
@@ -58,14 +58,14 @@ class RedisQueueTest extends TestCase
         $this->assertEquals(0, $this->queue->size());
     }
 
-    public function testPopReturnsNullWhenQueueEmpty()
+    public function testPopReturnsNullWhenQueueEmpty(): void
     {
         $job = $this->queue->pop();
 
         $this->assertNull($job);
     }
 
-    public function testSizeReturnsCorrectCount()
+    public function testSizeReturnsCorrectCount(): void
     {
         $this->assertEquals(0, $this->queue->size());
 
@@ -76,7 +76,7 @@ class RedisQueueTest extends TestCase
         $this->assertEquals(2, $this->queue->size());
     }
 
-    public function testClearRemovesAllJobs()
+    public function testClearRemovesAllJobs(): void
     {
         $message = new Message('test@example.com', 'Subject', 'Body');
         $this->queue->push(SendMailJob::class, $message);
@@ -86,7 +86,7 @@ class RedisQueueTest extends TestCase
         $this->assertEquals(0, $this->queue->size());
     }
 
-    public function testPushToFailedAddsToFailedQueue()
+    public function testPushToFailedAddsToFailedQueue(): void
     {
         $jobData = [
             'id' => 'test_job_123',
@@ -102,7 +102,7 @@ class RedisQueueTest extends TestCase
         $this->assertEquals(1, $this->queue->getFailedJobsCount());
     }
 
-    public function testGetFailedJobsReturnsFailedJobs()
+    public function testGetFailedJobsReturnsFailedJobs(): void
     {
         $jobData = [
             'id' => 'test_job_123',
@@ -117,10 +117,13 @@ class RedisQueueTest extends TestCase
 
         $this->assertCount(1, $failedJobs);
         $this->assertEquals('test_job_123', $failedJobs[0]['id']);
-        $this->assertEquals('Test failure', $failedJobs[0]['exception']['message']);
+        $this->assertArrayHasKey('exception', $failedJobs[0]);
+        if (isset($failedJobs[0]['exception'])) {
+            $this->assertEquals('Test failure', $failedJobs[0]['exception']['message']);
+        }
     }
 
-    public function testRetryFailedJobMovesJobBackToQueue()
+    public function testRetryFailedJobMovesJobBackToQueue(): void
     {
         $message = new Message('test@example.com', 'Subject', 'Body');
         $jobData = [
@@ -139,14 +142,14 @@ class RedisQueueTest extends TestCase
         $this->assertEquals(0, $this->queue->getFailedJobsCount());
     }
 
-    public function testRetryFailedJobReturnsFalseForNonExistentJob()
+    public function testRetryFailedJobReturnsFalseForNonExistentJob(): void
     {
         $result = $this->queue->retryFailedJob('non_existent_job');
 
         $this->assertFalse($result);
     }
 
-    public function testClearFailedJobsRemovesAllFailedJobs()
+    public function testClearFailedJobsRemovesAllFailedJobs(): void
     {
         $jobData = [
             'id' => 'test_job_123',
@@ -164,7 +167,7 @@ class RedisQueueTest extends TestCase
         $this->assertEquals(0, $this->queue->getFailedJobsCount());
     }
 
-    public function testGetDefaultQueueReturnsQueueName()
+    public function testGetDefaultQueueReturnsQueueName(): void
     {
         $this->assertEquals('test_queue', $this->queue->getDefaultQueue());
     }

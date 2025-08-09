@@ -20,9 +20,11 @@ class RateLimiterTest extends TestCase
 
         // Clean up any existing test files
         $files = glob($this->testStoragePath . '/ratelimit_*');
-        foreach ($files as $file) {
-            if (file_exists($file)) {
-                unlink($file);
+        if ($files !== false) {
+            foreach ($files as $file) {
+                if (file_exists($file)) {
+                    unlink($file);
+                }
             }
         }
     }
@@ -31,14 +33,16 @@ class RateLimiterTest extends TestCase
     {
         // Clean up test files
         $files = glob($this->testStoragePath . '/ratelimit_*');
-        foreach ($files as $file) {
-            if (file_exists($file)) {
-                unlink($file);
+        if ($files !== false) {
+            foreach ($files as $file) {
+                if (file_exists($file)) {
+                    unlink($file);
+                }
             }
         }
     }
 
-    public function testAllowReturnsTrueWithinLimit()
+    public function testAllowReturnsTrueWithinLimit(): void
     {
         $rateLimiter = new RateLimiter('test_key', 5, 60, $this->testStoragePath);
 
@@ -47,7 +51,7 @@ class RateLimiterTest extends TestCase
         $this->assertTrue($rateLimiter->allow());
     }
 
-    public function testAllowReturnsFalseWhenLimitExceeded()
+    public function testAllowReturnsFalseWhenLimitExceeded(): void
     {
         $rateLimiter = new RateLimiter('test_key', 2, 60, $this->testStoragePath);
 
@@ -58,7 +62,7 @@ class RateLimiterTest extends TestCase
         $this->assertFalse($rateLimiter->allow()); // Should be blocked
     }
 
-    public function testRemainingReturnsCorrectCount()
+    public function testRemainingReturnsCorrectCount(): void
     {
         $rateLimiter = new RateLimiter('test_key', 5, 60, $this->testStoragePath);
 
@@ -73,7 +77,7 @@ class RateLimiterTest extends TestCase
         $this->assertEquals(3, $rateLimiter->remaining());
     }
 
-    public function testResetClearsAllData()
+    public function testResetClearsAllData(): void
     {
         $rateLimiter = new RateLimiter('test_key', 2, 60, $this->testStoragePath);
 
@@ -87,7 +91,7 @@ class RateLimiterTest extends TestCase
         $this->assertTrue($rateLimiter->allow()); // Should work again
     }
 
-    public function testResetTimeReturnsCorrectValue()
+    public function testResetTimeReturnsCorrectValue(): void
     {
         $rateLimiter = new RateLimiter('test_key', 1, 10, $this->testStoragePath);
 
@@ -100,7 +104,7 @@ class RateLimiterTest extends TestCase
         $this->assertLessThanOrEqual(10, $resetTime);
     }
 
-    public function testGetConfigReturnsCorrectData()
+    public function testGetConfigReturnsCorrectData(): void
     {
         $rateLimiter = new RateLimiter('test_key', 100, 3600, $this->testStoragePath);
 
@@ -114,7 +118,7 @@ class RateLimiterTest extends TestCase
         $this->assertEquals(rtrim($this->testStoragePath, '/'), $config['storage_path'] ?? '');
     }
 
-    public function testCleanupRemovesOldEntries()
+    public function testCleanupRemovesOldEntries(): void
     {
         $rateLimiter = new RateLimiter('test_key', 5, 1, $this->testStoragePath); // 1 second window
 
@@ -127,7 +131,7 @@ class RateLimiterTest extends TestCase
         $this->assertEquals(5, $rateLimiter->remaining());
     }
 
-    public function testCleanupAllProcessesMultipleFiles()
+    public function testCleanupAllProcessesMultipleFiles(): void
     {
         $rateLimiter1 = new RateLimiter('key1', 5, 1, $this->testStoragePath);
         $rateLimiter2 = new RateLimiter('key2', 5, 1, $this->testStoragePath);
@@ -139,14 +143,13 @@ class RateLimiterTest extends TestCase
 
         $results = RateLimiter::cleanupAll($this->testStoragePath);
 
-        $this->assertIsArray($results);
         $this->assertArrayHasKey('cleaned', $results);
         $this->assertArrayHasKey('deleted', $results);
         $this->assertArrayHasKey('errors', $results);
         $this->assertArrayHasKey('files_processed', $results);
     }
 
-    public function testGetStatsReturnsCorrectInformation()
+    public function testGetStatsReturnsCorrectInformation(): void
     {
         $rateLimiter = new RateLimiter('test_key', 10, 60, $this->testStoragePath);
 
@@ -155,7 +158,6 @@ class RateLimiterTest extends TestCase
 
         $stats = $rateLimiter->getStats();
 
-        $this->assertIsArray($stats);
         $this->assertEquals('test_key', $stats['key']);
         $this->assertEquals(10, $stats['limit']);
         $this->assertEquals(60, $stats['window_seconds']);
@@ -164,7 +166,7 @@ class RateLimiterTest extends TestCase
         $this->assertTrue($stats['file_exists']);
     }
 
-    public function testDifferentKeysHaveSeparateLimits()
+    public function testDifferentKeysHaveSeparateLimits(): void
     {
         $rateLimiter1 = new RateLimiter('key1', 2, 60, $this->testStoragePath);
         $rateLimiter2 = new RateLimiter('key2', 2, 60, $this->testStoragePath);
@@ -182,7 +184,7 @@ class RateLimiterTest extends TestCase
         $this->assertFalse($rateLimiter2->allow());
     }
 
-    public function testDirectoryCreation()
+    public function testDirectoryCreation(): void
     {
         $nonExistentPath = '/non_existent_' . uniqid();
 
@@ -197,8 +199,10 @@ class RateLimiterTest extends TestCase
 
         // Cleanup
         $files = glob(dirname($filePath) . '/ratelimit_*');
-        foreach ($files as $file) {
-            unlink($file);
+        if ($files !== false) {
+            foreach ($files as $file) {
+                unlink($file);
+            }
         }
         rmdir(dirname($filePath));
     }
