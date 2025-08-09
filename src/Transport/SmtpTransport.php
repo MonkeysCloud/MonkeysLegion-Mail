@@ -68,10 +68,10 @@ final class SmtpTransport implements TransportInterface
         try {
             $this->connect();
 
-            $this->sendCommand("MAIL FROM:<{" . ($this->fromAddress) . "}>");
+            $this->sendCommand("MAIL FROM:<{$this->fromAddress}>");
             $this->expectResponse(250);
 
-            $this->sendCommand("RCPT TO:<{" . ($m->getTo()) . "}>");
+            $this->sendCommand("RCPT TO:<{$m->getTo()}>");
             $this->expectResponse(250);
 
             $this->sendCommand("DATA");
@@ -694,7 +694,7 @@ final class SmtpTransport implements TransportInterface
         $encryption = strtolower($encryption);
         if (!Encryption::tryFrom($encryption)) {
             $validValues = array_map(fn($e) => $e->value, Encryption::cases());
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 "Invalid encryption value '{$encryption}'. Supported: " . implode(', ', $validValues)
             );
         }

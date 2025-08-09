@@ -488,25 +488,25 @@ class MailgunTransport implements TransportInterface
 
         switch ($httpCode) {
             case 400:
-                throw new \InvalidArgumentException("Bad Request: {" . $message . "}");
+                throw new \InvalidArgumentException("Bad Request: {$message}");
             case 401:
                 throw new \RuntimeException("Unauthorized: Invalid API key or domain");
             case 402:
-                throw new \RuntimeException("Payment Required: {" . $message . "}");
+                throw new \RuntimeException("Payment Required: {$message}");
             case 404:
                 throw new \RuntimeException("Not Found: Domain not found or not configured");
             case 413:
-                throw new \RuntimeException("Request Entity Too Large: {" . $message . "}");
+                throw new \RuntimeException("Request Entity Too Large: {$message}");
             case 429:
-                throw new \RuntimeException("Rate Limited: {" . $message . "}");
+                throw new \RuntimeException("Rate Limited: {$message}");
             case 500:
-                throw new \RuntimeException("Internal Server Error: {" . $message . "}");
+                throw new \RuntimeException("Internal Server Error: {$message}");
             case 502:
             case 503:
             case 504:
-                throw new \RuntimeException("Service Unavailable: {" . $message . "}");
+                throw new \RuntimeException("Service Unavailable: {$message}");
             default:
-                throw new \RuntimeException("Mailgun API Error (HTTP {" . $httpCode . "}): {" . $message . "}");
+                throw new \RuntimeException("Mailgun API Error (HTTP {$httpCode}): {$message}");
         }
     }
 

@@ -65,7 +65,7 @@ class MailerFactory
     {
         try {
             $config = $this->container->getConfig('mail');
-            $driver = $this->validateDriver($driver, $config);
+            $driver = $this->validateDriver($driver);
             $config = array_merge(['driver' => $driver], $config);
 
             $this->container->set(TransportInterface::class, function () use ($config) {
@@ -85,16 +85,15 @@ class MailerFactory
      * Validate the mail driver.
      *
      * @param string $driver
-     * @param array<string, mixed> $config
      * @return string
      * @throws \InvalidArgumentException
      */
-    private static function validateDriver(string $driver, array $config): string
+    private static function validateDriver(string $driver): string
     {
-        $driverString = strtolower(safeString($config['driver'], 'null'));
-        $driver = MailDriverName::tryFrom($driverString);
-        if (!$driver) throw new \InvalidArgumentException("Unknown driver: $driverString");
-        return $driver->value;
+        $driverString = strtolower(safeString($driver, 'null'));
+        $driverEnum = MailDriverName::tryFrom($driverString);
+        if (!$driverEnum) throw new \InvalidArgumentException("Unknown driver: $driverString");
+        return $driverEnum->value;
     }
 
     /**
@@ -134,7 +133,7 @@ class MailerFactory
      */
     private static function getTransport(string $driver, array $config, ?FrameworkLoggerInterface $logger): TransportInterface
     {
-        $driver = self::validateDriver($driver, $config);
+        $driver = self::validateDriver($driver);
         $config = self::getDriverConfig($driver, $config);
         return match ($driver) {
             MailDriverName::SMTP->value => new SmtpTransport($config, $logger),
