@@ -9,7 +9,7 @@ interface TransportInterface
     /**
      * Send an email.
      *
-     * @param Message $message.
+     * @param Message $m.
      * @return void
      */
     public function send(Message $m): void;

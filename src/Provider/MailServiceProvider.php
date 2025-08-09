@@ -8,7 +8,10 @@ namespace MonkeysLegion\Mail\Provider;
 // CONFIGURATION CONSTANTS
 // =================================================================
 define('MAIL_CONFIG_DEFAULT_PATH', __DIR__ . '/../../config/mail.php');
-define('MAIL_CONFIG_PATH', WORKING_DIRECTORY . '/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php');
+define(
+    'MAIL_CONFIG_PATH',
+    WORKING_DIRECTORY . '/config/mail.' . safeString($_ENV['APP_ENV'], 'dev') . '.php'
+);
 define('REDIS_CONFIG_PATH', __DIR__ . '/../../config/redis.php');
 define('RATELIMITER_CONFIG_PATH', __DIR__ . '/../../config/rate_limiter.php');
 
@@ -18,6 +21,11 @@ use MonkeysLegion\Core\Logger\MonkeyLogger;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Mail\Cli\Command\MailInstallCommand;
 use MonkeysLegion\Mail\Cli\Command\MailMakeCommand;
+use MonkeysLegion\Mail\Config\RedisConfig;
+use MonkeysLegion\Mail\Config\RedisConnectionConfig;
+use MonkeysLegion\Mail\Config\RedisQueueConfig;
+use MonkeysLegion\Mail\Config\RedisQueueWorkerConfig;
+use MonkeysLegion\Mail\Enums\MailDefaults;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\MailerFactory;
 use MonkeysLegion\Mail\Queue\QueueInterface;
@@ -46,8 +54,11 @@ class MailServiceProvider
 
         try {
             // Load configurations
-            $configs = self::loadConfigurations($logger);
+            $configs = self::loadConfigurations();
             self::storeConfigurations($in_container, $configs);
+
+            // Build Redis configuration objects
+            self::buildRedisConfiguration($in_container, $configs['redis']);
 
             // Register rate limiter
             self::registerRateLimiter($in_container);
@@ -70,9 +81,6 @@ class MailServiceProvider
             // Register main services
             self::registerMainServices($in_container);
 
-            // Register CLI commands
-            self::registerCommands($in_container);
-
             // Build to external container
             self::build($c, $in_container);
         } catch (\Exception $e) {
@@ -81,7 +89,7 @@ class MailServiceProvider
                 'error_message' => $e->getMessage(),
                 'trace' => $e->getTraceAsString()
             ]);
-            // Don't re-throw to prevent blocking the entire applicationn
+            // Don't re-throw to prevent blocking the entire application
         }
     }
 
@@ -89,24 +97,35 @@ class MailServiceProvider
     // INITIALIZATION
     // =================================================================
 
-    private static function loadConfigurations(FrameworkLoggerInterface $logger): array
+    /**
+     * Load mail, redis, and rate limiter configurations.
+     *
+     * @return array<string, array<string, mixed>>
+     */
+    private static function loadConfigurations(): array
     {
         $mailConfig = [];
 
         if (file_exists(MAIL_CONFIG_PATH)) {
+            /** @var array<string, mixed> $mailConfig */
             $mailConfig = require MAIL_CONFIG_PATH;
         } else {
-            $fallback = base_path('/config/mail.' . ($_ENV['APP_ENV'] ?? 'dev') . '.php');
+            $fallback = base_path('/config/mail.' . safeString($_ENV['APP_ENV'], 'dev') . '.php');
             if (file_exists($fallback)) {
+                /** @var array<string, mixed> $mailConfig */
                 $mailConfig = require $fallback;
             }
         }
 
+        /** @var array<string, mixed> $defaults */
         $defaults = file_exists(MAIL_CONFIG_DEFAULT_PATH) ? require MAIL_CONFIG_DEFAULT_PATH : [];
+        /** @var array<string, mixed> $mergedMailConfig */
         $mergedMailConfig = array_replace_recursive($defaults, $mailConfig);
 
+        /** @var array<string, mixed> $redisConfig */
         $redisConfig = file_exists(REDIS_CONFIG_PATH) ? require REDIS_CONFIG_PATH : [];
 
+        /** @var array<string, mixed> $rateLimiterConfig */
         $rateLimiterConfig = file_exists(RATELIMITER_CONFIG_PATH) ? require RATELIMITER_CONFIG_PATH : [];
 
         return [
@@ -116,6 +135,12 @@ class MailServiceProvider
         ];
     }
 
+    /**
+     * Store configurations in the service container.
+     *
+     * @param ServiceContainer $container
+     * @param array<string, array<string, mixed>> $configs
+     */
     private static function storeConfigurations(ServiceContainer $container, array $configs): void
     {
         $container->setConfig($configs['mail'], 'mail');
@@ -157,26 +182,29 @@ class MailServiceProvider
             $cachePath
         );
 
+        /** @var FrameworkLoggerInterface $logger */
+        $logger = $container->get(FrameworkLoggerInterface::class);
         // Register our Mail Renderer that uses the MonkeysLegion\Template\Renderer
-        $container->set(Renderer::class, function () use ($container, $mlView) {
+        $container->set(Renderer::class, function () use ($mlView, $logger) {
             return new Renderer(
                 $mlView,
-                $container->get(FrameworkLoggerInterface::class)
+                $logger
             );
         });
     }
 
+    /**
+     * Register Transport based on thee provided config
+     * 
+     * @param ServiceContainer $container
+     * @param array<string, mixed> $mailConfig
+     * @param FrameworkLoggerInterface $logger
+     */
     private static function registerTransport(ServiceContainer $container, array $mailConfig, FrameworkLoggerInterface $logger): void
     {
         $container->set(TransportInterface::class, function () use ($mailConfig, $logger) {
             try {
-                $driver = $mailConfig['driver'] ?? 'null';
-                $driverConfig = $mailConfig['drivers'][$driver] ?? [];
-
-                // Merge driver-specific config with global config
-                $fullConfig = array_merge($mailConfig, $driverConfig, ['driver' => $driver]);
-
-                return MailerFactory::make($fullConfig, $logger);
+                return MailerFactory::make($mailConfig, $logger);
             } catch (\Exception $e) {
                 $logger->error("Failed to create mail transport", [
                     'exception' => $e,
@@ -188,21 +216,120 @@ class MailServiceProvider
         });
     }
 
+    // =================================================================
+    // REDIS CONFIGURATION BUILDING
+    // =================================================================
+
+    /**
+     * Build Redis configuration
+     *
+     * @param ServiceContainer $container
+     * @param array<string, mixed> $redisConfig
+     * @return void
+     * @throws \RuntimeException
+     */
+    private static function buildRedisConfiguration(ServiceContainer $container, array $redisConfig): void
+    {
+        try {
+            if (
+                !isset($redisConfig['connections']) ||
+                !is_array($redisConfig['connections']) ||
+                empty($redisConfig['connections'])
+            ) {
+                throw new \RuntimeException('No Redis Connections are provided, provide at least one');
+            }
+
+            /** @var array<string, mixed> $configConnections */
+            $configConnections = $redisConfig['connections'];
+
+            // Validate each connection config
+            $connections = [];
+            foreach ($configConnections as $name => $connectionData) {
+                if (
+                    !is_array($connectionData) ||
+                    !isset($connectionData['host'], $connectionData['port'], $connectionData['password'], $connectionData['database'], $connectionData['timeout'])
+                ) {
+                    throw new \RuntimeException("Invalid Redis connection configuration for: {$name}");
+                }
+
+                $connections[$name] = new RedisConnectionConfig(
+                    safeString($connectionData['host'], MailDefaults::REDIS_HOST),
+                    (int)safeString($connectionData['port'], (string)MailDefaults::REDIS_PORT),
+                    safeString($connectionData['password'], MailDefaults::REDIS_PASSWORD),
+                    (int)safeString($connectionData['database'], (string)MailDefaults::REDIS_DB),
+                    (int)safeString($connectionData['timeout'], (string)MailDefaults::REDIS_TIMEOUT)
+                );
+            }
+
+            if (
+                !isset($redisConfig['queue']) ||
+                !is_array($redisConfig['queue']) ||
+                !isset($redisConfig['queue']['worker']) ||
+                !is_array($redisConfig['queue']['worker']) ||
+                !isset($redisConfig['queue']['connection'], $redisConfig['queue']['default_queue'], $redisConfig['queue']['key_prefix'], $redisConfig['queue']['failed_jobs_key'])
+            ) {
+                throw new \RuntimeException("Invalid or incomplete Redis queue configuration");
+            }
+
+            $worker = $redisConfig['queue']['worker'];
+
+            if (
+                !isset($worker['sleep'], $worker['max_tries'], $worker['memory'], $worker['timeout'])
+            ) {
+                throw new \RuntimeException("Incomplete Redis worker configuration");
+            }
+
+            $workerConfig = new RedisQueueWorkerConfig(
+                (int) safeString($worker['sleep'], (string)MailDefaults::QUEUE_WORKER_SLEEP),
+                (int) safeString($worker['max_tries'], (string)MailDefaults::QUEUE_WORKER_MAX_TRIES),
+                (int) safeString($worker['memory'], (string)MailDefaults::QUEUE_WORKER_MEMORY),
+                (int) safeString($worker['timeout'], (string)MailDefaults::QUEUE_WORKER_TIMEOUT)
+            );
+
+            $queueConfig = new RedisQueueConfig(
+                safeString($redisConfig['queue']['connection'], MailDefaults::QUEUE_CONNECTION),
+                safeString($redisConfig['queue']['default_queue'], MailDefaults::QUEUE_NAME),
+                safeString($redisConfig['queue']['key_prefix'], MailDefaults::QUEUE_PREFIX),
+                safeString($redisConfig['queue']['failed_jobs_key'], MailDefaults::QUEUE_FAILED_KEY),
+                $workerConfig
+            );
+
+            if (!isset($redisConfig['default']) || !is_string($redisConfig['default'])) {
+                throw new \RuntimeException("Missing or invalid Redis default connection key");
+            }
+
+            $redisConfigObject = new RedisConfig(
+                safeString($redisConfig['default'], MailDefaults::QUEUE_CONNECTION),
+                $connections,
+                $queueConfig
+            );
+
+            $container->set(RedisConfig::class, fn() => $redisConfigObject);
+        } catch (\Exception $e) {
+            /** @var FrameworkLoggerInterface $logger */
+            $logger = $container->get(FrameworkLoggerInterface::class);
+            $logger->error("Failed to build Redis configuration", [
+                'exception' => $e,
+                'error_message' => $e->getMessage(),
+                'config' => $redisConfig
+            ]);
+            throw $e;
+        }
+    }
+
     private static function registerQueueSystem(ServiceContainer $container): void
     {
         // Redis Queue Interface
         $container->set(QueueInterface::class, function () use ($container) {
-            $redisConfig = $container->getConfig('redis');
-            $queueConfig = $redisConfig['queue'] ?? [];
-            $connectionName = $queueConfig['connection'] ?? 'default';
-            $connectionConfig = $redisConfig['connections'][$connectionName] ??
-                $redisConfig['connections']['default'] ?? [];
+            /** @var RedisConfig $redisConfig */
+            $redisConfig = $container->get(RedisConfig::class);
+            $connectionConfig = $redisConfig->connections[$redisConfig->queue->connection];
 
             return new RedisQueue(
-                $connectionConfig['host'] ?? '127.0.0.1',
-                $connectionConfig['port'] ?? 6379,
-                $queueConfig['default_queue'] ?? 'emails',
-                $queueConfig['key_prefix'] ?? 'queue:'
+                $connectionConfig->host,
+                $connectionConfig->port,
+                $redisConfig->queue->defaultQueue,
+                $redisConfig->queue->keyPrefix
             );
         });
 
@@ -215,16 +342,20 @@ class MailServiceProvider
     private static function registerWorker(ServiceContainer $container): void
     {
         $container->set(Worker::class, function () use ($container) {
+            /** @var FrameworkLoggerInterface $logger */
+            $logger = $container->get(FrameworkLoggerInterface::class);
+            /** @var QueueInterface $queue */
             $queue = $container->get(QueueInterface::class);
-            $worker = new Worker($queue, $container->get(FrameworkLoggerInterface::class));
+            $worker = new Worker($queue, $logger);
 
-            $redisConfig = $container->getConfig('redis');
-            $workerConfig = $redisConfig['queue']['worker'] ?? [];
+            /** @var RedisConfig $redisConfig */
+            $redisConfig = $container->get(RedisConfig::class);
+            $workerConfig = $redisConfig->queue->worker;
 
-            $worker->setSleep($workerConfig['sleep'] ?? 3);
-            $worker->setMaxTries($workerConfig['max_tries'] ?? 3);
-            $worker->setMemory($workerConfig['memory'] ?? 128);
-            $worker->setJobTimeout($workerConfig['timeout'] ?? 60);
+            $worker->setSleep($workerConfig->sleep);
+            $worker->setMaxTries($workerConfig->maxTries);
+            $worker->setMemory($workerConfig->memory);
+            $worker->setJobTimeout($workerConfig->timeout);
 
             return $worker;
         });
@@ -238,21 +369,17 @@ class MailServiceProvider
     private static function registerMainServices(ServiceContainer $container): void
     {
         $container->set(Mailer::class, function () use ($container) {
+            /** @var TransportInterface $transport */
+            $transport = $container->get(TransportInterface::class);
+
+            /** @var RateLimiter $rateLimiter */
+            $rateLimiter = $container->get(RateLimiter::class);
+
             return new Mailer(
-                $container->get(TransportInterface::class),
-                $container->get(RateLimiter::class),
+                $transport,
+                $rateLimiter,
                 $container
             );
-        });
-    }
-
-    private static function registerCommands(ServiceContainer $container): void
-    {
-        $container->set(Command::class, function () {
-            return [
-                MailInstallCommand::class,
-                MailMakeCommand::class,
-            ];
         });
     }
 
@@ -275,7 +402,7 @@ class MailServiceProvider
     // EXTERNAL LOGGER SUPPORT
     // =================================================================
 
-    public static function setLogger(MonkeyLogger $logger): void
+    public static function setLogger(FrameworkLoggerInterface $logger): void
     {
         $container = ServiceContainer::getInstance();
         $container->set(FrameworkLoggerInterface::class, fn() => $logger);
@@ -287,14 +414,15 @@ class MailServiceProvider
 
     private static function registerRateLimiter(ServiceContainer $container): void
     {
+        /** @var array<string, string|int> $config */
         $config = $container->getConfig('rate_limiter');
 
         $container->set(RateLimiter::class, function () use ($config) {
             return new RateLimiter(
-                $config['key'],
-                $config['limit'],
-                $config['seconds'],
-                $config['storage_path']
+                safeString($config['key'], MailDefaults::RATE_LIMITER_KEY),
+                (int)safeString($config['limit'], (string)MailDefaults::RATE_LIMITER_LIMIT),
+                (int)safeString($config['seconds'], (string)MailDefaults::RATE_LIMITER_SECONDS),
+                safeString($config['storage_path'], MailDefaults::RATE_LIMITER_STORAGE_PATH)
             );
         });
     }

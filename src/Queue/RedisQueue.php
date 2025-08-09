@@ -18,14 +18,16 @@ class RedisQueue implements QueueInterface
     private ServiceContainer $container;
 
     public function __construct(
-        private string $host = '127.0.0.1',
-        private int $port = 6379,
+        string $host = '127.0.0.1',
+        int $port = 6379,
         private string $defaultQueue = 'default',
         private string $keyPrefix = 'queue:'
     ) {
         $this->redis = new Redis();
         $this->container = ServiceContainer::getInstance();
-        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
+        /** @var FrameworkLoggerInterface $logger */
+        $logger = $this->container->get(FrameworkLoggerInterface::class);
+        $this->logger = $logger;
         $this->connect($host, $port);
     }
 
@@ -138,6 +140,16 @@ class RedisQueue implements QueueInterface
                 return null;
             }
 
+            /**
+             * Decode the job JSON and validate its structure
+             * @var array{
+             *   id?: string,
+             *   job?: string,
+             *   message?: string,
+             *   attempts?: int,
+             *   created_at?: float
+             * } $jobData
+             */
             $jobData = json_decode($jobJson, true);
             if (!$jobData) {
                 $this->logger->error("Failed to decode job JSON", [
@@ -147,7 +159,16 @@ class RedisQueue implements QueueInterface
                 return null;
             }
 
-            $jobData['message'] = unserialize($jobData['message'] ?? '');
+            $unserializedMessage = unserialize($jobData['message']);
+            if (!($unserializedMessage instanceof Message)) {
+                $this->logger->error("Failed to unserialize message or invalid message type", [
+                    'job_id' => $jobData['id'] ?? 'unknown',
+                    'queue' => $queue
+                ]);
+                return null;
+            }
+
+            $jobData['message'] = $unserializedMessage;
 
             $this->logger->smartLog("Job popped successfully", [
                 'job_id' => $jobData['id'] ?? 'unknown',
@@ -204,7 +225,9 @@ class RedisQueue implements QueueInterface
         ]);
 
         try {
-            $result = $this->redis->del($queueKey) > 0;
+            $delResult = $this->redis->del($queueKey);
+            $result = is_int($delResult) ? $delResult > 0 : false;
+
 
             $this->logger->smartLog($result ? "Queue cleared successfully" : "Queue was already empty", [
                 'queue' => $queue,
@@ -261,7 +284,13 @@ class RedisQueue implements QueueInterface
     /**
      * Push a job to the failed queue
      * 
-     * @param array $jobData Original job data
+     * @param array{
+     *   id?: string|null,
+     *   job?: string|null,
+     *   message?: string|null,
+     *   attempts?: int|null,
+     *   created_at?: float|null
+     * } $jobData
      * @param \Exception $exception The exception that caused the failure
      * @return bool Success status
      */
@@ -289,7 +318,8 @@ class RedisQueue implements QueueInterface
         ]);
 
         try {
-            $result = $this->redis->rPush($failedKey, json_encode($failedJobData)) > 0;
+            $op = $this->redis->rPush($failedKey, json_encode($failedJobData));
+            $result = is_int($op) ? $op > 0 : false;
 
             if ($result) {
                 $this->logger->smartLog("Job pushed to failed queue successfully", [
@@ -314,12 +344,6 @@ class RedisQueue implements QueueInterface
         }
     }
 
-    /**
-     * Get failed jobs
-     * 
-     * @param int $limit Maximum number of jobs to retrieve
-     * @return array Array of failed jobs
-     */
     public function getFailedJobs(int $limit = 100): array
     {
         $failedKey = $this->keyPrefix . 'failed';
@@ -330,13 +354,30 @@ class RedisQueue implements QueueInterface
 
         try {
             $jobs = $this->redis->lRange($failedKey, 0, $limit - 1);
-            $decodedJobs = array_map(fn($job) => json_decode($job, true), $jobs);
+            if (!is_array($jobs)) $jobs = [];
+
+            $decodedJobs = array_map(
+                fn($job) => is_string($job) ? json_decode($job, true) : null,
+                $jobs
+            );
+            $decodedJobs = array_filter($decodedJobs, fn($job) => $job !== null);
 
             $this->logger->smartLog("Failed jobs retrieved", [
                 'count' => count($decodedJobs),
                 'limit' => $limit
             ]);
 
+            /** @var array<int, array{
+             * id: string|null,
+             * original_job: array<string, mixed>,
+             * exception?: array{
+             *     message: string,
+             *     file: string,
+             *     line: int,
+             *     trace: string
+             * },
+             * failed_at?: float
+             * }> $decodedJobs */
             return $decodedJobs;
         } catch (RedisException $e) {
             $this->logger->error("Redis exception while getting failed jobs", [
@@ -367,31 +408,80 @@ class RedisQueue implements QueueInterface
             $failedJobs = $this->redis->lRange($failedKey, 0, -1);
 
             foreach ($failedJobs as $index => $jobJson) {
+                if (!is_string($jobJson)) {
+                    $this->logger->warning("Invalid job JSON type", [
+                        'job_json_type' => gettype($jobJson),
+                        'index' => $index
+                    ]);
+                    continue;
+                }
+
                 $failedJobData = json_decode($jobJson, true);
+
+                // Validate decoded JSON data
+                if (!is_array($failedJobData) || !isset($failedJobData['id']) || !is_string($failedJobData['id'])) {
+                    $this->logger->warning("Invalid failed job data structure", [
+                        'job_json' => $jobJson
+                    ]);
+                    continue;
+                }
 
                 if ($failedJobData['id'] === $jobId) {
                     // Remove from failed queue
                     $this->redis->lRem($failedKey, $jobJson, 1);
 
-                    // Get the original job data
+                    // Validate original job data structure
+                    if (!isset($failedJobData['original_job']) || !is_array($failedJobData['original_job'])) {
+                        $this->logger->error("Missing or invalid original_job data in failed job", [
+                            'job_id' => $jobId
+                        ]);
+                        return false;
+                    }
+
                     $originalJob = $failedJobData['original_job'];
-                    
+
+                    // Validate required fields in original job
+                    if (
+                        !isset($originalJob['id']) || !is_string($originalJob['id']) ||
+                        !isset($originalJob['job']) || !is_string($originalJob['job']) ||
+                        !isset($originalJob['message'])
+                    ) {
+                        $this->logger->error("Missing required fields in original job data", [
+                            'job_id' => $jobId,
+                            'original_job_keys' => array_keys($originalJob)
+                        ]);
+                        return false;
+                    }
+
                     // Extract the Message object from the original job data
                     $message = $originalJob['message']; // This should be the serialized Message
+
+                    // Validate and normalize attempts field
+                    $attempts = 0;
+                    if (isset($originalJob['attempts']) && is_numeric($originalJob['attempts'])) {
+                        $attempts = (int)$originalJob['attempts'];
+                    }
+
+                    // Validate and normalize created_at field
+                    $createdAt = microtime(true);
+                    if (isset($originalJob['created_at']) && is_numeric($originalJob['created_at'])) {
+                        $createdAt = (float)$originalJob['created_at'];
+                    }
 
                     // Add back to main queue with incremented attempts using the same format as push()
                     $retryJobData = [
                         'id' => $originalJob['id'], // Keep original job ID
                         'job' => $originalJob['job'],
                         'message' => $message, // Keep the serialized Message object
-                        'attempts' => ($originalJob['attempts'] ?? 0) + 1,
-                        'created_at' => $originalJob['created_at'] ?? 0, // Keep original creation time
+                        'attempts' => $attempts + 1,
+                        'created_at' => $createdAt, // Keep original creation time
                         'retried_at' => microtime(true), // Add retry timestamp
                     ];
 
                     // Push directly to the main queue
                     $queueKey = $this->keyPrefix . $this->defaultQueue;
-                    $result = $this->redis->rPush($queueKey, json_encode($retryJobData)) > 0;
+                    $pushResult = $this->redis->rPush($queueKey, json_encode($retryJobData));
+                    $result = is_int($pushResult) && $pushResult > 0;
 
                     $this->logger->smartLog($result ? "Failed job retried successfully" : "Failed to retry job", [
                         'job_id' => $jobId,
@@ -432,7 +522,8 @@ class RedisQueue implements QueueInterface
         $this->logger->smartLog("Clearing failed jobs");
 
         try {
-            $result = $this->redis->del($failedKey) >= 0;
+            $delResult = $this->redis->del($failedKey);
+            $result = is_int($delResult) && $delResult >= 0;
 
             $this->logger->smartLog($result ? "Failed jobs cleared successfully" : "Failed jobs were already empty", [
                 'success' => $result
@@ -478,9 +569,9 @@ class RedisQueue implements QueueInterface
     /**
      * Get the default queue name
      *
-     * @return string
+     * @return string|null
      */
-    public function getDefaultQueue(): string
+    public function getDefaultQueue(): string|null
     {
         return $this->defaultQueue;
     }

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Queue;
 
+use MonkeysLegion\Mail\Message;
+
 interface JobInterface
 {
     /**
@@ -16,7 +18,7 @@ interface JobInterface
     /**
      * Get the job data.
      *
-     * @return array
+     * @return array{id: string, job: string|null, message: Message, attempts: int, created_at: float, retried_at?: float}
      */
     public function getData(): array;
 

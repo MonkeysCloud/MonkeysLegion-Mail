@@ -24,7 +24,7 @@ final class MailMakeCommand extends Command
 
     public function handle(): int
     {
-        $name = $this->argument('name');
+        $name = $this->argument(2);
 
         if (!$name) {
             return $this->showUsageAndExit();
@@ -82,9 +82,18 @@ final class MailMakeCommand extends Command
         return self::SUCCESS;
     }
 
+    /**
+     * @param string $stubPath Path to the mail stub file
+     * @param string $filePath Path where the new mail class will be created
+     * @param array<string, string> $replacements Associative array of placeholders to replace in the stub
+     */
     private function createMailClassFile(string $stubPath, string $filePath, array $replacements): void
     {
         $stubContent = file_get_contents($stubPath);
+        if ($stubContent === false) {
+            $this->error("Failed to read stub file at: $stubPath");
+            throw new \RuntimeException("Failed to read stub file at: $stubPath");
+        }
         $processedContent = $this->processStub($stubContent, $replacements);
 
         $this->ensureDirectoryExists(dirname($filePath));
@@ -98,7 +107,7 @@ final class MailMakeCommand extends Command
     private function parseClassName(string $name): string
     {
         // Remove .php extension if provided
-        $name = preg_replace('/\.php$/', '', $name);
+        $name = preg_replace('/\.php$/', '', $name) ?? '';
 
         // Convert to PascalCase
         $className = str_replace(['-', '_'], ' ', $name);
@@ -127,9 +136,24 @@ final class MailMakeCommand extends Command
         $composerPath = $projectRoot . '/composer.json';
 
         if (file_exists($composerPath)) {
-            $composer = json_decode(file_get_contents($composerPath), true);
-            $autoload = $composer['autoload']['psr-4'] ?? [];
+            $content = file_get_contents($composerPath);
+            if ($content === false) {
+                $this->error("Failed to read composer.json at: $composerPath");
+                throw new \RuntimeException("Failed to read composer.json at: $composerPath");
+            }
 
+            $composer = json_decode($content, true);
+            if (!is_array($composer)) {
+                $this->error("Invalid composer.json format at: $composerPath");
+                throw new \RuntimeException("Invalid composer.json format at: $composerPath");
+            }
+
+            $autoload = [];
+            if (isset($composer['autoload']) && is_array($composer['autoload'])) {
+                $autoload = $composer['autoload']['psr-4'] ?? [];
+            }
+
+            /** @var array<string, string> $autoload */
             foreach ($autoload as $namespace => $path) {
                 if ($path === 'app/' || $path === 'src/') {
                     return rtrim($namespace, '\\') . '\\Mail';
@@ -144,10 +168,10 @@ final class MailMakeCommand extends Command
     private function generateViewName(string $className): string
     {
         // Remove 'Mail' suffix
-        $name = preg_replace('/Mail$/', '', $className);
+        $name = preg_replace('/Mail$/', '', $className) ?? '';
 
         // Convert PascalCase to kebab-case
-        $viewName = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $name));
+        $viewName = strtolower(preg_replace('/(?<!^)[A-Z]/', '-$0', $name) ?? '');
 
         return $viewName;
     }
@@ -155,10 +179,10 @@ final class MailMakeCommand extends Command
     private function generateSubject(string $className): string
     {
         // Remove 'Mail' suffix
-        $name = preg_replace('/Mail$/', '', $className);
+        $name = preg_replace('/Mail$/', '', $className) ?? '';
 
         // Convert PascalCase to words
-        $subject = ucfirst(strtolower(preg_replace('/(?<!^)[A-Z]/', ' $0', $name)));
+        $subject = ucfirst(strtolower(preg_replace('/(?<!^)[A-Z]/', ' $0', $name) ?? ''));
 
         return $subject;
     }
@@ -173,23 +197,18 @@ final class MailMakeCommand extends Command
     // UTILITY METHODS
     // =================================================================
 
-    private function argument(string $name, int $position = 1): ?string
+    private function argument(int $position): ?string
     {
+        /** @var array<int, string> */
         global $argv;
-
-        // For 'name' argument, it's typically the first argument after the command
-        // Command structure: php artisan make:mail <name>
-        // $argv[0] = script name
-        // $argv[1] = command (make:mail)  
-        // $argv[2] = name argument
-
-        if (isset($argv[$position + 1])) {
-            return $argv[$position + 1];
-        }
-
-        return null;
+        return $argv[$position] ?? null;
     }
 
+    /**
+     * @param string $content The content of the stub file
+     * @param array<string, string> $replacements Associative array of placeholders to replace in the content
+     * @return string The processed content with placeholders replaced
+     */
     private function processStub(string $content, array $replacements): string
     {
         foreach ($replacements as $key => $value) {

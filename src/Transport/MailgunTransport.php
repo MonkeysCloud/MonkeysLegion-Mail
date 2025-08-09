@@ -4,22 +4,146 @@ namespace MonkeysLegion\Mail\Transport;
 
 use CURLFile;
 use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Mail\Enums\MailDefaults;
+use MonkeysLegion\Mail\Enums\MailDriverName;
+use MonkeysLegion\Mail\Enums\MailgunRegion;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
 
 class MailgunTransport implements TransportInterface
 {
     private string $endpoint;
-    private array $supportedRegions = ['us', 'eu'];
-    private int $timeout = 30;
-    private int $connectTimeout = 10;
+    private string $apiKey;
+    private string $domain;
+    /** @var array<string, string> */
+    private array $from;
+    private string $region;
+    private int $timeout;
+    private int $connectTimeout;
+    /** @var array<string, bool> */
+    private array $tracking;
+    private ?string $deliveryTime = null;
+    /** @var array<int, string> */
+    private array $tags = [];
+    /** @var array<string, mixed> */
+    private array $variables = [];
 
+    /**
+     * @param array<string, mixed> $config
+     * @param FrameworkLoggerInterface|null $logger
+     */
     public function __construct(
-        private array $config,
-        private FrameworkLoggerInterface $logger
+        array $config,
+        private ?FrameworkLoggerInterface $logger = null
     ) {
-        $this->validateConfig();
+        $this->validateAndSetConfig($config);
         $this->setupEndpoint();
+
+        $this->logger?->debug('Mailgun transport initialized', [
+            'domain' => $this->domain,
+            'region' => $this->region,
+            'from' => $this->from,
+            'endpoint' => $this->endpoint
+        ]);
+    }
+
+    /**
+     * Validate and set configuration values
+     *
+     * @param array<string, mixed> $config
+     * @throws \InvalidArgumentException
+     * @return void
+     */
+    private function validateAndSetConfig(array $config): void
+    {
+        // Validate required fields
+        $required = ['api_key', 'domain'];
+        $missing = array_filter($required, function ($key) use ($config) {
+            return !isset($config[$key]) || !is_string($config[$key]) || trim($config[$key]) === '';
+        });
+
+        if (!empty($missing)) {
+            throw new \InvalidArgumentException(
+                'Mailgun configuration is incomplete. Missing or Not Valid: ' . implode(', ', $missing)
+            );
+        }
+
+        // Set validated required values
+        $this->apiKey = safeString($config['api_key']);
+        $this->domain = safeString($config['domain']);
+
+        // Validate and assign 'from'
+        if (isset($config['from']) && is_array($config['from'])) {
+            $fromAddress = safeString($config['from']['address']);
+            $fromName = safeString($config['from']['name']);
+
+            if (!filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
+                $warning = "Invalid 'from' email address format: {$fromAddress}";
+                $this->logger?->warning($warning);
+                throw new \InvalidArgumentException($warning);
+            }
+
+            $this->from = [
+                'address' => $fromAddress,
+                'name' => $fromName,
+            ];
+        } else {
+            throw new \InvalidArgumentException("Mailgun configuration must include 'from' address");
+        }
+
+        // Validate and assign region if provided
+        $regionString = safeString($config['region'] ?? MailgunRegion::US->value);
+        try {
+            $region = MailgunRegion::from($regionString);
+            $this->region = $region->value;
+        } catch (\ValueError $e) {
+            $warning = "Invalid Mailgun region '{$regionString}'. Supported regions: " .
+                implode(', ', array_map(fn($r) => $r->value, MailgunRegion::cases()));
+            $this->logger?->warning($warning);
+            throw new \InvalidArgumentException($warning);
+        }
+
+        // Timeout settings
+        if (!isset($config['timeout']) || !is_int($config['timeout']) || $config['timeout'] <= 0) {
+            throw new \InvalidArgumentException("Invalid timeout value. Must be a positive integer.");
+        }
+        $this->timeout = $config['timeout'];
+
+        if (!isset($config['connect_timeout']) || !is_int($config['connect_timeout']) || $config['connect_timeout'] <= 0) {
+            throw new \InvalidArgumentException("Invalid connect_timeout value. Must be a positive integer.");
+        }
+        $this->connectTimeout = $config['connect_timeout'];
+
+        // Tracking options
+        $this->tracking = [];
+        if (isset($config['tracking']) && is_array($config['tracking'])) {
+            $this->tracking = [
+                'clicks' => isset($config['tracking']['clicks']) ? (bool)$config['tracking']['clicks'] : true,
+                'opens' => isset($config['tracking']['opens']) ? (bool)$config['tracking']['opens'] : true
+            ];
+        }
+
+        // Delivery time
+        if (isset($config['delivery_time']) && !empty($config['delivery_time'])) {
+            $this->deliveryTime = safeString($config['delivery_time']);
+        }
+
+        // Tags
+        if (isset($config['tags']) && is_array($config['tags']) && !empty($config['tags'])) {
+            $tags = array_values(array_filter($config['tags'], fn($tag) => is_string($tag)));
+            $this->tags = array_slice($tags, 0, 3); // keep only first 3
+        }
+
+        // Variables
+        if (isset($config['variables']) && is_array($config['variables'])) {
+            $validVars = [];
+            foreach ($config['variables'] as $key => $value) {
+                if (is_string($key)) {
+                    $validVars[$key] = $value;
+                }
+            }
+            $this->variables = $validVars;
+        }
     }
 
     public function send(Message $message): void
@@ -27,7 +151,7 @@ class MailgunTransport implements TransportInterface
         $startTime = microtime(true);
 
         try {
-            $this->logger->smartLog("Preparing Mailgun API request", [
+            $this->logger?->smartLog("Preparing Mailgun API request", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
                 'endpoint' => $this->endpoint
@@ -38,7 +162,7 @@ class MailgunTransport implements TransportInterface
 
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
-            $this->logger->smartLog("Mailgun API request successful", [
+            $this->logger?->smartLog("Mailgun API request successful", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
                 'duration_ms' => $duration,
@@ -48,7 +172,7 @@ class MailgunTransport implements TransportInterface
         } catch (\Exception $e) {
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
-            $this->logger->error("Mailgun API request failed", [
+            $this->logger?->error("Mailgun API request failed", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
                 'duration_ms' => $duration,
@@ -60,60 +184,26 @@ class MailgunTransport implements TransportInterface
         }
     }
 
-    private function validateConfig(): void
-    {
-        $required = ['api_key', 'domain'];
-        $missing = array_filter($required, fn($key) => empty($this->config[$key]));
-
-        if (!empty($missing)) {
-            throw new \InvalidArgumentException(
-                'Mailgun configuration is incomplete. Missing: ' . implode(', ', $missing)
-            );
-        }
-
-        // Validate from configuration
-        if (isset($this->config['from']) && is_array($this->config['from'])) {
-            if (empty($this->config['from']['address'])) {
-                throw new \InvalidArgumentException('From address is required in Mailgun configuration');
-            }
-
-            if (!filter_var($this->config['from']['address'], FILTER_VALIDATE_EMAIL)) {
-                throw new \InvalidArgumentException('Invalid from email address in Mailgun configuration');
-            }
-        }
-
-        // Validate region if provided
-        if (isset($this->config['region']) && !in_array($this->config['region'], $this->supportedRegions)) {
-            throw new \InvalidArgumentException(
-                'Invalid Mailgun region. Supported regions: ' . implode(', ', $this->supportedRegions)
-            );
-        }
-
-        // Validate timeout settings
-        if (isset($this->config['timeout']) && (!is_int($this->config['timeout']) || $this->config['timeout'] < 1)) {
-            throw new \InvalidArgumentException('Timeout must be a positive integer');
-        }
-
-        if (isset($this->config['connect_timeout']) && (!is_int($this->config['connect_timeout']) || $this->config['connect_timeout'] < 1)) {
-            throw new \InvalidArgumentException('Connect timeout must be a positive integer');
-        }
-    }
-
     private function setupEndpoint(): void
     {
-        $region = $this->config['region'] ?? 'us';
-        $baseUrl = $region === 'eu' ? 'https://api.eu.mailgun.net' : 'https://api.mailgun.net';
-        $this->endpoint = "{$baseUrl}/v3/{$this->config['domain']}/messages";
-
-        // Set timeouts from config
-        $this->timeout = $this->config['timeout'] ?? 30;
-        $this->connectTimeout = $this->config['connect_timeout'] ?? 10;
+        $baseUrl = $this->region === MailgunRegion::EU->value ? 'https://api.eu.mailgun.net' : 'https://api.mailgun.net';
+        $this->endpoint = "{$baseUrl}/v3/{$this->domain}/messages";
     }
 
+    /**
+     * @param Message $message
+     * @return array<string, mixed>  // Associative array of post data with mixed values (strings, CURLFile objects, arrays)
+     */
     private function preparePayload(Message $message): array
     {
+        // If from is not set in the message, use our configured from
+        $from = $message->getFrom();
+        if (empty($from)) {
+            $from = "{$this->from['name']} <{$this->from['address']}>";
+        }
+
         $postData = [
-            'from' => $message->getFrom(),
+            'from' => $from,
             'to' => $message->getTo(),
             'subject' => $message->getSubject(),
         ];
@@ -133,6 +223,11 @@ class MailgunTransport implements TransportInterface
         return $postData;
     }
 
+    /**
+     * @param array<string, mixed> $postData Passed by reference
+     * @param Message $message
+     * @return void
+     */
     private function addContentToPayload(array &$postData, Message $message): void
     {
         switch ($message->getContentType()) {
@@ -145,9 +240,8 @@ class MailgunTransport implements TransportInterface
                 break;
 
             case Message::CONTENT_TYPE_ALTERNATIVE:
-                // For alternative content, assume HTML is primary
                 $postData['html'] = $message->getContent();
-                // You might want to add a method to get plain text version
+                // You might want to add a method to get plain text version (TODO)
                 // $postData['text'] = $message->getPlainTextContent();
                 break;
 
@@ -162,6 +256,11 @@ class MailgunTransport implements TransportInterface
         }
     }
 
+    /**
+     * @param array<string, mixed> $postData Passed by reference
+     * @param Message $message
+     * @return void
+     */
     private function addCustomHeaders(array &$postData, Message $message): void
     {
         $headers = $message->getHeaders();
@@ -178,7 +277,7 @@ class MailgunTransport implements TransportInterface
 
             $customHeaders['DKIM-Signature'] = $dkimSignature;
 
-            $this->logger->smartLog("Adding DKIM signature to Mailgun headers", [
+            $this->logger?->smartLog("Adding DKIM signature to Mailgun headers", [
                 'signature_length' => strlen($dkimSignature),
                 'to' => $message->getTo()
             ]);
@@ -201,78 +300,74 @@ class MailgunTransport implements TransportInterface
         }
     }
 
+    /**
+     * @param array<string, mixed> $postData Passed by reference
+     * @param Message $message
+     * @return void
+     */
     private function addAttachments(array &$postData, Message $message): void
     {
         $attachmentIndex = 0;
 
         foreach ($message->getAttachments() as $attachment) {
-            $path = is_array($attachment) ? ($attachment['path'] ?? null) : $attachment;
-
-            if (!is_string($path) || !file_exists($path)) {
-                $this->logger->warning("Attachment file not found", [
+            try {
+                $normalized = normalizeAttachment($attachment, base_path('/public'), true);
+            } catch (\RuntimeException $e) {
+                $this->logger?->warning("Attachment error: " . $e->getMessage(), [
                     'file' => $attachment,
                     'to' => $message->getTo()
                 ]);
                 continue;
             }
 
-            if (!is_readable($path)) {
-                $this->logger->warning("Attachment file not readable", [
-                    'file' => $attachment,
-                    'to' => $message->getTo()
-                ]);
-                continue;
-            }
+            $postData["attachment[{$attachmentIndex}]"] = new CURLFile(
+                $normalized['full_path'] ?? $normalized['path'],
+                $normalized['mime_type'],
+                $normalized['filename']
+            );
 
-            // Get MIME type with fallback
-            $mimeType = is_array($attachment) ? ($attachment['mime_type'] ?? null) : null;
-            if (!$mimeType) {
-                $mimeType = mime_content_type($path) ?: 'application/octet-stream';
-            }
-
-            // Get filename with fallback
-            $filename = is_array($attachment) ? ($attachment['name'] ?? null) : null;
-            if (!$filename) {
-                $filename = basename($path);
-            }
-
-            // Use indexed keys for multiple attachments to avoid array conversion issues
-            $postData["attachment[{$attachmentIndex}]"] = new CURLFile($path, $mimeType, $filename);
             $attachmentIndex++;
         }
     }
 
+
+    /**
+     * @param array<string, mixed> $postData Passed by reference
+     * @return void
+     */
     private function addOptionalParameters(array &$postData): void
     {
-        // Add tracking options if configured
-        if (isset($this->config['tracking']['clicks'])) {
-            $postData['o:tracking-clicks'] = $this->config['tracking']['clicks'] ? 'yes' : 'no';
+        // Add tracking options
+        if (isset($this->tracking['clicks'])) {
+            $postData['o:tracking-clicks'] = $this->tracking['clicks'] ? 'yes' : 'no';
         }
 
-        if (isset($this->config['tracking']['opens'])) {
-            $postData['o:tracking-opens'] = $this->config['tracking']['opens'] ? 'yes' : 'no';
+        if (isset($this->tracking['opens'])) {
+            $postData['o:tracking-opens'] = $this->tracking['opens'] ? 'yes' : 'no';
         }
 
         // Add delivery time if configured
-        if (isset($this->config['delivery_time'])) {
-            $postData['o:deliverytime'] = $this->config['delivery_time'];
+        if ($this->deliveryTime) {
+            $postData['o:deliverytime'] = $this->deliveryTime;
         }
 
         // Add tags if configured
-        if (isset($this->config['tags']) && is_array($this->config['tags'])) {
-            foreach ($this->config['tags'] as $tag) {
-                $postData['o:tag'][] = $tag;
-            }
+        if (!empty($this->tags)) {
+            $postData['o:tag'] = $this->tags;
         }
 
         // Add custom variables if configured
-        if (isset($this->config['variables']) && is_array($this->config['variables'])) {
-            foreach ($this->config['variables'] as $key => $value) {
-                $postData["v:{$key}"] = $value;
-            }
+        foreach ($this->variables as $key => $value) {
+            $postData["v:{$key}"] = $value;
         }
     }
 
+    /**
+     * Make the actual API request to Mailgun
+     * @param array<string, mixed> $postData Data to send in the POST request
+     * @return array<string, mixed> Decoded JSON response from Mailgun API
+     * @throws \RuntimeException If the request fails or response is invalid
+     */
     protected function makeRequest(array $postData): array
     {
         $ch = curl_init();
@@ -283,7 +378,7 @@ class MailgunTransport implements TransportInterface
         $curlOptions = [
             CURLOPT_URL => $this->endpoint,
             CURLOPT_HTTPAUTH => CURLAUTH_BASIC,
-            CURLOPT_USERPWD => 'api:' . $this->config['api_key'],
+            CURLOPT_USERPWD => 'api:' . $this->apiKey,
             CURLOPT_RETURNTRANSFER => true,
             CURLOPT_POST => true,
             CURLOPT_POSTFIELDS => $postData,
@@ -297,15 +392,14 @@ class MailgunTransport implements TransportInterface
             ],
         ];
 
-        // If we don't have files, we can send as form data
         if (!$hasFiles) {
             $curlOptions[CURLOPT_POSTFIELDS] = http_build_query($postData);
             $curlOptions[CURLOPT_HTTPHEADER][] = 'Content-Type: application/x-www-form-urlencoded';
         }
-        // If we have files, cURL will automatically set Content-Type to multipart/form-data
 
         curl_setopt_array($ch, $curlOptions);
 
+        /** @var string|false $response */
         $response = curl_exec($ch);
         $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
         $curlError = curl_error($ch);
@@ -313,17 +407,40 @@ class MailgunTransport implements TransportInterface
 
         curl_close($ch);
 
+        if ($response === false) {
+            $this->logger?->error("cURL request failed", [
+                'errno' => $curlErrno,
+                'error' => $curlError,
+            ]);
+            throw new \RuntimeException("cURL request failed: {$curlError}");
+        }
+
         if ($curlErrno !== 0) {
+            $this->logger?->error("cURL error", [
+                'errno' => $curlErrno,
+                'error' => $curlError,
+                'endpoint' => $this->endpoint,
+            ]);
             throw new \RuntimeException("cURL error ({$curlErrno}): {$curlError}");
         }
 
         if ($httpCode < 200 || $httpCode >= 300) {
+            $this->logger?->error("Mailgun API returned HTTP {$httpCode}", [
+                'response' => $response,
+                'endpoint' => $this->endpoint,
+            ]);
             $this->handleApiError($httpCode, $response);
         }
 
+        /** @var array<string, mixed> $decodedResponse */
         $decodedResponse = json_decode($response, true);
 
         if (json_last_error() !== JSON_ERROR_NONE) {
+            $this->logger?->error("Invalid JSON from Mailgun API", [
+                'error' => json_last_error_msg(),
+                'response' => $response,
+                'endpoint' => $this->endpoint,
+            ]);
             throw new \RuntimeException("Invalid JSON response from Mailgun API: " . json_last_error_msg());
         }
 
@@ -332,6 +449,7 @@ class MailgunTransport implements TransportInterface
 
     /**
      * Check if the post data contains file uploads (CURLFile objects)
+     * @param array<string, mixed> $data The post data to check
      */
     private function hasFileUploads(array $data): bool
     {
@@ -353,29 +471,42 @@ class MailgunTransport implements TransportInterface
     private function handleApiError(int $httpCode, string $response): void
     {
         $decodedResponse = json_decode($response, true);
-        $message = $decodedResponse['message'] ?? 'Unknown error';
+        if (!is_array($decodedResponse)) {
+            throw new \RuntimeException("Invalid API response format");
+        }
+        $message = 'Unknown error';
+
+        if (isset($decodedResponse['message'])) {
+            if (is_string($decodedResponse['message'])) {
+                $message = $decodedResponse['message'];
+            } elseif (is_scalar($decodedResponse['message'])) {
+                $message = (string)$decodedResponse['message'];
+            } else {
+                $message = json_encode($decodedResponse['message'], JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES) ?: 'Unknown error';
+            }
+        }
 
         switch ($httpCode) {
             case 400:
-                throw new \InvalidArgumentException("Bad Request: {$message}");
+                throw new \InvalidArgumentException("Bad Request: {" . $message . "}");
             case 401:
                 throw new \RuntimeException("Unauthorized: Invalid API key or domain");
             case 402:
-                throw new \RuntimeException("Payment Required: {$message}");
+                throw new \RuntimeException("Payment Required: {" . $message . "}");
             case 404:
                 throw new \RuntimeException("Not Found: Domain not found or not configured");
             case 413:
-                throw new \RuntimeException("Request Entity Too Large: {$message}");
+                throw new \RuntimeException("Request Entity Too Large: {" . $message . "}");
             case 429:
-                throw new \RuntimeException("Rate Limited: {$message}");
+                throw new \RuntimeException("Rate Limited: {" . $message . "}");
             case 500:
-                throw new \RuntimeException("Internal Server Error: {$message}");
+                throw new \RuntimeException("Internal Server Error: {" . $message . "}");
             case 502:
             case 503:
             case 504:
-                throw new \RuntimeException("Service Unavailable: {$message}");
+                throw new \RuntimeException("Service Unavailable: {" . $message . "}");
             default:
-                throw new \RuntimeException("Mailgun API Error (HTTP {$httpCode}): {$message}");
+                throw new \RuntimeException("Mailgun API Error (HTTP {" . $httpCode . "}): {" . $message . "}");
         }
     }
 
@@ -392,7 +523,7 @@ class MailgunTransport implements TransportInterface
      */
     public function getDomain(): string
     {
-        return $this->config['domain'];
+        return $this->domain;
     }
 
     /**
@@ -400,6 +531,11 @@ class MailgunTransport implements TransportInterface
      */
     public function getRegion(): string
     {
-        return $this->config['region'] ?? 'us';
+        return $this->region;
+    }
+
+    public function getName(): string
+    {
+        return MailDriverName::MAILGUN->value;
     }
 }

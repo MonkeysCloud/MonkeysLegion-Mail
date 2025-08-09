@@ -10,6 +10,16 @@ class MessageFailed
 {
     private int $failedAt;
 
+    /**
+     * MessageFailed constructor.
+     *
+     * @param string $jobId Unique identifier for the job
+     * @param array<string, mixed> $jobData Data associated with the job
+     * @param \Exception $exception Exception that caused the job to fail
+     * @param int $attempts Number of attempts made to process the job
+     * @param bool $willRetry Whether the job will be retried
+     * @param FrameworkLoggerInterface $logger Logger instance for logging the event
+     */
     public function __construct(
         private string $jobId,
         private array $jobData,
@@ -23,7 +33,7 @@ class MessageFailed
         $this->log();
     }
 
-    private function log()
+    private function log(): void
     {
         $this->logger->error("MessageFailed event created", [
             'job_id' => $this->jobId,
@@ -40,6 +50,11 @@ class MessageFailed
         return $this->jobId;
     }
 
+    /**
+     * Get the job data associated with the failed message.
+     *
+     * @return array<string, mixed> The job data
+     */
     public function getJobData(): array
     {
         return $this->jobData;

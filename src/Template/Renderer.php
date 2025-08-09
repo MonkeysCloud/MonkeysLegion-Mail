@@ -18,7 +18,7 @@ class Renderer
      * Render a template with the given data
      *
      * @param string $template Template name (e.g., 'emails.welcome')
-     * @param array $data Variables to pass to the template
+     * @param array<string, mixed> $data Variables to pass to the template
      * @return string Rendered HTML content
      */
     public function render(string $template, array $data = []): string

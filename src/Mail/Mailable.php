@@ -30,7 +30,7 @@ abstract class Mailable
     /** Content type for the email */
     protected string $contentType = 'text/html';
 
-    /** File attachments */
+    /** @var array<string|array{path: string, name?: string|null, mime_type?: string|null}> */
     protected array $attachments = [];
 
     /** Queue name for background processing */
@@ -42,7 +42,7 @@ abstract class Mailable
     /** Max retry attempts override (can be set as property in child classes) */
     protected ?int $maxTries = null;
 
-    /** Data to pass to the view */
+    /** @var array<string, mixed> */
     protected array $viewData = [];
 
     /** Service container instance */
@@ -58,7 +58,9 @@ abstract class Mailable
     public function __construct()
     {
         $this->container = ServiceContainer::getInstance();
-        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
+        /** @var FrameworkLoggerInterface $logger */
+        $logger = $this->container->get(FrameworkLoggerInterface::class);
+        $this->logger = $logger;
     }
 
     /**
@@ -83,13 +85,17 @@ abstract class Mailable
         $this->validate();
 
         try {
+            $this->validateBeforeSend();
+
+            /** @var Mailer $mailer */
             $mailer = $this->container->get(Mailer::class);
+
             // Render content if view is specified
             $content = $this->renderContent();
 
             $mailer->send(
-                $this->to,
-                $this->subject,
+                $this->to ?? '',
+                $this->subject ?? '',
                 $content,
                 $this->contentType,
                 $this->attachments
@@ -118,14 +124,17 @@ abstract class Mailable
         $this->validate();
 
         try {
+            $this->validateBeforeSend();
+
+            /** @var Mailer $mailer */
             $mailer = $this->container->get(Mailer::class);
 
             // Render content if view is specified
             $content = $this->renderContent();
 
             $jobId = $mailer->queue(
-                $this->to,
-                $this->subject,
+                $this->to ?? '',
+                $this->subject ?? '',
                 $content,
                 $this->contentType,
                 $this->attachments,
@@ -156,6 +165,9 @@ abstract class Mailable
 
     /**
      * Set the view template for this mail
+     * @param string $view The view template name
+     * @param array<string, mixed> $data The data to pass to the view
+     * @return $this
      */
     protected function view(string $view, array $data = []): self
     {
@@ -233,6 +245,7 @@ abstract class Mailable
 
     /**
      * Add multiple data items to pass to the view
+     * @param array<string, mixed> $data
      */
     protected function withData(array $data): self
     {
@@ -282,6 +295,8 @@ abstract class Mailable
 
     /**
      * Add view data dynamically at runtime
+     * @param array<string, mixed> $data
+     * @return $this
      */
     public function setViewData(array $data): self
     {
@@ -291,6 +306,8 @@ abstract class Mailable
 
     /**
      * Merge view data dynamically at runtime
+     * @param array<string, mixed> $data
+     * @return $this
      */
     public function mergeViewData(array $data): self
     {
@@ -304,6 +321,16 @@ abstract class Mailable
 
     /**
      * Configure the mail with an array of properties at runtime
+     * 
+     * @param array{
+     *     to?: string,
+     *     subject?: string,
+     *     view?: string,
+     *     queue?: string,
+     *     viewData?: array<string, mixed>,
+     *     timeout?: int,
+     *     maxTries?: int
+     * } $config
      */
     public function configure(array $config): self
     {
@@ -316,7 +343,6 @@ abstract class Mailable
                 'viewData' => $this->mergeViewData($value),
                 'timeout' => $this->setTimeout($value),
                 'maxTries' => $this->setMaxTries($value),
-                default => $this->with($key, $value) // Treat unknown keys as view data
             };
         }
         return $this;
@@ -383,6 +409,7 @@ abstract class Mailable
 
     /**
      * Get the view data
+     * @return array<string, mixed>
      */
     public function getViewData(): array
     {
@@ -415,6 +442,7 @@ abstract class Mailable
 
     /**
      * Get all attachments
+     * @return array<string|array{path: string, name?: string|null, mime_type?: string|null}>
      */
     public function getAttachments(): array
     {
@@ -435,6 +463,7 @@ abstract class Mailable
         }
 
         try {
+            /** @var Renderer $renderer */
             $renderer = $this->container->get(Renderer::class);
 
             $content = $renderer->render($this->view, $this->viewData);
@@ -480,6 +509,10 @@ abstract class Mailable
 
     /**
      * Set the mail driver dynamically at runtime
+     * @param string $driver The driver name (e.g., 'smtp', 'sendmail')
+     * @param array<string, mixed> $config Optional configuration for the driver
+     * @return $this
+     * @throws \Exception If the driver cannot be set
      */
     public function setDriver(string $driver, array $config = []): self
     {
@@ -490,6 +523,7 @@ abstract class Mailable
         ]);
 
         try {
+            /** @var Mailer $mailer */
             $mailer = $this->container->get(Mailer::class);
             $mailer->setDriver($driver, $config);
 
@@ -557,10 +591,23 @@ abstract class Mailable
 
     /**
      * Set all attachments
+     * @param array<string|array{path: string, name?: string|null, mime_type?: string|null}> $attachments
+     * @return $this
      */
     public function setAttachments(array $attachments): self
     {
         $this->attachments = $attachments;
         return $this;
+    }
+
+    private function validateBeforeSend(): void
+    {
+        if (!is_string($this->to) || empty($this->to) || !filter_var($this->to, FILTER_VALIDATE_EMAIL)) {
+            throw new \InvalidArgumentException("Valid recipient email address is required");
+        }
+
+        if (!is_string($this->subject)) {
+            throw new \InvalidArgumentException("Subject must be a valid string");
+        }
     }
 }
