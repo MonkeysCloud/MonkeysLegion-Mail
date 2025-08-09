@@ -169,10 +169,13 @@ final class SmtpTransport implements TransportInterface
         }
 
         // Add headers like From, To, Subject
-        /** @var array<string, string> $headers */
-        $headers = $message->getHeaders();
-        foreach ($headers as $key => $value) {
-            $headers[] = "$key: $value";
+        /** @var array<string, string> $hds */
+        $hds = $message->getHeaders();
+        $existingKeys = array_map(fn($h) => strtolower(explode(':', $h)[0]), $headers);
+        foreach ($hds as $key => $value) {
+            if (!in_array(strtolower($key), $existingKeys, true)) {
+                $headers[] = "$key: $value";
+            }
         }
 
         return implode("\r\n", $headers) . "\r\n\r\n" . implode("\r\n", $bodyParts);
