@@ -106,6 +106,7 @@ php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:test your-email@
 use MonkeysLegion\Mail\Mailer;
 
 // Get mailer instance
+/** @var Mailer */
 $mailer = ML_CONTAINER->get(Mailer::class);
 
 // Send immediately
@@ -270,8 +271,11 @@ public function build(): self
     return $this->view('emails.newsletter')
                 ->addAttachment('/path/to/file.pdf', 'Newsletter.pdf')
                 ->setAttachments([
+                    '/path/to/direct-file.pdf',                // simple string path or URL
+                    'https://example.com/file.pdf',            // URL as string
                     ['path' => '/path/file1.pdf', 'name' => 'File1.pdf'],
-                    ['path' => '/path/file2.pdf', 'name' => 'File2.pdf']
+                    ['path' => '/path/file2.pdf', 'mime_type' => 'application/pdf'],
+                    ['path' => 'https://example.com/file3.pdf', 'name' => 'File3.pdf', 'mime_type' => 'application/pdf']
                 ]);
 }
 ```
