@@ -87,6 +87,7 @@ final class MailInstallCommand extends Command
         }
 
         $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+        if ($lines === false) throw new \RuntimeException("Failed to read .env file at: $envFile");
         $required = [
             'MAIL_DRIVER',
             'MAIL_HOST',
@@ -137,7 +138,6 @@ final class MailInstallCommand extends Command
                 'MAIL_DKIM_PRIVATE_KEY' => '# DKIM private key for signing emails',
                 'MAIL_DKIM_SELECTOR' => '# DKIM selector for identifying the key',
                 'MAIL_DKIM_DOMAIN' => '# DKIM domain for signing emails',
-                default => ''
             };
             $append .= "$key=" . strtoupper($key) . "_VALUE $comment\n";
         }
@@ -153,13 +153,15 @@ final class MailInstallCommand extends Command
      */
     private function addMailConfig(string $projectRoot): void
     {
-        $mlcFile = "{$projectRoot}/config/app.mlc";
+        $path = 'config/app.mlc';
+        $mlcFile = "{$projectRoot}/$path";
         if (!is_file($mlcFile)) {
-            $this->warn('config/app.mlc not found; skipping mail section injection.');
+            $this->warn("$path not found; skipping mail section injection.");
             return;
         }
 
         $lines = file($mlcFile, FILE_IGNORE_NEW_LINES);
+        if ($lines === false) throw new \RuntimeException("Failed to read $path at: $mlcFile");
 
         // -----------------------------------------------------------------
         // 1) Find an existing `mail {` block (track braces)
@@ -263,7 +265,7 @@ final class MailInstallCommand extends Command
         }
 
         file_put_contents($mlcFile, implode("\n", $lines) . "\n");
-        $this->info('✓ Added/merged mail { … } section in config/app.mlc.');
+        $this->info("✓ Added/merged mail { … } section in $path.");
     }
 
     /**
@@ -277,6 +279,7 @@ final class MailInstallCommand extends Command
         );
 
         foreach ($iterator as $item) {
+            /** @var \SplFileInfo $item */
             $relative = substr($item->getPathname(), strlen($source) + 1);
             $target   = $dest . DIRECTORY_SEPARATOR . $relative;
 

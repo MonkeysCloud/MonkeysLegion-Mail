@@ -2,31 +2,19 @@
 
 namespace MonkeysLegion\Mailer\Tests\Integration;
 
-use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Mail\Mailer;
-use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mail\Service\ServiceContainer;
-use PHPUnit\Framework\TestCase;
+use MonkeysLegion\Mailer\Tests\Abstracts\AbstractBaseTest;
 
-class FullWorkflowTest extends TestCase
+class FullWorkflowTest extends AbstractBaseTest
 {
-    protected function setUp(): void
+    public function testCompleteEmailSendingWorkflow(): void
     {
-        $this->bootstrapServices();
-    }
+        $this->expectNotToPerformAssertions();
 
-    private function bootstrapServices(): void
-    {
-        try {
-            MailServiceProvider::register(new ContainerBuilder());
-        } catch (\Exception $e) {
-            throw new \RuntimeException("Failed to bootstrap mail services: " . $e->getMessage(), 0, $e);
-        }
-    }
-
-    public function testCompleteEmailSendingWorkflow()
-    {
         $container = ServiceContainer::getInstance();
+
+        /** @var Mailer $mailer */
         $mailer = $container->get(Mailer::class);
 
         // Use null transport for testing
@@ -39,13 +27,13 @@ class FullWorkflowTest extends TestCase
             '<h1>Test Content</h1><p>This is a test email.</p>',
             'text/html'
         );
-
-        $this->assertTrue(true);
     }
 
-    public function testMailerDriverSwitching()
+    public function testMailerDriverSwitching(): void
     {
         $container = ServiceContainer::getInstance();
+
+        /** @var Mailer $mailer */
         $mailer = $container->get(Mailer::class);
 
         $originalDriver = $mailer->getCurrentDriver();
@@ -62,16 +50,18 @@ class FullWorkflowTest extends TestCase
         $this->assertStringContainsString('NullTransport', $nullDriver);
     }
 
-    public function testServiceContainerIntegration()
+    public function testServiceContainerIntegration(): void
     {
         $container = ServiceContainer::getInstance();
 
         // Check if service exists by trying to get it
         try {
+            /** @var Mailer $mailer */
             $mailer = $container->get(Mailer::class);
             $this->assertInstanceOf(Mailer::class, $mailer);
 
             // Test singleton behavior
+            /** @var Mailer $mailer2 */
             $mailer2 = $container->get(Mailer::class);
             $this->assertSame($mailer, $mailer2);
         } catch (\Exception $e) {

@@ -45,17 +45,24 @@ interface QueueInterface
     /**
      * Push a job to the failed queue.
      *
-     * @param array $jobData Original job data
+     * @param array<string, mixed> $jobData Original job data
      * @param \Exception $exception The exception that caused the failure
      * @return bool Success status
      */
     public function pushToFailed(array $jobData, \Exception $exception): bool;
 
     /**
-     * Get failed jobs.
-     *
-     * @param int $limit Maximum number of jobs to retrieve
-     * @return array Array of failed jobs
+     * @return array<int, array{
+     *     id: string|null,
+     *     original_job: array<string, mixed>,
+     *     exception?: array{
+     *         message: string,
+     *         file: string,
+     *         line: int,
+     *         trace: string
+     *     },
+     *     failed_at?: float
+     * }>
      */
     public function getFailedJobs(int $limit = 100): array;
 

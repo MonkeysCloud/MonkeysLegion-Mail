@@ -23,7 +23,7 @@ class Message
      * @param string $subject The subject of the email.
      * @param string $content The content of the email.
      * @param string $contentType The content type of the email (default is text/plain).
-     * @param array $attachments An array of file paths to attach to the email.
+     * @param array<string|array{path: string, name?: string|null, mime_type?: string|null}> $attachments An array of file paths to attach to the email.
      */
     public function __construct(
         private string $to,
@@ -36,6 +36,10 @@ class Message
         $this->date = date('r'); // RFC 2822 format
     }
 
+    /**
+     * Get the headers for the email message.
+     * @return array<string, string> The headers for the email message.
+     */
     public function getHeaders(): array
     {
         $headers = [
@@ -79,6 +83,10 @@ class Message
         return $this->contentType;
     }
 
+    /**
+     * Get all attachments
+     * @return array<string|array{path: string, name?: string|null, mime_type?: string|null}>
+     */
     public function getAttachments(): array
     {
         return $this->attachments;
@@ -121,8 +129,8 @@ class Message
 
     /**
      * Creates a new instance of Message with the specified recipient.
-     * @param string $to The recipient's email address.
-     * @return self A new instance of Message with the updated recipient.
+     * @param string $subject The subject of the email.
+     * @return self A new instance of Message with the updated subject.
      */
     public function withSubject(string $subject): self
     {
@@ -133,8 +141,8 @@ class Message
 
     /**
      * Creates a new instance of Message with the specified content.
-     * @param string $content The content of the email.
-     * @return self A new instance of Message with the updated content.
+     * @param string $contentType The content type of the email.
+     * @return self A new instance of Message with the updated content type.
      */
     public function withContentType(string $contentType): self
     {
@@ -160,6 +168,7 @@ class Message
     public function toString(): string
     {
         $headers = [];
+
         foreach ($this->getHeaders() as $key => $value) {
             if (!empty($value)) {
                 $headers[] = "$key: $value";
@@ -170,8 +179,26 @@ class Message
 
         if (!empty($this->attachments)) {
             foreach ($this->attachments as $attachment) {
-                $body .= "\nAttachment: {$attachment}";
+                try {
+                    $normalized = normalizeAttachment($attachment, null, false);
+                    $boundary_encoded = isset($normalized['boundary_encoded']) ? $normalized['boundary_encoded'] : '';
+                    $body .= "\r\n\r\n--boundary\r\n" . $boundary_encoded;
+                } catch (\RuntimeException $e) {
+                    $body .= "\r\n\r\n[Attachment skipped: {$e->getMessage()}]";
+                }
             }
+
+            // Add Content-Type header for multipart if attachments exist
+            $headers[] = 'Content-Type: multipart/mixed; boundary="boundary"';
+
+            // Prepend the body with the main content section if multipart
+            $body =
+                "--boundary\r\n" .
+                "Content-Type: text/plain; charset=UTF-8\r\n" .
+                "Content-Transfer-Encoding: 7bit\r\n\r\n" .
+                $this->content . "\r\n" .
+                substr($body, strlen($this->content)) . // strip duplicate content
+                "\r\n--boundary--";
         }
 
         return implode("\r\n", $headers) . "\r\n\r\n" . $body;

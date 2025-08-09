@@ -7,15 +7,14 @@ use PHPUnit\Framework\TestCase;
 
 class MessageTest extends TestCase
 {
-    public function testMessageConstructorSetsProperties()
+    public function testMessageConstructorSetsProperties(): void
     {
         $message = new Message(
             'test@example.com',
             'Test Subject',
             'Test Content',
             Message::CONTENT_TYPE_HTML,
-            ['/path/to/file.pdf'],
-            ['/path/to/image.png']
+            ['/path/to/file.pdf']
         );
 
         $this->assertEquals('test@example.com', $message->getTo());
@@ -25,7 +24,7 @@ class MessageTest extends TestCase
         $this->assertEquals(['/path/to/file.pdf'], $message->getAttachments());
     }
 
-    public function testMessageDefaultValues()
+    public function testMessageDefaultValues(): void
     {
         $message = new Message('test@example.com', 'Subject');
 
@@ -34,7 +33,7 @@ class MessageTest extends TestCase
         $this->assertEquals([], $message->getAttachments());
     }
 
-    public function testGetHeadersReturnsCorrectFormat()
+    public function testGetHeadersReturnsCorrectFormat(): void
     {
         $message = new Message('test@example.com', 'Test Subject', 'Content');
         $message->setFrom('sender@example.com');
@@ -56,7 +55,7 @@ class MessageTest extends TestCase
         $this->assertStringContainsString('charset=UTF-8', $headers['Content-Type']);
     }
 
-    public function testSetAndGetFrom()
+    public function testSetAndGetFrom(): void
     {
         $message = new Message('test@example.com', 'Subject');
 
@@ -65,7 +64,7 @@ class MessageTest extends TestCase
         $this->assertEquals('John Doe <john@example.com>', $message->getFrom());
     }
 
-    public function testSetAndGetDkimSignature()
+    public function testSetAndGetDkimSignature(): void
     {
         $message = new Message('test@example.com', 'Subject');
         $dkimSignature = 'DKIM-Signature: v=1; a=rsa-sha256; d=example.com; s=default; b=...';
@@ -75,31 +74,29 @@ class MessageTest extends TestCase
         $this->assertEquals($dkimSignature, $message->getDkimSignature());
     }
 
-    public function testMessageIdIsGenerated()
+    public function testMessageIdIsGenerated(): void
     {
         $message = new Message('test@example.com', 'Subject');
 
         $messageId = $message->getMessageId();
 
-        $this->assertIsString($messageId);
         $this->assertStringStartsWith('<', $messageId);
         $this->assertStringEndsWith('>', $messageId);
         $this->assertStringContainsString('@', $messageId);
     }
 
-    public function testDateIsGenerated()
+    public function testDateIsGenerated(): void
     {
         $message = new Message('test@example.com', 'Subject');
 
         $date = $message->getDate();
 
-        $this->assertIsString($date);
         $this->assertNotEmpty($date);
         // Verify it's a valid RFC 2822 date
         $this->assertNotFalse(strtotime($date));
     }
 
-    public function testWithSubjectCreatesNewInstance()
+    public function testWithSubjectCreatesNewInstance(): void
     {
         $original = new Message('test@example.com', 'Original Subject');
         $modified = $original->withSubject('New Subject');
@@ -109,7 +106,7 @@ class MessageTest extends TestCase
         $this->assertEquals('New Subject', $modified->getSubject());
     }
 
-    public function testWithContentTypeCreatesNewInstance()
+    public function testWithContentTypeCreatesNewInstance(): void
     {
         $original = new Message('test@example.com', 'Subject', 'Content', Message::CONTENT_TYPE_TEXT);
         $modified = $original->withContentType(Message::CONTENT_TYPE_HTML);
@@ -119,7 +116,7 @@ class MessageTest extends TestCase
         $this->assertEquals(Message::CONTENT_TYPE_HTML, $modified->getContentType());
     }
 
-    public function testEqualsReturnsTrueForIdenticalMessages()
+    public function testEqualsReturnsTrueForIdenticalMessages(): void
     {
         $message1 = new Message('test@example.com', 'Subject', 'Content');
         $message2 = new Message('test@example.com', 'Subject', 'Content');
@@ -127,7 +124,7 @@ class MessageTest extends TestCase
         $this->assertTrue($message1->equals($message2));
     }
 
-    public function testEqualsReturnsFalseForDifferentMessages()
+    public function testEqualsReturnsFalseForDifferentMessages(): void
     {
         $message1 = new Message('test@example.com', 'Subject', 'Content');
         $message2 = new Message('other@example.com', 'Subject', 'Content');
@@ -135,7 +132,7 @@ class MessageTest extends TestCase
         $this->assertFalse($message1->equals($message2));
     }
 
-    public function testToStringReturnsFormattedMessage()
+    public function testToStringReturnsFormattedMessage(): void
     {
         $message = new Message('test@example.com', 'Subject', 'Content');
         $message->setFrom('sender@example.com');
@@ -149,7 +146,7 @@ class MessageTest extends TestCase
         $this->assertStringContainsString("\r\n\r\n", $string); // Headers/body separator
     }
 
-    public function testContentTypeConstants()
+    public function testContentTypeConstants(): void
     {
         $this->assertEquals('text/plain', Message::CONTENT_TYPE_TEXT);
         $this->assertEquals('text/html', Message::CONTENT_TYPE_HTML);

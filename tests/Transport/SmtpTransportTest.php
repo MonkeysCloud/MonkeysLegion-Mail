@@ -9,44 +9,144 @@ use PHPUnit\Framework\TestCase;
 class SmtpTransportTest extends TestCase
 {
     private FrameworkLoggerInterface $logger;
+    /** @var array<string, mixed> */
+    private array $validConfig;
 
     protected function setUp(): void
     {
         $this->logger = $this->createMock(FrameworkLoggerInterface::class);
-    }
 
-    public function testConstructorSetsConfiguration()
-    {
-        $config = [
+        // Setup a valid config to be used in most tests
+        $this->validConfig = [
             'host' => 'smtp.example.com',
             'port' => 587,
             'encryption' => 'tls',
             'username' => 'user@example.com',
-            'password' => 'password'
+            'password' => 'password',
+            'timeout' => 30,
+            'from' => [
+                'address' => 'from@example.com',
+                'name' => 'From Name'
+            ]
         ];
+    }
 
-        $transport = new SmtpTransport($config, $this->logger);
+    public function testConstructorSetsConfiguration(): void
+    {
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $this->assertEquals('smtp.example.com', $transport->getHost());
         $this->assertEquals(587, $transport->getPort());
         $this->assertEquals('tls', $transport->getEncryption());
         $this->assertEquals('user@example.com', $transport->getUsername());
+        $this->assertEquals('from@example.com', $transport->getFromAddress());
+        $this->assertEquals('From Name', $transport->getFromName());
+        $this->assertEquals(30, $transport->getTimeout());
     }
 
-    public function testSetAndGetAuth()
+    public function testConstructorWithMissingConfigKeysThrowsException(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
+        $invalidConfig = [
+            'host' => 'smtp.example.com',
+            // Missing required keys
+        ];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Missing required config key: 'port'");
+
+        new SmtpTransport($invalidConfig, $this->logger);
+    }
+
+    public function testConstructorWithInvalidHostTypeThrowsException(): void
+    {
+        $invalidConfig = $this->validConfig;
+        $invalidConfig['host'] = 123; // Not a string
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Config 'host' must be a string");
+
+        new SmtpTransport($invalidConfig, $this->logger);
+    }
+
+    public function testConstructorWithInvalidPortTypeThrowsException(): void
+    {
+        $invalidConfig = $this->validConfig;
+        $invalidConfig['port'] = '587'; // Not an integer
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Config 'port' must be an integer");
+
+        new SmtpTransport($invalidConfig, $this->logger);
+    }
+
+    public function testConstructorWithInvalidEncryptionValueThrowsException(): void
+    {
+        $invalidConfig = $this->validConfig;
+        $invalidConfig['encryption'] = 'invalid'; // Not a valid encryption value
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Invalid encryption value 'invalid'. Supported: ssl, tls, none");
+
+        new SmtpTransport($invalidConfig, $this->logger);
+    }
+
+    public function testConstructorWithInvalidFromConfigThrowsException(): void
+    {
+        $invalidConfig = $this->validConfig;
+        $invalidConfig['from'] = 'not an array';
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Config 'from' must be an array");
+
+        new SmtpTransport($invalidConfig, $this->logger);
+    }
+
+    public function testConstructorWithInvalidFromKeysThrowsException(): void
+    {
+        $invalidConfig = $this->validConfig;
+        $invalidConfig['from'] = [
+            // Missing required keys
+            'invalid' => 'value'
+        ];
+
+        $this->expectException(\InvalidArgumentException::class);
+        $this->expectExceptionMessage("Config 'from' must be an array with string keys 'address' and 'name'");
+
+        new SmtpTransport($invalidConfig, $this->logger);
+    }
+
+    public function testValidateEncryptionWithNullValue(): void
+    {
+        $config = $this->validConfig;
+        $config['encryption'] = null;
+
         $transport = new SmtpTransport($config, $this->logger);
+
+        $this->assertEquals('none', $transport->getEncryption());
+    }
+
+    public function testValidateEncryptionWithEmptyStringValue(): void
+    {
+        $config = $this->validConfig;
+        $config['encryption'] = '';
+
+        $transport = new SmtpTransport($config, $this->logger);
+
+        $this->assertEquals('none', $transport->getEncryption());
+    }
+
+    public function testSetAndGetAuth(): void
+    {
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $transport->setAuth('newuser@example.com', 'newpassword');
 
         $this->assertEquals('newuser@example.com', $transport->getUsername());
     }
 
-    public function testSetAndGetFrom()
+    public function testSetAndGetFrom(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $transport->setFrom('sender@example.com', 'Sender Name');
 
@@ -54,10 +154,9 @@ class SmtpTransportTest extends TestCase
         $this->assertEquals('Sender Name', $transport->getFromName());
     }
 
-    public function testSetFromWithInvalidEmailThrowsException()
+    public function testSetFromWithInvalidEmailThrowsException(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid email address');
@@ -65,20 +164,18 @@ class SmtpTransportTest extends TestCase
         $transport->setFrom('invalid-email');
     }
 
-    public function testSetAndGetHost()
+    public function testSetAndGetHost(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $transport->setHost('new.smtp.example.com');
 
         $this->assertEquals('new.smtp.example.com', $transport->getHost());
     }
 
-    public function testSetHostWithEmptyValueThrowsException()
+    public function testSetHostWithEmptyValueThrowsException(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('SMTP host cannot be empty');
@@ -86,20 +183,18 @@ class SmtpTransportTest extends TestCase
         $transport->setHost('');
     }
 
-    public function testSetAndGetPort()
+    public function testSetAndGetPort(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $transport->setPort(465);
 
         $this->assertEquals(465, $transport->getPort());
     }
 
-    public function testSetPortWithInvalidValueThrowsException()
+    public function testSetPortWithInvalidValueThrowsException(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid SMTP port');
@@ -107,20 +202,18 @@ class SmtpTransportTest extends TestCase
         $transport->setPort(0);
     }
 
-    public function testSetAndGetEncryption()
+    public function testSetAndGetEncryption(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $transport->setEncryption('ssl');
 
         $this->assertEquals('ssl', $transport->getEncryption());
     }
 
-    public function testSetEncryptionWithInvalidValueThrowsException()
+    public function testSetEncryptionWithInvalidValueThrowsException(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid encryption method');
@@ -128,20 +221,18 @@ class SmtpTransportTest extends TestCase
         $transport->setEncryption('invalid');
     }
 
-    public function testSetAndGetTimeout()
+    public function testSetAndGetTimeout(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $transport->setTimeout(60);
 
         $this->assertEquals(60, $transport->getTimeout());
     }
 
-    public function testSetTimeoutWithInvalidValueThrowsException()
+    public function testSetTimeoutWithInvalidValueThrowsException(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $this->expectException(\InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid timeout');
@@ -149,22 +240,16 @@ class SmtpTransportTest extends TestCase
         $transport->setTimeout(-1);
     }
 
-    public function testGetNameReturnsSmtp()
+    public function testGetNameReturnsSmtp(): void
     {
-        $config = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $this->assertEquals('smtp', $transport->getName());
     }
 
-    public function testGetConfigReturnsConfiguration()
+    public function testGetConfigReturnsConfiguration(): void
     {
-        $config = [
-            'host' => 'smtp.example.com',
-            'port' => 587,
-            'encryption' => 'tls'
-        ];
-        $transport = new SmtpTransport($config, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $returnedConfig = $transport->getConfig();
 
@@ -173,10 +258,9 @@ class SmtpTransportTest extends TestCase
         $this->assertEquals('tls', $returnedConfig['encryption']);
     }
 
-    public function testSetConfigMergesConfiguration()
+    public function testSetConfigMergesConfiguration(): void
     {
-        $initialConfig = ['host' => 'smtp.example.com', 'port' => 587];
-        $transport = new SmtpTransport($initialConfig, $this->logger);
+        $transport = new SmtpTransport($this->validConfig, $this->logger);
 
         $newConfig = ['encryption' => 'ssl', 'timeout' => 60];
         $transport->setConfig($newConfig);

@@ -20,7 +20,8 @@
     ],
     "autoload": {
         "psr-4": {
-            "MonkeysLegion\\Mail\\": "src/"
+            "MonkeysLegion\\Mail\\": "src/",
+            "MonkeysLegion\\Mailer\\Tests\\": "tests/"
         },
         "files": [
             "src/Template/helpers.php"
@@ -46,6 +47,7 @@
         "vlucas/phpdotenv": "^5.6"
     },
     "require-dev": {
+        "phpstan/phpstan": "^2.1",
         "phpunit/phpunit": "^12.2"
     },
     "config": {
@@ -59,9 +61,6 @@
         }
     },
     "extra": {
-        "monkeyslegion": {
-            "service-provider": "MonkeysLegion\\\\Mail\\\\Provider\\\\MailProvider"
-        },
         "branch-alias": {
             "dev-main": "1.0.x-dev"
         }

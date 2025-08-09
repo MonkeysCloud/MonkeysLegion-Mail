@@ -1,5 +1,7 @@
 <?php
 
+use MonkeysLegion\Mail\Enums\MailDefaults;
+
 return [
 
     /*
@@ -9,15 +11,16 @@ return [
     |
     | This option controls the default mailer that is used to send all email
     | messages unless another mailer is explicitly specified when sending
-    | the message.a
+    | the message.
     |
     */
 
-    'driver' => $_ENV['MAIL_DRIVER'] ?? 'null', // Changed from 'log' to 'null'
+    'driver' => $_ENV['MAIL_DRIVER'] ?? MailDefaults::MAIL_DRIVER,
 
     'drivers' => [
 
-        /*|--------------------------------------------------------------------------
+        /*
+        |--------------------------------------------------------------------------
         | SMTP Mailer
         |--------------------------------------------------------------------------
         |
@@ -25,96 +28,104 @@ return [
         |
         */
         'smtp' => [
-            'host' => $_ENV['MAIL_HOST'] ?? 'smtp.mailtrap.io',
-            'port' => $_ENV['MAIL_PORT'] ?? 587,
-            'encryption' => $_ENV['MAIL_ENCRYPTION'] ?? 'tls', // tls / ssl / null
-            'username' => $_ENV['MAIL_USERNAME'] ?? '',
-            'password' => $_ENV['MAIL_PASSWORD'] ?? '',
-            'timeout' => $_ENV['MAIL_TIMEOUT'] ?? 30,
+            'host' => $_ENV['MAIL_HOST'] ?? MailDefaults::SMTP_HOST,
+            'port' => (int) ($_ENV['MAIL_PORT'] ?? MailDefaults::SMTP_PORT),
+            'encryption' => $_ENV['MAIL_ENCRYPTION'] ?? MailDefaults::SMTP_ENCRYPTION,
+            'username' => $_ENV['MAIL_USERNAME'] ?? MailDefaults::SMTP_USERNAME,
+            'password' => $_ENV['MAIL_PASSWORD'] ?? MailDefaults::SMTP_PASSWORD,
+            'timeout' => (int) ($_ENV['MAIL_TIMEOUT'] ?? MailDefaults::TIMEOUT),
             'from' => [
-                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com',
-                'name' => $_ENV['MAIL_FROM_NAME'] ?? 'My App'
+                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? MailDefaults::MAIL_FROM_ADDRESS,
+                'name' => $_ENV['MAIL_FROM_NAME'] ?? MailDefaults::MAIL_FROM_NAME,
             ],
-            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
-            'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
-            'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
+            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? MailDefaults::DKIM_PRIVATE_KEY,
+            'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? MailDefaults::DKIM_SELECTOR,
+            'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? MailDefaults::DKIM_DOMAIN,
         ],
 
-        /*|--------------------------------------------------------------------------
+        /*
+        |--------------------------------------------------------------------------
         | Mailgun Mailer
         |--------------------------------------------------------------------------
         |
         | This mailer is used to send email messages via Mailgun.
-        |*/
+        |
+        */
         'mailgun' => [
             'api_key' => $_ENV['MAILGUN_API_KEY'] ?? '',
             'domain' => $_ENV['MAILGUN_DOMAIN'] ?? '',
 
             'from' => [
-                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
-                'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App',
+                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? MailDefaults::MAIL_FROM_ADDRESS,
+                'name' => $_ENV['MAIL_FROM_NAME'] ?? MailDefaults::MAIL_FROM_NAME,
             ],
 
             // Optional tracking options (used by addOptionalParameters)
             'tracking' => [
-                'clicks' => filter_var($_ENV['MAILGUN_TRACK_CLICKS'] ?? true, FILTER_VALIDATE_BOOLEAN),
-                'opens'  => filter_var($_ENV['MAILGUN_TRACK_OPENS'] ?? true, FILTER_VALIDATE_BOOLEAN),
+                'clicks' => filter_var($_ENV['MAILGUN_TRACK_CLICKS'] ?? MailDefaults::MAILGUN_TRACK_CLICKS, FILTER_VALIDATE_BOOLEAN),
+                'opens'  => filter_var($_ENV['MAILGUN_TRACK_OPENS'] ?? MailDefaults::MAILGUN_TRACK_OPENS, FILTER_VALIDATE_BOOLEAN),
             ],
 
             // Optional delivery time in RFC2822 or ISO 8601 format
             'delivery_time' => $_ENV['MAILGUN_DELIVERY_TIME'] ?? null,
 
             // Optional array of tags (Mailgun supports up to 3 tags per message)
-            'tags' => explode(',', $_ENV['MAILGUN_TAGS'] ?? ''), // e.g. "welcome,new-user"
+            'tags' => array_filter(array_map('trim', explode(',', $_ENV['MAILGUN_TAGS'] ?? ''))),
 
             // Optional custom variables to include with the message
             'variables' => [
-                // Dynamically assign or leave empty if not used
+                // Add dynamic key-value pairs if needed
             ],
 
             // Mailgun region (us or eu)
-            'region' => $_ENV['MAILGUN_REGION'] ?? 'us',
+            'region' => $_ENV['MAILGUN_REGION'] ?? MailDefaults::MAILGUN_REGION,
 
             // Optional timeouts
-            'timeout' => ($_ENV['MAILGUN_TIMEOUT'] ?? 30),
-            'connect_timeout' => ($_ENV['MAILGUN_CONNECT_TIMEOUT'] ?? 10),
+            'timeout' => (int) ($_ENV['MAILGUN_TIMEOUT'] ?? MailDefaults::TIMEOUT),
+            'connect_timeout' => (int) ($_ENV['MAILGUN_CONNECT_TIMEOUT'] ?? MailDefaults::CONNECT_TIMEOUT),
 
-            // DKIM signing (used if you generate DKIM manually)
-            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
-            'dkim_selector'    => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
-            'dkim_domain'      => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
+            // DKIM signing (if you manage DKIM manually)
+            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? MailDefaults::DKIM_PRIVATE_KEY,
+            'dkim_selector'    => $_ENV['MAIL_DKIM_SELECTOR'] ?? MailDefaults::DKIM_SELECTOR,
+            'dkim_domain'      => $_ENV['MAIL_DKIM_DOMAIN'] ?? MailDefaults::DKIM_DOMAIN,
         ],
 
-
-
-        /*|--------------------------------------------------------------------------
+        /*
+        |--------------------------------------------------------------------------
         | Sendmail Mailer
         |--------------------------------------------------------------------------
+        |
         | This mailer is used to send email messages via the sendmail program.
         | It uses the system's sendmail binary to send emails.
-        |*/
+        |
+        */
         'sendmail' => [
-            'path' => $_ENV['MAIL_SENDMAIL_PATH'] ?? '/usr/sbin/sendmail',
+            'path' => $_ENV['MAIL_SENDMAIL_PATH'] ?? MailDefaults::SENDMAIL_PATH,
             'from' => [
-                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
-                'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? MailDefaults::MAIL_FROM_ADDRESS,
+                'name' => $_ENV['MAIL_FROM_NAME'] ?? MailDefaults::MAIL_FROM_NAME,
             ],
-            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
-            'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
-            'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
+            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? MailDefaults::DKIM_PRIVATE_KEY,
+            'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? MailDefaults::DKIM_SELECTOR,
+            'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? MailDefaults::DKIM_DOMAIN,
         ],
 
-        /*|--------------------------------------------------------------------------
+        /*
+        |--------------------------------------------------------------------------
         | Null Mailer
         |--------------------------------------------------------------------------
+        |
         | This mailer is used to discard all email messages.
         | It is useful for testing and development purposes.
-        |*/
+        |
+        */
         'null' => [
             'from' => [
-                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
-                'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
-            ]
-        ]
-    ]
+                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? MailDefaults::MAIL_FROM_ADDRESS,
+                'name' => $_ENV['MAIL_FROM_NAME'] ?? MailDefaults::MAIL_FROM_NAME,
+            ],
+        ],
+
+    ],
+
 ];

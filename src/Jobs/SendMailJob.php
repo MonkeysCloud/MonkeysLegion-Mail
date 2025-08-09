@@ -21,7 +21,9 @@ class SendMailJob
     public function __construct(private Message $m)
     {
         $this->container = ServiceContainer::getInstance();
-        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
+        /** @var FrameworkLoggerInterface $logger */
+        $logger = $this->container->get(FrameworkLoggerInterface::class);
+        $this->logger = $logger;
     }
 
     /**
@@ -37,6 +39,7 @@ class SendMailJob
                 throw new \RuntimeException("Mail configuration not found. Services may not be properly bootstrapped.");
             }
 
+            /** @var TransportInterface $transport */
             $transport = $this->container->get(TransportInterface::class);
             $transport->send($this->m);
         } catch (\Exception $e) {
@@ -52,6 +55,13 @@ class SendMailJob
 
     /**
      * Get job data for debugging/logging
+     *
+     * @return array{
+     *   content: string,
+     *   to: string,
+     *   subject: string,
+     *   attachments: array<string|array{path: string, name?: string|null, mime_type?: string|null}>
+     * } Data associated with the job
      */
     public function getData(): array
     {

@@ -9,7 +9,7 @@ use PHPUnit\Framework\TestCase;
 
 class DkimSignerTest extends TestCase
 {
-    public function testGenerateKeysReturnsKeyPair()
+    public function testGenerateKeysReturnsKeyPair(): void
     {
         if (!extension_loaded('openssl')) {
             $this->markTestSkipped('OpenSSL extension not available');
@@ -17,14 +17,13 @@ class DkimSignerTest extends TestCase
 
         $keys = DkimSigner::generateKeys();
 
-        $this->assertIsArray($keys);
         $this->assertArrayHasKey('private', $keys);
         $this->assertArrayHasKey('public', $keys);
         $this->assertStringContainsString('BEGIN PRIVATE KEY', $keys['private']);
         $this->assertStringContainsString('BEGIN PUBLIC KEY', $keys['public']);
     }
 
-    public function testShouldSignReturnsTrueForSupportedTransports()
+    public function testShouldSignReturnsTrueForSupportedTransports(): void
     {
         $config = [
             'dkim_private_key' => 'test_key',
@@ -37,7 +36,7 @@ class DkimSignerTest extends TestCase
         $this->assertTrue($shouldSign);
     }
 
-    public function testShouldSignReturnsFalseForLocalTransports()
+    public function testShouldSignReturnsFalseForLocalTransports(): void
     {
         $config = [
             'dkim_private_key' => 'test_key',
@@ -50,28 +49,31 @@ class DkimSignerTest extends TestCase
         $this->assertFalse($shouldSign);
     }
 
-    public function testShouldSignReturnsFalseWhenConfigMissing()
+    public function testShouldSignReturnsFalseWhenConfigMissing(): void
     {
-        $config = []; // Missing DKIM config
+        $config = [
+            'dkim_private_key' => '',
+            'dkim_selector' => '',
+            'dkim_domain' => ''
+        ]; // Missing DKIM config
 
         $shouldSign = DkimSigner::shouldSign(SmtpTransport::class, $config);
 
         $this->assertFalse($shouldSign);
     }
 
-    public function testConstructorSetsProperties()
+    public function testConstructorSetsProperties(): void
     {
+        $this->expectNotToPerformAssertions();
+
         $privateKey = 'test_private_key';
         $selector = 'test_selector';
         $domain = 'test.example.com';
 
         $signer = new DkimSigner($privateKey, $selector, $domain);
-
-        // Test passes if no exception is thrown
-        $this->assertTrue(true);
     }
 
-    public function testSignGeneratesValidSignature()
+    public function testSignGeneratesValidSignature(): void
     {
         if (!extension_loaded('openssl')) {
             $this->markTestSkipped('OpenSSL extension not available');
@@ -93,7 +95,6 @@ class DkimSignerTest extends TestCase
 
         $signature = $signer->sign($headers, $body);
 
-        $this->assertIsString($signature);
         $this->assertStringStartsWith('DKIM-Signature:', $signature);
         $this->assertStringContainsString('v=1', $signature);
         $this->assertStringContainsString('a=rsa-sha256', $signature);

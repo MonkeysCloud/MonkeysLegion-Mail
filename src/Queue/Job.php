@@ -7,31 +7,43 @@ namespace MonkeysLegion\Mail\Queue;
 use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
 use MonkeysLegion\Mail\Message;
 
+/**
+ * @phpstan-type JobData array{
+ *     id: string,
+ *     job: string,
+ *     message: Message,
+ *     attempts: int,
+ *     created_at: float,
+ *     retried_at?: float
+ * }
+ */
 class Job implements JobInterface
 {
-    private array $fullJobData; // Store the complete Redis job structure
+    /** @var JobData */
+    private array $fullJobData;
     private int $attempts = 0;
     private Message $message;
 
+    /**
+     * Job constructor.
+     * @param array<string, mixed> $data The job data from Redis
+     * @param QueueInterface $queue The queue instance to push failed jobs
+     * @param FrameworkLoggerInterface $logger Logger instance for logging job events
+     */
     public function __construct(
-        private array $data,
+        array $data,
         private QueueInterface $queue,
         private FrameworkLoggerInterface $logger
     ) {
         try {
-            $this->fullJobData = $data; // Store complete structure
-            $this->attempts = $data['attempts'] ?? 0;
-
-            // Reconstruct Message object from serialized data
-            if (!isset($data['message'])) {
-                throw new \RuntimeException("Missing message data in job");
-            }else {
-                $this->message = $data['message'];
-            }
+            // Validate and normalize job data structure
+            $this->fullJobData = $this->validateAndNormalizeJobData($data);
+            $this->attempts = $this->fullJobData['attempts'];
+            $this->message = $this->fullJobData['message'];
 
             $this->logger->smartLog("Job constructed", [
                 'job_id' => $this->getId(),
-                'job_class' => $this->fullJobData['job'] ?? 'unknown',
+                'job_class' => $this->fullJobData['job'],
                 'attempts' => $this->attempts,
                 'message_to' => $this->message->getTo(),
                 'message_subject' => $this->message->getSubject()
@@ -39,6 +51,63 @@ class Job implements JobInterface
         } catch (\Throwable $e) {
             throw new \RuntimeException("Failed to construct job: " . $e->getMessage(), 0, $e);
         }
+    }
+
+    /**
+     * Validate and normalize job data structure
+     * @param array<string, mixed> $data
+     * @return JobData
+     * @throws \RuntimeException
+     */
+    private function validateAndNormalizeJobData(array $data): array
+    {
+        // Validate required fields
+        if (!isset($data['id']) || !is_string($data['id']) || empty($data['id'])) {
+            throw new \RuntimeException("Job data must contain a valid 'id' field");
+        }
+
+        if (!isset($data['job']) || !is_string($data['job']) || empty($data['job'])) {
+            throw new \RuntimeException("Job data must contain a valid 'job' field");
+        }
+
+        if (!isset($data['message']) || !($data['message'] instanceof Message)) {
+            throw new \RuntimeException("Job data must contain a valid 'message' field of type Message");
+        }
+
+        // Normalize and validate optional fields
+        $attempts = 0;
+        if (isset($data['attempts'])) {
+            if (is_numeric($data['attempts'])) {
+                $attempts = (int) $data['attempts'];
+            } else {
+                throw new \RuntimeException("Job data 'attempts' field must be numeric");
+            }
+        }
+
+        $createdAt = microtime(true);
+        if (isset($data['created_at'])) {
+            if (is_numeric($data['created_at'])) {
+                $createdAt = (float) $data['created_at'];
+            } else {
+                throw new \RuntimeException("Job data 'created_at' field must be numeric");
+            }
+        }
+
+        /** @var JobData $normalizedData */
+        $normalizedData = [
+            'id' => $data['id'],
+            'job' => $data['job'],
+            'message' => $data['message'],
+            'attempts' => $attempts,
+            'created_at' => $createdAt,
+        ];
+
+        // Add optional retried_at if present
+        if (isset($data['retried_at']) && is_numeric($data['retried_at'])) {
+            $normalizedData['retried_at'] = (float) $data['retried_at'];
+        }
+
+        return $normalizedData;
     }
 
     public function handle(): void
@@ -52,7 +121,7 @@ class Job implements JobInterface
             'message_to' => $this->message->getTo()
         ]);
 
-        if (!$jobClass || !class_exists($jobClass)) {
+        if (!class_exists($jobClass)) {
             $this->logger->error("Job class does not exist", [
                 'job_id' => $this->getId(),
                 'job_class' => $jobClass
@@ -97,14 +166,15 @@ class Job implements JobInterface
         }
     }
 
+    /** @return JobData */
     public function getData(): array
     {
-        return $this->fullJobData; // Return complete job structure for retry
+        return $this->fullJobData;
     }
 
     public function getId(): string
     {
-        return $this->fullJobData['id'] ?? '';
+        return $this->fullJobData['id'];
     }
 
     public function attempts(): int
@@ -116,7 +186,7 @@ class Job implements JobInterface
     {
         $this->logger->error("Job marked as failed", [
             'job_id' => $this->getId(),
-            'job_class' => $this->fullJobData['job'] ?? 'unknown',
+            'job_class' => $this->fullJobData['job'],
             'attempts' => $this->attempts,
             'exception' => $exception,
             'error_message' => $exception->getMessage(),

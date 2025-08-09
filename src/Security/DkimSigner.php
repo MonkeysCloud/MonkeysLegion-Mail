@@ -21,6 +21,12 @@ class DkimSigner
         $this->domain = $domain;
     }
 
+    /**
+     * Generate a new DKIM key pair
+     * @param int $bits Number of bits for the key (default 2048)
+     * @return array{private: string, public: string} Contains the private and public keys
+     * @throws RuntimeException If key generation fails
+     */
     public static function generateKeys($bits = 2048): array
     {
         $opensslConfig = realpath(__DIR__ . '/../../config/openssl.cnf');
@@ -54,6 +60,10 @@ class DkimSigner
         $privateKey = '';
         $exportResult = openssl_pkey_export($keyResource, $privateKey, null, $config);
 
+        if (!is_string($privateKey) || $privateKey === '') {
+            throw new RuntimeException("Exported private key is not a valid string");
+        }
+
         if (!$exportResult) {
             $error = openssl_error_string();
             throw new RuntimeException("Failed to export private key: $error");
@@ -66,12 +76,23 @@ class DkimSigner
             throw new RuntimeException("Failed to get public key details: $error");
         }
 
+        if (!isset($publicKeyDetails['key']) || !is_string($publicKeyDetails['key']) || $publicKeyDetails['key'] === '') {
+            throw new RuntimeException("Public key is not a valid string");
+        }
+
         return [
             'private' => $privateKey,
             'public' => $publicKeyDetails['key']
         ];
     }
 
+    /**
+     * Sign the email headers and body using DKIM
+     * @param array<string, string> $headers Associative array of email headers
+     * @param string $body The email body to sign
+     * @return string The DKIM-Signature header value
+     * @throws RuntimeException If signing fails
+     */
     public function sign(array $headers, string $body): string
     {
         // Canonicalize the body according to simple canonicalization
@@ -96,7 +117,7 @@ class DkimSigner
         $signature = '';
         $signResult = openssl_sign($stringToSign, $signature, $privateKey, OPENSSL_ALGO_SHA256);
 
-        if (!$signResult) {
+        if (!$signResult || !is_string($signature) || $signature === '') {
             throw new RuntimeException("Failed to sign DKIM headers: " . openssl_error_string());
         }
 
@@ -109,6 +130,9 @@ class DkimSigner
     /**
      * Canonicalize headers according to simple canonicalization
      * Preserves header name case and exact formatting
+     * @param array<string, string> $headers Associative array of headers
+     * @param array<string> $headersToSign Headers to include in the signature
+     * @return string Canonicalized headers as a single string
      */
     private function canonicalizeHeadersSimple(array $headers, array $headersToSign): string
     {
@@ -174,6 +198,16 @@ class DkimSigner
         return $formattedKey;
     }
 
+    /**
+     * Check if DKIM signing should be applied based on transport and config
+     * @param string $transportName Name of the transport being used
+     * @param array{
+     *   dkim_private_key: string,
+     *   dkim_selector: string,
+     *   dkim_domain: string
+     * } $config Configuration array for the transport
+     * @return bool True if DKIM signing should be applied, false otherwise
+     */
     public static function shouldSign(string $transportName, array $config): bool
     {
         $localTransports = [NullTransport::class, SendmailTransport::class];
