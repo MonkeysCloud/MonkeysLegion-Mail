@@ -10,6 +10,13 @@ class MessageQueued
 {
     private int $queuedAt;
 
+    /**
+     * MessageQueued constructor.
+     *
+     * @param string $jobId Unique identifier for the job
+     * @param array<string, mixed> $jobData Data associated with the job
+     * @param FrameworkLoggerInterface $logger Logger instance for logging the event
+     */
     public function __construct(
         private string $jobId,
         private array $jobData,
@@ -19,7 +26,7 @@ class MessageQueued
         $this->log();
     }
 
-    private function log()
+    private function log() : void
     {
         $this->logger->smartLog("MessageQueued event created", [
             'job_id' => $this->jobId,
@@ -33,6 +40,11 @@ class MessageQueued
         return $this->jobId;
     }
 
+    /**
+     * Get the job data associated with the queued message.
+     *
+     * @return array<string, mixed> The job data
+     */
     public function getJobData(): array
     {
         return $this->jobData;

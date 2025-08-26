@@ -30,6 +30,8 @@ class RateLimiter
 
             // Filter timestamps within window
             $timestamps = array_filter($timestamps, fn($ts) => $ts >= $windowStart);
+            $timestamps = array_values($timestamps); // reindex to a list
+
 
             if (count($timestamps) < $this->limit) {
                 // Allowed - add current timestamp
@@ -76,14 +78,17 @@ class RateLimiter
         $windowStart = $now - $this->seconds;
 
         // Filter timestamps within window
-        $validTimestamps = array_filter($timestamps, fn($ts) => $ts >= $windowStart);
+        $validTimestamps = array_filter(
+            $timestamps,
+            fn($ts) => (int)$ts >= $windowStart
+        );
 
         if (empty($validTimestamps)) {
             return 0;
         }
 
         // Time until oldest timestamp expires
-        $oldestTimestamp = min($validTimestamps);
+        $oldestTimestamp = (float) min($validTimestamps);
         return (int) max(0, ($oldestTimestamp + $this->seconds) - $now);
     }
 
@@ -146,6 +151,8 @@ class RateLimiter
     /**
      * Static method to clean up all rate limiter files in the storage directory
      * This can be called by a scheduled task to clean up old files
+     *
+     * @return array{cleaned: int, deleted: int, errors: int, files_processed: int}
      */
     public static function cleanupAll(string $storagePath = '/tmp'): array
     {
@@ -163,6 +170,7 @@ class RateLimiter
         }
 
         $files = glob($directory . '/ratelimit_*.json');
+        if (!$files) $files = [];
 
         foreach ($files as $file) {
             $results['files_processed']++;
@@ -198,6 +206,17 @@ class RateLimiter
 
     /**
      * Get statistics about the current rate limiter state
+     * @return array{
+     *   key: string,
+     *   limit: int,
+     *   window_seconds: int,
+     *   current_requests: int,
+     *   remaining_requests: int,
+     *   expired_records: int,
+     *   reset_in_seconds: int,
+     *   file_exists: bool,
+     *   file_size_bytes: int
+     * }
      */
     public function getStats(): array
     {
@@ -218,7 +237,7 @@ class RateLimiter
             'expired_records' => $expiredCount,
             'reset_in_seconds' => $this->resetTime(),
             'file_exists' => file_exists($this->filePath),
-            'file_size_bytes' => file_exists($this->filePath) ? filesize($this->filePath) : 0,
+            'file_size_bytes' => file_exists($this->filePath) ? (int) filesize($this->filePath) : 0,
         ];
     }
 
@@ -241,7 +260,7 @@ class RateLimiter
     }
 
     /**
-     * Read timestamps from file
+     * @return list<float> List of timestamps as floats (unix microtime)
      */
     private function readTimestamps(): array
     {
@@ -255,11 +274,26 @@ class RateLimiter
         }
 
         $timestamps = json_decode($content, true);
-        return is_array($timestamps) ? $timestamps : [];
+
+        // Validate and filter so only float values remain and keys are sequential integers (list)
+        if (!is_array($timestamps)) {
+            return [];
+        }
+
+        // Filter only float or numeric values and reindex to ensure list
+        $filtered = [];
+        foreach ($timestamps as $value) {
+            if (is_numeric($value)) {
+                $filtered[] = (float) $value;
+            }
+        }
+
+        return $filtered;
     }
 
     /**
      * Write timestamps to file
+     * @param list<float> $timestamps
      */
     private function writeTimestamps(array $timestamps): bool
     {
@@ -267,6 +301,15 @@ class RateLimiter
         return file_put_contents($this->filePath, $content, LOCK_EX) !== false;
     }
 
+    /**
+     * Get configuration for this rate limiter instance
+     * @return array{
+     *   key: string,
+     *   limit: int,
+     *   seconds: int,
+     *   storage_path: string
+     * }
+     */
     public function getConfig(): array
     {
         return [

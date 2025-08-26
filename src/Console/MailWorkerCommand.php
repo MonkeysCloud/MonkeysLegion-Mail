@@ -5,6 +5,8 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Console;
 
 use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Core\Logger\MonkeyLogger;
+use MonkeysLegion\Mail\Config\RedisConfig;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use MonkeysLegion\Mail\Queue\RedisQueue;
 use MonkeysLegion\Mail\Queue\Worker;
@@ -20,7 +22,7 @@ class MailWorkerCommand
 {
     private ServiceContainer $container;
     private RedisQueue $queue;
-    private array $redisConfig;
+    private RedisConfig $redisConfig;
     private ?Worker $worker = null;
     private FrameworkLoggerInterface $logger;
 
@@ -28,7 +30,9 @@ class MailWorkerCommand
     {
         $this->bootstrapServices();
         $this->container = ServiceContainer::getInstance();
-        $this->logger = $this->container->get(FrameworkLoggerInterface::class);
+        /** @var FrameworkLoggerInterface $logger */
+        $logger = $this->container->get(FrameworkLoggerInterface::class);
+        $this->logger = $logger;
         $this->initializeQueue();
         $this->setupSignalHandlers();
     }
@@ -40,6 +44,7 @@ class MailWorkerCommand
     {
         try {
             // Register mail services (this loads configurations and registers services)
+            MailServiceProvider::setLogger(new MonkeyLogger());
             MailServiceProvider::register(new ContainerBuilder());
         } catch (\Exception $e) {
             $this->logger->error("Failed to bootstrap mail services: " . $e->getMessage(), [
@@ -57,24 +62,23 @@ class MailWorkerCommand
     {
         try {
             // Get Redis configuration from container
-            $this->redisConfig = $this->container->getConfig('redis');
+            /** @var RedisConfig $redisConfig */
+            $redisConfig = $this->container->get(RedisConfig::class);
+            $this->redisConfig = $redisConfig;
 
-            $queueConfig = $this->redisConfig['queue'] ?? [];
-            $connectionName = $queueConfig['connection'] ?? 'default';
-            $connectionConfig = $this->redisConfig['connections'][$connectionName] ??
-                $this->redisConfig['connections']['default'] ?? [];
+            $connectionConfig = $redisConfig->connections[$redisConfig->queue->connection];
 
             $this->queue = new RedisQueue(
-                $connectionConfig['host'] ?? '127.0.0.1',
-                $connectionConfig['port'] ?? 6379,
-                $queueConfig['default_queue'] ?? 'emails',
-                $queueConfig['key_prefix'] ?? 'queue:'
+                $connectionConfig->host,
+                $connectionConfig->port,
+                $redisConfig->queue->defaultQueue,
+                $redisConfig->queue->keyPrefix
             );
 
             $this->logger->info("Redis queue initialized", [
-                'host' => $connectionConfig['host'] ?? '127.0.0.1',
-                'port' => $connectionConfig['port'] ?? 6379,
-                'queue' => $queueConfig['default_queue'] ?? 'emails'
+                'host' => $connectionConfig->host,
+                'port' => $connectionConfig->port,
+                'queue' => $redisConfig->queue->defaultQueue
             ]);
         } catch (\Exception $e) {
             $this->logger->error("Failed to initialize queue: " . $e->getMessage(), [
@@ -155,15 +159,20 @@ class MailWorkerCommand
             $this->worker = new Worker($this->queue, $this->logger);
 
             // Configure worker from Redis config
-            $workerConfig = $this->redisConfig['queue']['worker'] ?? [];
-            $this->worker->setSleep($workerConfig['sleep'] ?? 3);
-            $this->worker->setMaxTries($workerConfig['max_tries'] ?? 3);
-            $this->worker->setMemory($workerConfig['memory'] ?? 128);
-            $this->worker->setJobTimeout($workerConfig['timeout'] ?? 60);
+            $workerConfig = $this->redisConfig->queue->worker;
+            $this->worker->setSleep($workerConfig->sleep);
+            $this->worker->setMaxTries($workerConfig->maxTries);
+            $this->worker->setMemory($workerConfig->memory);
+            $this->worker->setJobTimeout($workerConfig->timeout);
 
             $this->logger->notice("Worker started", [
                 'queue' => $queueName ?? 'default',
-                'config' => $workerConfig
+                'config' => [
+                    'sleep' => $workerConfig->sleep,
+                    'max_tries' => $workerConfig->maxTries,
+                    'memory' => $workerConfig->memory,
+                    'timeout' => $workerConfig->timeout
+                ]
             ]);
 
             $this->worker->work($queueName);
@@ -223,8 +232,18 @@ class MailWorkerCommand
                 echo "\nRecent failed jobs:\n";
                 echo str_repeat('-', 80) . "\n";
 
+                /**
+                 * @var array<int, array{
+                 *   failed_at: int|string|null,
+                 *   id: string,
+                 *   exception: array{message: string},
+                 *   original_job: array{job: string}
+                 * }> $failedJobs
+                 */
                 foreach ($failedJobs as $job) {
-                    $failedAt = date('Y-m-d H:i:s', $job['failed_at']);
+                    $failedAt = (isset($job['failed_at']) && is_numeric($job['failed_at']))
+                        ? date('Y-m-d H:i:s', (int)$job['failed_at'])
+                        : 'Unknown';
                     echo "ID: {$job['id']}\n";
                     echo "Failed at: $failedAt\n";
                     echo "Error: {$job['exception']['message']}\n";
@@ -277,6 +296,14 @@ class MailWorkerCommand
             $failedJobs = $this->queue->getFailedJobs();
             $retried = 0;
 
+            /**
+             * @var array<int, array{
+             *   failed_at: int|string|null,
+             *   id: string,
+             *   exception: array{message: string},
+             *   original_job: array{job: string}
+             * }> $failedJobs
+             */
             foreach ($failedJobs as $job) {
                 if ($this->queue->retryFailedJob($job['id'])) {
                     $retried++;
@@ -470,6 +497,7 @@ class MailWorkerCommand
 
             echo "Sending test email to: $email\n";
 
+            /** @var \MonkeysLegion\Mail\Mailer $mailer */
             $mailer = $this->container->get(\MonkeysLegion\Mail\Mailer::class);
 
             $mailer->send(
@@ -503,8 +531,19 @@ class MailWorkerCommand
         // Show current driver
         try {
             $mailConfig = $this->container->getConfig('mail');
-            $currentDriver = $mailConfig['driver'] ?? 'unknown';
+            $driver = $mailConfig['driver'] ?? null;
+            $currentDriver = is_array($driver) ? 'unknown' : $driver;
+            $currentDriver = (is_scalar($currentDriver) || (is_object($currentDriver) && method_exists($currentDriver, '__toString')))
+                ? (string) $currentDriver
+                : 'unknown';
+
             echo "Current mail driver: {$currentDriver}\n";
+
+            // Show Redis connection info
+            echo "Redis connection: {$this->redisConfig->default}\n";
+            $defaultConnection = $this->redisConfig->connections[$this->redisConfig->default];
+            echo "Redis host: {$defaultConnection->host}:{$defaultConnection->port}\n";
+            echo "Queue: {$this->redisConfig->queue->defaultQueue}\n";
             echo str_repeat('-', 40) . "\n";
         } catch (\Exception $e) {
             // Ignore if we can't get the driver info
@@ -549,14 +588,20 @@ class MailWorkerCommand
     {
         echo "$message (y/N): ";
         $handle = fopen("php://stdin", "r");
+
+        // Could not open stdin, assume no
+        if ($handle === false) return false;
         $line = fgets($handle);
         fclose($handle);
+        // Could not read input, assume no
+        if ($line === false) return false;
 
         return trim(strtolower($line)) === 'y';
     }
 
     /**
      * Get available commands
+     * @return array<string> List of available commands
      */
     public static function getAvailableCommands(): array
     {

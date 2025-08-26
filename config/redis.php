@@ -1,5 +1,7 @@
 <?php
 
+use MonkeysLegion\Mail\Enums\MailDefaults;
+
 return [
     /*
     |--------------------------------------------------------------------------
@@ -11,7 +13,7 @@ return [
     |
     */
 
-    'default' => $_ENV['REDIS_CONNECTION'] ?? 'default',
+    'default' => $_ENV['REDIS_CONNECTION'] ?? MailDefaults::QUEUE_CONNECTION,
 
     /*
     |--------------------------------------------------------------------------
@@ -24,15 +26,13 @@ return [
     */
 
     'connections' => [
-
         'default' => [
-            'host' => $_ENV['REDIS_HOST'] ?? '127.0.0.1',
-            'port' => (int)($_ENV['REDIS_PORT'] ?? 6379),
-            'password' => $_ENV['REDIS_PASSWORD'] ?? null,
-            'database' => (int)($_ENV['REDIS_DB'] ?? 0),
-            'timeout' => (int)($_ENV['REDIS_TIMEOUT'] ?? 30),
+            'host' => $_ENV['REDIS_HOST'] ?? MailDefaults::REDIS_HOST,
+            'port' => (int)($_ENV['REDIS_PORT'] ?? MailDefaults::REDIS_PORT),
+            'password' => $_ENV['REDIS_PASSWORD'] ?? MailDefaults::REDIS_PASSWORD,
+            'database' => (int)($_ENV['REDIS_DB'] ?? MailDefaults::REDIS_DB),
+            'timeout' => (int)($_ENV['REDIS_TIMEOUT'] ?? MailDefaults::REDIS_TIMEOUT),
         ],
-
     ],
 
     /*
@@ -45,17 +45,17 @@ return [
     */
 
     'queue' => [
-        'connection' => $_ENV['QUEUE_REDIS_CONNECTION'] ?? 'default',
-        'default_queue' => $_ENV['QUEUE_DEFAULT'] ?? 'emails',
-        'key_prefix' => $_ENV['QUEUE_PREFIX'] ?? 'queue:',
-        'failed_jobs_key' => $_ENV['QUEUE_FAILED_KEY'] ?? 'queue:failed',
+        'connection' => $_ENV['QUEUE_REDIS_CONNECTION'] ?? MailDefaults::QUEUE_CONNECTION,
+        'default_queue' => $_ENV['QUEUE_DEFAULT'] ?? MailDefaults::QUEUE_NAME,
+        'key_prefix' => $_ENV['QUEUE_PREFIX'] ?? MailDefaults::QUEUE_PREFIX,
+        'failed_jobs_key' => $_ENV['QUEUE_FAILED_KEY'] ?? MailDefaults::QUEUE_FAILED_KEY,
 
         // Worker configuration
         'worker' => [
-            'sleep' => (int)($_ENV['QUEUE_SLEEP'] ?? 3),
-            'max_tries' => (int)($_ENV['QUEUE_MAX_TRIES'] ?? 3),
-            'memory' => (int)($_ENV['QUEUE_MEMORY'] ?? 128), // MB
-            'timeout' => (int)($_ENV['QUEUE_TIMEOUT'] ?? 60), // seconds
+            'sleep' => (int)($_ENV['QUEUE_SLEEP'] ?? MailDefaults::QUEUE_WORKER_SLEEP),
+            'max_tries' => (int)($_ENV['QUEUE_MAX_TRIES'] ?? MailDefaults::QUEUE_WORKER_MAX_TRIES),
+            'memory' => (int)($_ENV['QUEUE_MEMORY'] ?? MailDefaults::QUEUE_WORKER_MEMORY), // MB
+            'timeout' => (int)($_ENV['QUEUE_TIMEOUT'] ?? MailDefaults::QUEUE_WORKER_TIMEOUT), // seconds
         ],
     ],
 ];

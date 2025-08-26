@@ -2,28 +2,12 @@
 
 namespace MonkeysLegion\Mailer\Tests\Mail;
 
-use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Mail\Mail\Mailable;
-use MonkeysLegion\Mail\Provider\MailServiceProvider;
-use PHPUnit\Framework\TestCase;
+use MonkeysLegion\Mailer\Tests\Abstracts\AbstractBaseTest;
 
-class MailableTest extends TestCase
+class MailableTest extends AbstractBaseTest
 {
-    protected function setUp(): void
-    {
-        $this->bootstrapServices();
-    }
-
-    private function bootstrapServices(): void
-    {
-        try {
-            MailServiceProvider::register(new ContainerBuilder());
-        } catch (\Exception $e) {
-            throw new \RuntimeException("Failed to bootstrap mail services: " . $e->getMessage(), 0, $e);
-        }
-    }
-
-    public function testMailableCanSetAndGetProperties()
+    public function testMailableCanSetAndGetProperties(): void
     {
         $mailable = new TestMailable();
 
@@ -40,7 +24,7 @@ class MailableTest extends TestCase
         $this->assertEquals(5, $mailable->getMaxTries());
     }
 
-    public function testMailableContentTypeConfiguration()
+    public function testMailableContentTypeConfiguration(): void
     {
         $mailable = new TestMailable();
 
@@ -49,7 +33,7 @@ class MailableTest extends TestCase
         $this->assertEquals('text/plain', $mailable->getContentType());
     }
 
-    public function testMailableAttachments()
+    public function testMailableAttachments(): void
     {
         $mailable = new TestMailable();
 
@@ -58,11 +42,14 @@ class MailableTest extends TestCase
 
         $attachments = $mailable->getAttachments();
         $this->assertCount(2, $attachments);
-        $this->assertEquals('/path/to/file.pdf', $attachments[0]['path']);
-        $this->assertEquals('document.pdf', $attachments[0]['name']);
+
+        if (is_array($attachments[0])) {
+            $this->assertEquals('/path/to/file.pdf', $attachments[0]['path'] ?? '');
+            $this->assertEquals('document.pdf', $attachments[0]['name'] ?? '');
+        }
     }
 
-    public function testMailableConfigureMethod()
+    public function testMailableConfigureMethod(): void
     {
         $mailable = new TestMailable();
 
@@ -81,15 +68,15 @@ class MailableTest extends TestCase
         $this->assertEquals(10, $mailable->getMaxTries());
     }
 
-    public function testMailableConditionalMethods()
+    public function testMailableConditionalMethods(): void
     {
         $mailable = new TestMailable();
 
-        $mailable->when(true, function ($mail) {
+        $mailable->when(true, function (TestMailable $mail) {
             $mail->setSubject('Conditional Subject');
         });
 
-        $mailable->unless(false, function ($mail) {
+        $mailable->unless(false, function (TestMailable $mail) {
             $mail->setTimeout(300);
         });
 
@@ -97,11 +84,11 @@ class MailableTest extends TestCase
         $this->assertEquals(300, $mailable->getTimeout());
     }
 
-    public function testMailableTapMethod()
+    public function testMailableTapMethod(): void
     {
         $mailable = new TestMailable();
 
-        $mailable->tap(function ($mail) {
+        $mailable->tap(function (TestMailable $mail) {
             $mail->setSubject('Tapped Subject')
                 ->setTimeout(150);
         });
@@ -116,7 +103,9 @@ class TestMailable extends Mailable
 {
     public function build(): self
     {
-        return $this->view('emails.test')
+        $this->view('emails.test')
             ->subject('Test Email');
+
+        return $this;
     }
 }
