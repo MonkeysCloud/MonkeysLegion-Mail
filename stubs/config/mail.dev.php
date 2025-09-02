@@ -30,7 +30,7 @@ return [
             'encryption' => $_ENV['MAIL_ENCRYPTION'] ?? 'tls', // tls / ssl / null
             'username' => $_ENV['MAIL_USERNAME'] ?? '',
             'password' => $_ENV['MAIL_PASSWORD'] ?? '',
-            'timeout' => (int) $_ENV['MAIL_TIMEOUT'] ?? 30,
+            'timeout' => $_ENV['MAIL_TIMEOUT'] ?? 30,
             'from' => [
                 'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com',
                 'name' => $_ENV['MAIL_FROM_NAME'] ?? 'My App'
