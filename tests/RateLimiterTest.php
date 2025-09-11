@@ -115,7 +115,7 @@ class RateLimiterTest extends TestCase
         $this->assertEquals('test_key', $config['key']);
         $this->assertEquals(100, $config['limit']);
         $this->assertEquals(3600, $config['seconds']);
-        $this->assertEquals(rtrim($this->testStoragePath, '/'), $config['storage_path'] ?? '');
+        $this->assertEquals(rtrim($this->testStoragePath, '/'), $config['storage_path']);
     }
 
     public function testCleanupRemovesOldEntries(): void

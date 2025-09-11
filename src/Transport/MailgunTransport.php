@@ -310,6 +310,7 @@ class MailgunTransport implements TransportInterface
         $attachmentIndex = 0;
 
         foreach ($message->getAttachments() as $attachment) {
+            /** @var array<string, mixed>|string $attachment */
             try {
                 $normalized = normalizeAttachment($attachment, base_path('/public'), true);
             } catch (\RuntimeException $e) {

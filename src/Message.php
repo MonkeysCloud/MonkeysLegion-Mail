@@ -23,7 +23,7 @@ class Message
      * @param string $subject The subject of the email.
      * @param string $content The content of the email.
      * @param string $contentType The content type of the email (default is text/plain).
-     * @param array<string|array{path: string, name?: string|null, mime_type?: string|null}> $attachments An array of file paths to attach to the email.
+     * @param array<string|int, mixed> $attachments An array of file paths to attach to the email.
      */
     public function __construct(
         private string $to,
@@ -85,7 +85,7 @@ class Message
 
     /**
      * Get all attachments
-     * @return array<string|array{path: string, name?: string|null, mime_type?: string|null}>
+     * @return array<string|int, mixed> List of attachments
      */
     public function getAttachments(): array
     {
@@ -179,8 +179,9 @@ class Message
 
         if (!empty($this->attachments)) {
             foreach ($this->attachments as $attachment) {
+                /** @var array<string, mixed>|string $attachment */
                 try {
-                    $normalized = normalizeAttachment($attachment, null, false);
+                    $normalized = normalizeAttachment($attachment);
                     $boundary_encoded = isset($normalized['boundary_encoded']) ? $normalized['boundary_encoded'] : '';
                     $body .= "\r\n\r\n--boundary\r\n" . $boundary_encoded;
                 } catch (\RuntimeException $e) {

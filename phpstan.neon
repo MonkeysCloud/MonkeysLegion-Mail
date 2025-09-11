@@ -1,6 +1,4 @@
 # phpstan.neon
-includes:
-    - vendor/phpstan/phpstan/conf/bleedingEdge.neon
 
 parameters:
     level: max
@@ -9,5 +7,3 @@ parameters:
         - src
         - tests
         
-    treatPhpDocTypesAsCertain: false
-

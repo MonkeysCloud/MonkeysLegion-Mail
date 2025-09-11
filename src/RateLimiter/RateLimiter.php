@@ -9,7 +9,7 @@ class RateLimiter
     public function __construct(private string $key, private int $limit, private int $seconds, private string $storagePath = '/tmp')
     {
         $this->storagePath = rtrim($storagePath, '/');
-        $this->filePath = WORKING_DIRECTORY . "/storage{$this->storagePath}/ratelimit_{$this->key}.json";
+        $this->filePath = base_path("/storage{$this->storagePath}/ratelimit_{$this->key}.json");
         $this->ensureDirectoryExists();
     }
 
@@ -157,7 +157,7 @@ class RateLimiter
     public static function cleanupAll(string $storagePath = '/tmp'): array
     {
         $storagePath = rtrim($storagePath, '/');
-        $directory = WORKING_DIRECTORY . "/storage{$storagePath}";
+        $directory = base_path("/storage{$storagePath}");
         $results = [
             'cleaned' => 0,
             'deleted' => 0,
@@ -303,12 +303,7 @@ class RateLimiter
 
     /**
      * Get configuration for this rate limiter instance
-     * @return array{
-     *   key: string,
-     *   limit: int,
-     *   seconds: int,
-     *   storage_path: string
-     * }
+     * @return array{key: string, limit: int, seconds: int, storage_path: string}
      */
     public function getConfig(): array
     {

@@ -20,7 +20,7 @@ class AbstractBaseTest extends TestCase
     {
         try {
             MailServiceProvider::setLogger(new MonkeyLogger());
-            MailServiceProvider::register(new ContainerBuilder());
+            MailServiceProvider::register(base_path(), new ContainerBuilder());
         } catch (\Exception $e) {
             throw new \RuntimeException("Failed to bootstrap mail services: " . $e->getMessage(), 0, $e);
         }

@@ -4,20 +4,9 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Provider;
 
-// =================================================================
-// CONFIGURATION CONSTANTS
-// =================================================================
-define('MAIL_CONFIG_DEFAULT_PATH', __DIR__ . '/../../config/mail.php');
-define(
-    'MAIL_CONFIG_PATH',
-    WORKING_DIRECTORY . '/config/mail.' . safeString($_ENV['APP_ENV'], 'dev') . '.php'
-);
-define('REDIS_CONFIG_PATH', __DIR__ . '/../../config/redis.php');
-define('RATELIMITER_CONFIG_PATH', __DIR__ . '/../../config/rate_limiter.php');
-
 use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
-use MonkeysLegion\Core\Logger\MonkeyLogger;
+use MonkeysLegion\Core\Provider\ProviderInterface;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Mail\Cli\Command\MailInstallCommand;
 use MonkeysLegion\Mail\Cli\Command\MailMakeCommand;
@@ -37,7 +26,7 @@ use MonkeysLegion\Mail\Template\Renderer;
 use MonkeysLegion\Mail\TransportInterface;
 use MonkeysLegion\Template\MLView;
 
-class MailServiceProvider
+class MailServiceProvider implements ProviderInterface
 {
     public function __construct() {}
 
@@ -45,7 +34,7 @@ class MailServiceProvider
     // MAIN REGISTRATION METHOD
     // =================================================================
 
-    public static function register(ContainerBuilder $c): void
+    public static function register(string $root, ContainerBuilder $c): void
     {
         $in_container = ServiceContainer::getInstance();
 
@@ -54,7 +43,7 @@ class MailServiceProvider
 
         try {
             // Load configurations
-            $configs = self::loadConfigurations();
+            $configs = self::loadConfigurations($root);
             self::storeConfigurations($in_container, $configs);
 
             // Build Redis configuration objects
@@ -102,31 +91,27 @@ class MailServiceProvider
      *
      * @return array<string, array<string, mixed>>
      */
-    private static function loadConfigurations(): array
+    private static function loadConfigurations(string $root): array
     {
-        $mailConfig = [];
+        $mailConfigDefaultPath = __DIR__ . '/../../config/mail.php';
+        $mailConfigPath = $root . '/config/mail.php';
+        $redisConfigPath = __DIR__ . '/../../config/redis.php';
+        $rateLimiterConfigPath = __DIR__ . '/../../config/rate_limiter.php';
 
-        if (file_exists(MAIL_CONFIG_PATH)) {
-            /** @var array<string, mixed> $mailConfig */
-            $mailConfig = require MAIL_CONFIG_PATH;
-        } else {
-            $fallback = base_path('/config/mail.' . safeString($_ENV['APP_ENV'], 'dev') . '.php');
-            if (file_exists($fallback)) {
-                /** @var array<string, mixed> $mailConfig */
-                $mailConfig = require $fallback;
-            }
-        }
+        /** @var array<string, mixed> $mailConfig */
+        $mailConfig = file_exists($mailConfigPath) ? require $mailConfigPath : [];
 
         /** @var array<string, mixed> $defaults */
-        $defaults = file_exists(MAIL_CONFIG_DEFAULT_PATH) ? require MAIL_CONFIG_DEFAULT_PATH : [];
+        $defaults = file_exists($mailConfigDefaultPath) ? require $mailConfigDefaultPath : [];
+
         /** @var array<string, mixed> $mergedMailConfig */
         $mergedMailConfig = array_replace_recursive($defaults, $mailConfig);
 
         /** @var array<string, mixed> $redisConfig */
-        $redisConfig = file_exists(REDIS_CONFIG_PATH) ? require REDIS_CONFIG_PATH : [];
+        $redisConfig = file_exists($redisConfigPath) ? require $redisConfigPath : [];
 
         /** @var array<string, mixed> $rateLimiterConfig */
-        $rateLimiterConfig = file_exists(RATELIMITER_CONFIG_PATH) ? require RATELIMITER_CONFIG_PATH : [];
+        $rateLimiterConfig = file_exists($rateLimiterConfigPath) ? require $rateLimiterConfigPath : [];
 
         return [
             'mail' => $mergedMailConfig,
