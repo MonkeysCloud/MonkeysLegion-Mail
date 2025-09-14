@@ -45,7 +45,7 @@ class MailWorkerCommand
         try {
             // Register mail services (this loads configurations and registers services)
             MailServiceProvider::setLogger(new MonkeyLogger());
-            MailServiceProvider::register(new ContainerBuilder());
+            MailServiceProvider::register(base_path(), new ContainerBuilder());
         } catch (\Exception $e) {
             $this->logger->error("Failed to bootstrap mail services: " . $e->getMessage(), [
                 'exception' => $e,
@@ -233,21 +233,26 @@ class MailWorkerCommand
                 echo str_repeat('-', 80) . "\n";
 
                 /**
-                 * @var array<int, array{
-                 *   failed_at: int|string|null,
-                 *   id: string,
-                 *   exception: array{message: string},
-                 *   original_job: array{job: string}
-                 * }> $failedJobs
+                 * @var array<int, array<string, mixed>> $failedJobs
                  */
                 foreach ($failedJobs as $job) {
+                    $id = is_scalar($job['id']) ? $job['id'] : 'Unknown';
                     $failedAt = (isset($job['failed_at']) && is_numeric($job['failed_at']))
                         ? date('Y-m-d H:i:s', (int)$job['failed_at'])
                         : 'Unknown';
-                    echo "ID: {$job['id']}\n";
+
+                    $error = (isset($job['exception']) && is_array($job['exception']) && isset($job['exception']['message']) && is_string($job['exception']['message']))
+                        ? $job['exception']['message']
+                        : 'Unknown';
+
+                    $jobName = (isset($job['original_job']) && is_array($job['original_job']) && isset($job['original_job']['job']) && is_string($job['original_job']['job']))
+                        ? $job['original_job']['job']
+                        : 'Unknown';
+
+                    echo "ID: $id\n";
                     echo "Failed at: $failedAt\n";
-                    echo "Error: {$job['exception']['message']}\n";
-                    echo "Job: {$job['original_job']['job']}\n";
+                    echo "Error: $error\n";
+                    echo "Job: $jobName\n";
                     echo str_repeat('-', 40) . "\n";
                 }
 
@@ -297,17 +302,14 @@ class MailWorkerCommand
             $retried = 0;
 
             /**
-             * @var array<int, array{
-             *   failed_at: int|string|null,
-             *   id: string,
-             *   exception: array{message: string},
-             *   original_job: array{job: string}
-             * }> $failedJobs
+             * @var array<int, array<string, mixed>> $failedJobs
              */
             foreach ($failedJobs as $job) {
-                if ($this->queue->retryFailedJob($job['id'])) {
+                $id = (isset($job['id']) && is_scalar($job['id'])) ? (string)$job['id'] : null;
+
+                if ($id !== null && $this->queue->retryFailedJob($id)) {
                     $retried++;
-                    echo "Retried job: {$job['id']}\n";
+                    echo "Retried job: $id\n";
                 }
             }
 

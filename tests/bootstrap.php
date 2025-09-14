@@ -2,11 +2,6 @@
 
 declare(strict_types=1);
 
-// Define test constants
-if (!defined('WORKING_DIRECTORY')) {
-    define('WORKING_DIRECTORY', dirname(__DIR__));
-}
-
 // Set up test environment
 $_ENV['APP_ENV'] = 'testing';
 $_ENV['MAIL_DRIVER'] = 'null';

@@ -30,7 +30,7 @@ abstract class Mailable
     /** Content type for the email */
     protected string $contentType = 'text/html';
 
-    /** @var array<string|array{path: string, name?: string|null, mime_type?: string|null}> */
+    /** @var array<string|int, mixed> */
     protected array $attachments = [];
 
     /** Queue name for background processing */
@@ -321,28 +321,48 @@ abstract class Mailable
 
     /**
      * Configure the mail with an array of properties at runtime
-     * 
-     * @param array{
-     *     to?: string,
-     *     subject?: string,
-     *     view?: string,
-     *     queue?: string,
-     *     viewData?: array<string, mixed>,
-     *     timeout?: int,
-     *     maxTries?: int
-     * } $config
+     *
+     * @param array<string, mixed> $config
      */
     public function configure(array $config): self
     {
         foreach ($config as $key => $value) {
             match ($key) {
-                'to' => $this->setTo($value),
-                'subject' => $this->setSubject($value),
-                'view' => $this->setView($value),
-                'queue' => $this->setQueue($value),
-                'viewData' => $this->mergeViewData($value),
-                'timeout' => $this->setTimeout($value),
-                'maxTries' => $this->setMaxTries($value),
+                'to' => is_string($value)
+                    ? $this->setTo($value)
+                    : throw new \InvalidArgumentException("Config 'to' must be string"),
+
+                'subject' => is_string($value)
+                    ? $this->setSubject($value)
+                    : throw new \InvalidArgumentException("Config 'subject' must be string"),
+
+                'view' => is_string($value)
+                    ? $this->setView($value)
+                    : throw new \InvalidArgumentException("Config 'view' must be string"),
+
+                'queue' => is_string($value)
+                    ? $this->setQueue($value)
+                    : throw new \InvalidArgumentException("Config 'queue' must be string"),
+
+                'viewData' => is_array($value)
+                    ? $this->mergeViewData((function ($arr) {
+                        $result = [];
+                        foreach ($arr as $k => $v) {
+                            $result[(string)$k] = $v;
+                        }
+                        return $result;
+                    })($value))
+                    : throw new \InvalidArgumentException("Config 'viewData' must be array"),
+
+                'timeout' => is_int($value)
+                    ? $this->setTimeout($value)
+                    : throw new \InvalidArgumentException("Config 'timeout' must be int"),
+
+                'maxTries' => is_int($value)
+                    ? $this->setMaxTries($value)
+                    : throw new \InvalidArgumentException("Config 'maxTries' must be int"),
+
+                default => null, // safely ignore unknown keys
             };
         }
         return $this;
@@ -442,7 +462,7 @@ abstract class Mailable
 
     /**
      * Get all attachments
-     * @return array<string|array{path: string, name?: string|null, mime_type?: string|null}>
+     * @return array<string|int, mixed> List of attachments
      */
     public function getAttachments(): array
     {
@@ -591,7 +611,7 @@ abstract class Mailable
 
     /**
      * Set all attachments
-     * @param array<string|array{path: string, name?: string|null, mime_type?: string|null}> $attachments
+     * @param array<string|int, mixed> $attachments An array of file paths to attach to the email.
      * @return $this
      */
     public function setAttachments(array $attachments): self

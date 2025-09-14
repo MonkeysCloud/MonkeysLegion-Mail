@@ -34,7 +34,7 @@ class Mailer
      * @param string $subject The subject of the email.
      * @param string $content The content of the email.
      * @param string $contentType The content type of the email 'text/plain' / 'text/html' / 'multipart/mixed' / 'multipart/alternative'.
-     * @param array<array{path: string, name?: string|null, mime_type?: string|null}|string> $attachments Any attachments to include with the email.
+     * @param array<string|int, mixed> $attachments Any attachments to include with the email.
      */
     public function send(string $to, string $subject, string $content, string $contentType = 'text/html', array $attachments = []): void
     {
@@ -124,7 +124,7 @@ class Mailer
      * @param string $subject The subject of the email
      * @param string $content The content of the email
      * @param string $contentType The content type (default: text/html)
-     * @param array<array{path: string, name?: string|null, mime_type?: string|null}|string> $attachments File attachments
+     * @param array<string|int, mixed> $attachments File attachments
      * @param string|null $queue Queue name (optional)
      * @return mixed Job ID
      */
@@ -212,12 +212,8 @@ class Mailer
         }
 
         try {
-            /** @var array<string, mixed> $mailConfigRaw */
             $mailConfigRaw = $this->container->getConfig('mail');
 
-            if (!is_array($mailConfigRaw)) {
-                throw new \RuntimeException('Mail config must be an array.');
-            }
             /** @var array<string, mixed> $mailConfig */
             $mailConfig = $mailConfigRaw;
 

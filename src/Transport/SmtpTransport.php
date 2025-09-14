@@ -149,6 +149,7 @@ final class SmtpTransport implements TransportInterface
 
         // Add attachments
         foreach ($message->getAttachments() as $attachment) {
+            /** @var array<string, mixed>|string $attachment */
             try {
                 $normalized = normalizeAttachment($attachment);
                 if (!isset($normalized['boundary_encoded'])) {

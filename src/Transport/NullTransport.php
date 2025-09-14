@@ -93,10 +93,8 @@ final class NullTransport implements TransportInterface
             throw new \InvalidArgumentException("Invalid or missing 'from.address' in config.");
         }
 
-        $address = $from['address'] ?? '';
-        $name = $from['name'] ?? 'No Name';
-        $this->fromAddress = safeString($address);
-        $this->fromName = safeString($name);
+        $this->fromAddress = safeString($from['address']);
+        $this->fromName = safeString($from['name'] ?? 'No Name');
 
         $this->logger?->info('NullTransport config validated and applied', [
             'from_address' => $this->fromAddress,

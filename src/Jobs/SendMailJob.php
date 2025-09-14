@@ -56,12 +56,7 @@ class SendMailJob
     /**
      * Get job data for debugging/logging
      *
-     * @return array{
-     *   content: string,
-     *   to: string,
-     *   subject: string,
-     *   attachments: array<string|array{path: string, name?: string|null, mime_type?: string|null}>
-     * } Data associated with the job
+     * @return array<string, mixed> Data associated with the job
      */
     public function getData(): array
     {
