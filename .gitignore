@@ -3,3 +3,4 @@
 /tests/results/
 .phpunit.result.cache
 .env*
+composer.lock

@@ -9,7 +9,7 @@ use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Mail\Provider\MailServiceProvider;
 use PHPUnit\Framework\TestCase;
 
-class AbstractBaseTest extends TestCase
+abstract class AbstractBaseTest extends TestCase
 {
     protected function setUp(): void
     {

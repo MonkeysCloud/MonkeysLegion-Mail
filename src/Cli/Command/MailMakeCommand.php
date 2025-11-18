@@ -7,6 +7,7 @@ namespace MonkeysLegion\Mail\Cli\Command;
 use MonkeysLegion\Cli\Console\Attributes\Command as CommandAttr;
 use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\Cli\Command\MakerHelpers;
+use MonkeysLegion\Cli\Console\Traits\Cli;
 
 /**
  * Class MailMakeCommand
@@ -16,7 +17,7 @@ use MonkeysLegion\Cli\Command\MakerHelpers;
 #[CommandAttr('make:mail', 'Generate a new Mailable class')]
 final class MailMakeCommand extends Command
 {
-    use MakerHelpers;
+    use MakerHelpers, Cli;
 
     // =================================================================
     // MAIN COMMAND HANDLER
@@ -197,13 +198,6 @@ final class MailMakeCommand extends Command
     // UTILITY METHODS
     // =================================================================
 
-    private function argument(int $position): ?string
-    {
-        /** @var array<int, string> */
-        global $argv;
-        return $argv[$position] ?? null;
-    }
-
     /**
      * @param string $content The content of the stub file
      * @param array<string, string> $replacements Associative array of placeholders to replace in the content
@@ -254,9 +248,15 @@ final class MailMakeCommand extends Command
 
     private function showUsageAndExit(): int
     {
-        $this->error('Please provide a name for the mail class.');
-        $this->line('Usage: make:mail <ClassName>');
-        $this->line('Example: make:mail WelcomeEmail');
+        $this->cliLine()
+            ->error('Please provide a name for the mail class.')
+            ->print();
+        $this->cliLine()
+            ->muted('Usage: make:mail <ClassName>')
+            ->print();
+        $this->cliLine()
+            ->muted('Example: make:mail WelcomeEmail')
+            ->print();
         return self::FAILURE;
     }
 
@@ -264,13 +264,27 @@ final class MailMakeCommand extends Command
     {
         $relativePath = str_replace($projectRoot . DIRECTORY_SEPARATOR, '', $filePath);
 
-        $this->info("✓ Mail class created: {$relativePath}");
-        $this->line('');
-        $this->line('<comment>Next steps:</comment>');
-        $this->line("1. Create the email template: resources/views/emails/{$viewName}.ml.php");
-        $this->line("2. Customize the build() method in your mail class");
-        $this->line("3. Use your mail class:");
-        $this->line("   <info>\$mail = new {$className}();</info>");
-        $this->line("   <info>\$mail->setTo('user@example.com')->send();</info>");
+        $this->cliLine()
+            ->success('✓ Mail class created:')->space()->add($relativePath, 'cyan')
+            ->print();
+        echo "\n";
+        $this->cliLine()
+            ->info('Next steps:')
+            ->print();
+        $this->cliLine()
+            ->muted('1. Create the email template:')->space()->add("resources/views/emails/{$viewName}.ml.php", 'yellow')
+            ->print();
+        $this->cliLine()
+            ->muted('2. Customize the build() method in your mail class')
+            ->print();
+        $this->cliLine()
+            ->muted('3. Use your mail class:')
+            ->print();
+        $this->cliLine()
+            ->add('   ', 'white')->add("\$mail = new {$className}();", 'green')
+            ->print();
+        $this->cliLine()
+            ->add('   ', 'white')->add("\$mail->setTo('user@example.com')->send();", 'green')
+            ->print();
     }
 }

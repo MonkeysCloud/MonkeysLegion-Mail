@@ -8,6 +8,7 @@ use FilesystemIterator;
 use MonkeysLegion\Cli\Console\Attributes\Command as CommandAttr;
 use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\Cli\Command\MakerHelpers;
+use MonkeysLegion\Cli\Console\Traits\Cli;
 use RecursiveDirectoryIterator;
 use RecursiveIteratorIterator;
 
@@ -18,12 +19,17 @@ use RecursiveIteratorIterator;
 #[CommandAttr('mail:install', 'Publish Mail scaffolding into your project')]
 final class MailInstallCommand extends Command
 {
-    use MakerHelpers;
+    use MakerHelpers, Cli;
 
     public function handle(): int
     {
         $projectRoot = base_path();
         $stubDir = __DIR__ . '/../../../stubs';
+
+        $this->cliLine()
+            ->info('Installing Mail package...')
+            ->print();
+        echo "\n";
 
         // 1) Copy scaffolding files
         $map = [
@@ -49,7 +55,9 @@ final class MailInstallCommand extends Command
         foreach ($map as $from => $to) {
             if (is_dir($from)) {
                 $this->mirror($from, $to);
-                $this->info('✓ Published directory ' . str_replace($projectRoot . '/', '', $to));
+                $this->cliLine()
+                    ->success('✓ Published directory')->space()->add(str_replace($projectRoot . '/', '', $to), 'cyan')
+                    ->print();
                 continue;
             }
 
@@ -58,18 +66,26 @@ final class MailInstallCommand extends Command
             }
 
             if ($this->copyFile($from, $to)) {
-                $this->info('✓ Published file ' . str_replace($projectRoot . '/', '', $to));
+                $this->cliLine()
+                    ->success('✓ Published file')->space()->add(str_replace($projectRoot . '/', '', $to), 'cyan')
+                    ->print();
             }
-            $this->line('');
         }
+
+        echo "\n";
 
         // 2) Ensure .env contains Mail keys
         $this->ensureEnvKeys($projectRoot);
 
+        echo "\n";
+
         // 3) Patch config/app.mlc: add mail { … } section
         $this->addMailConfig($projectRoot);
 
-        $this->line('<info>Mail scaffolding and .env setup complete!</info>');
+        echo "\n";
+        $this->cliLine()
+            ->success('✓ Mail installation complete!')
+            ->print();
         return self::SUCCESS;
     }
 
@@ -82,7 +98,9 @@ final class MailInstallCommand extends Command
     {
         $envFile = $projectRoot . '/.env';
         if (!file_exists($envFile)) {
-            $this->warn('.env file not found; skipping Mail key injection.');
+            $this->cliLine()
+                ->warning('.env file not found; skipping Mail key injection.')
+                ->print();
             return;
         }
 
@@ -118,7 +136,9 @@ final class MailInstallCommand extends Command
         }
 
         if (empty($missing)) {
-            $this->info('All Mail keys already present in .env.');
+            $this->cliLine()
+                ->info('All Mail keys already present in .env.')
+                ->print();
             return;
         }
 
@@ -143,7 +163,9 @@ final class MailInstallCommand extends Command
         }
 
         file_put_contents($envFile, "\n" . $append, FILE_APPEND);
-        $this->info('✓ Added missing Mail keys to .env: ' . implode(', ', $missing));
+        $this->cliLine()
+            ->success('✓ Added missing Mail keys to .env:')->space()->add(implode(', ', $missing), 'yellow')
+            ->print();
     }
 
     /**
@@ -156,22 +178,20 @@ final class MailInstallCommand extends Command
         $path = 'config/app.mlc';
         $mlcFile = "{$projectRoot}/$path";
         if (!is_file($mlcFile)) {
-            $this->warn("$path not found; skipping mail section injection.");
+            $this->cliLine()
+                ->warning("$path not found; skipping mail section injection.")
+                ->print();
             return;
         }
 
         $lines = file($mlcFile, FILE_IGNORE_NEW_LINES);
         if ($lines === false) throw new \RuntimeException("Failed to read $path at: $mlcFile");
 
-        // -----------------------------------------------------------------
-        // 1) Find an existing `mail {` block (track braces)
-        // -----------------------------------------------------------------
         $mailStart = null;
         $mailEnd   = null;
         foreach ($lines as $i => $line) {
             if (preg_match('/^\s*mail\s*\{\s*$/', $line)) {
                 $mailStart = $i;
-                // walk to matching }
                 $depth = 1;
                 for ($j = $i + 1, $n = count($lines); $j < $n; $j++) {
                     if (strpos($lines[$j], '{') !== false) $depth++;
@@ -185,9 +205,6 @@ final class MailInstallCommand extends Command
             }
         }
 
-        // -----------------------------------------------------------------
-        // 2) Existing child-indent or default four spaces
-        // -----------------------------------------------------------------
         $indent = '    ';
         if ($mailStart !== null && $mailStart + 1 < count($lines)) {
             if (preg_match('/^(\s+)\S/', $lines[$mailStart + 1], $m)) {
@@ -195,9 +212,6 @@ final class MailInstallCommand extends Command
             }
         }
 
-        // -----------------------------------------------------------------
-        // 3) Build defaults and merge with any existing keys
-        // -----------------------------------------------------------------
         $defaults = [
             'driver'               => '"smtp"',
             'queue_enabled'        => 'true',
@@ -213,7 +227,6 @@ final class MailInstallCommand extends Command
         $existing = [];
 
         if ($mailStart !== null) {
-            // scan the existing block for key = value pairs
             for ($k = $mailStart + 1; $k < $mailEnd; $k++) {
                 if (preg_match('/^\s*([A-Za-z0-9_]+)\s*=\s*(.+)$/', $lines[$k], $m)) {
                     $existing[$m[1]] = trim($m[2]);
@@ -221,15 +234,11 @@ final class MailInstallCommand extends Command
             }
         }
 
-        // Final key/value list (existing overrides defaults)
         $kv = $defaults;
         foreach ($existing as $k => $v) {
             $kv[$k] = $v;
         }
 
-        // -----------------------------------------------------------------
-        // 4) Compose the block
-        // -----------------------------------------------------------------
         $block = [];
         $block[] = 'mail {';
         foreach ($kv as $k => $v) {
@@ -237,18 +246,12 @@ final class MailInstallCommand extends Command
         }
         $block[] = '}';
 
-        // -----------------------------------------------------------------
-        // 5) Splice into file
-        // -----------------------------------------------------------------
         if ($mailStart !== null && $mailEnd !== null) {
-            // replace old block
             array_splice($lines, $mailStart, $mailEnd - $mailStart + 1, $block);
         } else {
-            // append after auth { … } or at end of file
             $insertAt = count($lines);
             foreach ($lines as $i => $line) {
                 if (preg_match('/^\s*auth\s*\{\s*$/', $line)) {
-                    // jump to its closing brace
                     $d = 1;
                     for ($j = $i + 1; $j < count($lines); $j++) {
                         if (strpos($lines[$j], '{') !== false) $d++;
@@ -261,11 +264,13 @@ final class MailInstallCommand extends Command
                     break;
                 }
             }
-            array_splice($lines, $insertAt, 0, array_merge([''], $block)); // blank line before
+            array_splice($lines, $insertAt, 0, array_merge([''], $block));
         }
 
         file_put_contents($mlcFile, implode("\n", $lines) . "\n");
-        $this->info("✓ Added/merged mail { … } section in $path.");
+        $this->cliLine()
+            ->success("✓ Added/merged mail { … } section in")->space()->add($path, 'cyan')
+            ->print();
     }
 
     /**
@@ -297,9 +302,12 @@ final class MailInstallCommand extends Command
      */
     private function shouldOverwrite(string $to, string $projectRoot): bool
     {
-        $overwrite = $this->confirm(str_replace($projectRoot . '/', '', $to) . ' exists, overwrite?', false);
+        $relativePath = str_replace($projectRoot . '/', '', $to);
+        $overwrite = $this->confirm("$relativePath exists, overwrite?", false);
         if (!$overwrite) {
-            $this->line('↷ Skipped ' . str_replace($projectRoot . '/', '', $to));
+            $this->cliLine()
+                ->muted('↷ Skipped')->space()->add($relativePath, 'gray')
+                ->print();
         }
         return $overwrite;
     }
@@ -310,26 +318,31 @@ final class MailInstallCommand extends Command
     private function copyFile(string $from, string $to): bool
     {
         if (!file_exists($from)) {
-            $this->warn("Source file does not exist: $from");
+            $this->cliLine()
+                ->warning("Source file does not exist:")->space()->add($from, 'yellow')
+                ->print();
             return false;
         }
 
         $dir = dirname($to);
         if (!is_dir($dir)) {
             if (!mkdir($dir, 0755, true) && !is_dir($dir)) {
-                $this->warn("Failed to create directory: $dir");
+                $this->cliLine()
+                    ->error("Failed to create directory:")->space()->add($dir, 'red')
+                    ->print();
                 return false;
             }
         }
 
         if (!copy($from, $to)) {
-            $this->warn("Failed to copy file from $from to $to");
+            $this->cliLine()
+                ->error("Failed to copy file from")->space()->add($from, 'red')->space()->add('to', 'white')->space()->add($to, 'red')
+                ->print();
             return false;
         }
 
         return true;
     }
-
 
     /**
      * Ask a yes/no question and return true for 'yes', false for 'no'.
@@ -342,13 +355,5 @@ final class MailInstallCommand extends Command
             return $default;
         }
         return in_array(strtolower($answer), ['y', 'yes'], true);
-    }
-
-    /**
-     * Output a warning message to the console.
-     */
-    private function warn(string $message): void
-    {
-        $this->line('<comment>' . $message . '</comment>');
     }
 }

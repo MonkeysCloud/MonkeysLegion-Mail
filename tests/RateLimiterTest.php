@@ -13,7 +13,7 @@ class RateLimiterTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->testStoragePath = '/rate_limiter_tests';
+        $this->testStoragePath = sys_get_temp_dir() . '/rate_limiter_tests_' . uniqid();
         if (!is_dir($this->testStoragePath)) {
             mkdir($this->testStoragePath, 0755, true);
         }
@@ -39,6 +39,11 @@ class RateLimiterTest extends TestCase
                     unlink($file);
                 }
             }
+        }
+
+        // Remove the test directory
+        if (is_dir($this->testStoragePath)) {
+            rmdir($this->testStoragePath);
         }
     }
 
@@ -186,7 +191,7 @@ class RateLimiterTest extends TestCase
 
     public function testDirectoryCreation(): void
     {
-        $nonExistentPath = '/non_existent_' . uniqid();
+        $nonExistentPath = sys_get_temp_dir() . '/non_existent_' . uniqid();
 
         $rateLimiter = new RateLimiter('test_key', 5, 60, $nonExistentPath);
 
