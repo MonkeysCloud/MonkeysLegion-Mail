@@ -53,7 +53,7 @@ This comprehensive mail package includes everything you need for professional em
 composer create-project --stability=dev \ monkeyscloud/monkeyslegion-skeleton my-app "dev-main"
 
 # Publish configuration and scaffolding
-php vendor/bin/ml mail:install
+php ml mail:install
 ```
 
 ### Basic Configuration
@@ -136,7 +136,7 @@ echo "Email queued with job ID: $jobId";
 
 ```php
 // Generate a new mailable class
-php vendor/bin/ml make:mail WelcomeMail
+php ml make:mail WelcomeMail
 
 // Use the generated class
 use App\Mail\WelcomeMail;
@@ -157,7 +157,7 @@ Mailable classes provide an elegant, object-oriented way to compose emails with 
 
 ```bash
 # Generate a new mailable class
-php vendor/bin/ml make:mail OrderConfirmation
+php ml make:mail OrderConfirmation
 ```
 
 ### Example Mailable Class
@@ -349,20 +349,48 @@ redis-cli llen queue:failed         # Failed jobs
 
 ## 🔧 CLI Commands
 
-The mail package includes powerful CLI commands for testing, queue management, and maintenance.
+The mail package includes powerful CLI commands for testing, queue management, code generation, and maintenance.
 
 ### Email Testing
 
 ```bash
 # Test email sending (bypasses queue)
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:test user@example.com
+php ml mail:test user@example.com
+```
+
+### Code Generation
+
+```bash
+# Generate a new Mailable class
+php ml make:mail WelcomeMail
+
+# Example: Create OrderConfirmation mailable
+php ml make:mail OrderConfirmation
+
+# The generated class will be at: app/Mail/OrderConfirmationMail.php
+```
+
+### Installation & Setup
+
+```bash
+# Install Mail package scaffolding
+php ml mail:install
+
+# This command will:
+# - Publish configuration files
+# - Create email template examples
+# - Add environment variables to .env
+# - Configure config/app.mlc
 ```
 
 ### DKIM Key Generation
 
 ```bash
 # Generate DKIM private and public key files in the specified directory
-php vendor/bin/ml make:dkim-pkey <directory>
+php ml make:dkim-pkey <directory>
+
+# Example:
+php ml make:dkim-pkey storage/keys
 ```
 - This will create `dkim_private.key` and `dkim_public.key` in the given directory.
 - Add the public key to your DNS as a TXT record for DKIM.
@@ -371,32 +399,54 @@ php vendor/bin/ml make:dkim-pkey <directory>
 
 ```bash
 # Start processing queued emails
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:work
+php ml mail:work
 
 # Work on specific queue
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:work high-priority
+php ml mail:work high-priority
 
-# List pending jobs
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:list
+# List pending jobs in default queue
+php ml mail:list
+
+# List pending jobs in specific queue
+php ml mail:list newsletters
 
 # List failed jobs
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:failed
+php ml mail:failed
 
 # Retry specific failed job
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:retry job_12345
+php ml mail:retry job_12345
 
 # Retry all failed jobs  
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:retry --all
+php ml mail:retry --all
 
-# Clear pending jobs
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:clear
+# Clear pending jobs from default queue
+php ml mail:clear
+
+# Clear pending jobs from specific queue
+php ml mail:clear newsletters
 
 # Delete all failed jobs
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:flush
+php ml mail:flush
 
 # Delete ALL jobs (pending + failed)
-php vendor/monkeyscloud/monkeyslegion-mail/bin/ml-mail.php mail:purge
+php ml mail:purge
 ```
+
+### Command Summary
+
+| Command | Description | Example |
+|---------|-------------|---------|
+| `mail:test <email>` | Send test email | `mail:test user@example.com` |
+| `make:mail <name>` | Generate Mailable class | `make:mail WelcomeMail` |
+| `mail:install` | Install package scaffolding | `mail:install` |
+| `make:dkim-pkey <dir>` | Generate DKIM keys | `make:dkim-pkey storage/keys` |
+| `mail:work [queue]` | Process queued jobs | `mail:work high-priority` |
+| `mail:list [queue]` | List pending jobs | `mail:list newsletters` |
+| `mail:failed` | List failed jobs | `mail:failed` |
+| `mail:retry <id\|--all>` | Retry failed job(s) | `mail:retry --all` |
+| `mail:clear [queue]` | Clear pending jobs | `mail:clear` |
+| `mail:flush` | Delete failed jobs | `mail:flush` |
+| `mail:purge` | Delete all jobs | `mail:purge` |
 
 ### Queue Worker Configuration
 
@@ -411,6 +461,22 @@ Configure worker behavior in `config/redis.php`:
         'timeout' => 60,        // Job timeout (seconds)
     ],
 ],
+```
+
+### Running Workers in Production
+
+For production environments, use a process manager like Supervisor:
+
+```ini
+[program:mail-worker]
+process_name=%(program_name)s_%(process_num)02d
+command=php /path/to/your/app/ml mail:work
+autostart=true
+autorestart=true
+user=www-data
+numprocs=2
+redirect_stderr=true
+stdout_logfile=/var/log/mail-worker.log
 ```
 
 ---
