@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Transport;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
@@ -20,11 +20,11 @@ final class NullTransport implements TransportInterface
 
     /**
      * @param array<string, mixed> $config
-     * @param FrameworkLoggerInterface|null $logger
+     * @param MonkeysLoggerInterface|null $logger
      */
     public function __construct(
         private array $config,
-        private ?FrameworkLoggerInterface $logger
+        private ?MonkeysLoggerInterface $logger
     ) {
         $this->validateAndSetConfig();
     }

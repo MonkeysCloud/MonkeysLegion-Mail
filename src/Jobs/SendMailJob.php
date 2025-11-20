@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Jobs;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\TransportInterface;
@@ -15,14 +15,14 @@ use MonkeysLegion\Mail\TransportInterface;
  */
 class SendMailJob
 {
-    private FrameworkLoggerInterface $logger;
+    private MonkeysLoggerInterface $logger;
     private ServiceContainer $container;
 
     public function __construct(private Message $m)
     {
         $this->container = ServiceContainer::getInstance();
-        /** @var FrameworkLoggerInterface $logger */
-        $logger = $this->container->get(FrameworkLoggerInterface::class);
+        /** @var MonkeysLoggerInterface $logger */
+        $logger = $this->container->get(MonkeysLoggerInterface::class);
         $this->logger = $logger;
     }
 

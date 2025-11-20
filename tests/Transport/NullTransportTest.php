@@ -2,20 +2,20 @@
 
 namespace MonkeysLegion\Mailer\Tests\Transport;
 
-use MonkeysLegion\Core\Logger\MonkeyLogger;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\NullTransport;
 use PHPUnit\Framework\TestCase;
 
 class NullTransportTest extends TestCase
 {
-    private MonkeyLogger $logger;
+    private MonkeysLoggerInterface $logger;
     /** @var array<string, mixed> */
     private array $validConfig;
 
     public function setUp(): void
     {
-        $this->logger = $this->createMock(MonkeyLogger::class);
+        $this->logger = $this->createMock(MonkeysLoggerInterface::class);
 
         // Setup a valid config to be used in most tests
         $this->validConfig = [

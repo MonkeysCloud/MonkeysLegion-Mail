@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Mail;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\Template\Renderer;
 use MonkeysLegion\Mail\Service\ServiceContainer;
@@ -49,7 +49,7 @@ abstract class Mailable
     private ServiceContainer $container;
 
     /** Logger instance */
-    private FrameworkLoggerInterface $logger;
+    private MonkeysLoggerInterface $logger;
 
     // =================================================================
     // CONSTRUCTOR & ABSTRACT METHODS
@@ -58,8 +58,8 @@ abstract class Mailable
     public function __construct()
     {
         $this->container = ServiceContainer::getInstance();
-        /** @var FrameworkLoggerInterface $logger */
-        $logger = $this->container->get(FrameworkLoggerInterface::class);
+        /** @var MonkeysLoggerInterface $logger */
+        $logger = $this->container->get(MonkeysLoggerInterface::class);
         $this->logger = $logger;
     }
 

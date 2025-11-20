@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Jobs\SendMailJob;
 use MonkeysLegion\Mail\Queue\QueueInterface;
 use MonkeysLegion\Mail\Queue\RedisQueue;
@@ -15,7 +15,7 @@ use MonkeysLegion\Mail\Security\DkimSigner;
 
 class Mailer
 {
-    private ?FrameworkLoggerInterface $logger = null;
+    private ?MonkeysLoggerInterface $logger = null;
 
     public function __construct(
         private TransportInterface $driver,
@@ -23,8 +23,8 @@ class Mailer
         private ?ServiceContainer $container = null
     ) {
 
-        /** @var FrameworkLoggerInterface $logger */
-        $logger = $this->container?->get(FrameworkLoggerInterface::class);
+        /** @var MonkeysLoggerInterface $logger */
+        $logger = $this->container?->get(MonkeysLoggerInterface::class);
         $this->logger = $logger;
     }
 

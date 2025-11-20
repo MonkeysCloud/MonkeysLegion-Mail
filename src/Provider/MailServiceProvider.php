@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Provider;
 
 use MonkeysLegion\Cli\Console\Command;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Core\Provider\ProviderInterface;
 use MonkeysLegion\DI\ContainerBuilder;
 use MonkeysLegion\Mail\Cli\Command\MailInstallCommand;
@@ -38,8 +38,8 @@ class MailServiceProvider implements ProviderInterface
     {
         $in_container = ServiceContainer::getInstance();
 
-        /** @var FrameworkLoggerInterface $logger */
-        $logger = $in_container->get(FrameworkLoggerInterface::class);
+        /** @var MonkeysLoggerInterface $logger */
+        $logger = $in_container->get(MonkeysLoggerInterface::class);
 
         try {
             // Load configurations
@@ -167,8 +167,8 @@ class MailServiceProvider implements ProviderInterface
             $cachePath
         );
 
-        /** @var FrameworkLoggerInterface $logger */
-        $logger = $container->get(FrameworkLoggerInterface::class);
+        /** @var MonkeysLoggerInterface $logger */
+        $logger = $container->get(MonkeysLoggerInterface::class);
         // Register our Mail Renderer that uses the MonkeysLegion\Template\Renderer
         $container->set(Renderer::class, function () use ($mlView, $logger) {
             return new Renderer(
@@ -183,9 +183,9 @@ class MailServiceProvider implements ProviderInterface
      * 
      * @param ServiceContainer $container
      * @param array<string, mixed> $mailConfig
-     * @param FrameworkLoggerInterface $logger
+     * @param MonkeysLoggerInterface $logger
      */
-    private static function registerTransport(ServiceContainer $container, array $mailConfig, FrameworkLoggerInterface $logger): void
+    private static function registerTransport(ServiceContainer $container, array $mailConfig, MonkeysLoggerInterface $logger): void
     {
         $container->set(TransportInterface::class, function () use ($mailConfig, $logger) {
             try {
@@ -291,8 +291,8 @@ class MailServiceProvider implements ProviderInterface
 
             $container->set(RedisConfig::class, fn() => $redisConfigObject);
         } catch (\Exception $e) {
-            /** @var FrameworkLoggerInterface $logger */
-            $logger = $container->get(FrameworkLoggerInterface::class);
+            /** @var MonkeysLoggerInterface $logger */
+            $logger = $container->get(MonkeysLoggerInterface::class);
             $logger->error("Failed to build Redis configuration", [
                 'exception' => $e,
                 'error_message' => $e->getMessage(),
@@ -327,8 +327,8 @@ class MailServiceProvider implements ProviderInterface
     private static function registerWorker(ServiceContainer $container): void
     {
         $container->set(Worker::class, function () use ($container) {
-            /** @var FrameworkLoggerInterface $logger */
-            $logger = $container->get(FrameworkLoggerInterface::class);
+            /** @var MonkeysLoggerInterface $logger */
+            $logger = $container->get(MonkeysLoggerInterface::class);
             /** @var QueueInterface $queue */
             $queue = $container->get(QueueInterface::class);
             $worker = new Worker($queue, $logger);
@@ -387,10 +387,10 @@ class MailServiceProvider implements ProviderInterface
     // EXTERNAL LOGGER SUPPORT
     // =================================================================
 
-    public static function setLogger(FrameworkLoggerInterface $logger): void
+    public static function setLogger(MonkeysLoggerInterface $logger): void
     {
         $container = ServiceContainer::getInstance();
-        $container->set(FrameworkLoggerInterface::class, fn() => $logger);
+        $container->set(MonkeysLoggerInterface::class, fn() => $logger);
     }
 
     // =================================================================

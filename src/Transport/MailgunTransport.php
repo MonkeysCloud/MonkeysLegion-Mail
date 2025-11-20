@@ -3,7 +3,7 @@
 namespace MonkeysLegion\Mail\Transport;
 
 use CURLFile;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\MailDefaults;
 use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Enums\MailgunRegion;
@@ -30,11 +30,11 @@ class MailgunTransport implements TransportInterface
 
     /**
      * @param array<string, mixed> $config
-     * @param FrameworkLoggerInterface|null $logger
+     * @param MonkeysLoggerInterface|null $logger
      */
     public function __construct(
         array $config,
-        private ?FrameworkLoggerInterface $logger = null
+        private ?MonkeysLoggerInterface $logger = null
     ) {
         $this->validateAndSetConfig($config);
         $this->setupEndpoint();

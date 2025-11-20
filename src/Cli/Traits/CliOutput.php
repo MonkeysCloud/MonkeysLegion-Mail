@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Cli\Traits;
 
 use MonkeysLegion\Cli\Console\Traits\Cli;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 
 /**
  * Trait for handling CLI output with colored formatting
@@ -16,7 +16,7 @@ trait CliOutput
     use Cli;
 
     private bool $cliMode = false;
-    private ?FrameworkLoggerInterface $logger = null;
+    private ?MonkeysLoggerInterface $logger = null;
 
     /**
      * Enable CLI mode for colored output instead of logging
@@ -30,7 +30,7 @@ trait CliOutput
     /**
      * Set the logger instance
      */
-    protected function setLogger(FrameworkLoggerInterface $logger): void
+    protected function setLogger(MonkeysLoggerInterface $logger): void
     {
         $this->logger = $logger;
     }

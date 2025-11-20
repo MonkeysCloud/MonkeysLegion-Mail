@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Transport;
 
 use InvalidArgumentException;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\Encryption;
 use MonkeysLegion\Mail\Enums\MailDefaults;
 use MonkeysLegion\Mail\Enums\MailDriverName;
@@ -30,11 +30,11 @@ final class SmtpTransport implements TransportInterface
      * SmtpTransport constructor.
      *
      * @param array<string, mixed> $config Configuration for the SMTP transport.
-     * @param FrameworkLoggerInterface $logger
+     * @param MonkeysLoggerInterface $logger
      */
     public function __construct(
         private array $config,
-        private ?FrameworkLoggerInterface $logger
+        private ?MonkeysLoggerInterface $logger
     ) {
         $this->logger?->smartLog("SMTP Transport constructor called", [
             'config_keys' => array_keys($config),
@@ -214,8 +214,6 @@ final class SmtpTransport implements TransportInterface
             );
 
             if ($socket === false) {
-                assert(is_int($errno));
-                assert(is_string($errstr));
                 $this->logger?->smartLog("SMTP connection failed", [
                     'address' => $this->address,
                     'errno' => $errno,

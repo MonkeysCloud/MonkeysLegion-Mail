@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
@@ -14,13 +14,13 @@ use MonkeysLegion\Mail\Transport\SmtpTransport;
 
 class MailerFactory
 {
-    private ?FrameworkLoggerInterface $logger;
+    private ?MonkeysLoggerInterface $logger;
 
     public function __construct(private ServiceContainer $container)
     {
         try {
-            /** @var FrameworkLoggerInterface $logger */
-            $logger = $this->container->get(FrameworkLoggerInterface::class);
+            /** @var MonkeysLoggerInterface $logger */
+            $logger = $this->container->get(MonkeysLoggerInterface::class);
             $this->logger = $logger;
         } catch (\Exception $e) {
             $this->logger?->error($e->getMessage());
@@ -35,10 +35,10 @@ class MailerFactory
      * @return TransportInterface
      * @throws \InvalidArgumentException If the driver is unknown.
      */
-    public static function make(array $config = [], ?FrameworkLoggerInterface $logger = null): TransportInterface
+    public static function make(array $config = [], ?MonkeysLoggerInterface $logger = null): TransportInterface
     {
-            $driver = safeString($config['driver'], 'null');
-            return self::getTransport($driver, $config, $logger);
+        $driver = safeString($config['driver'], 'null');
+        return self::getTransport($driver, $config, $logger);
     }
 
     /**
@@ -48,10 +48,10 @@ class MailerFactory
      * @param array<string, mixed> $config The driver configuration
      * @return TransportInterface
      */
-    public static function createTransport($driver, $config, ?FrameworkLoggerInterface $logger = null)
+    public static function createTransport($driver, $config, ?MonkeysLoggerInterface $logger = null)
     {
-            $driver = safeString($driver, 'null');
-            return self::getTransport($driver, $config, $logger);
+        $driver = safeString($driver, 'null');
+        return self::getTransport($driver, $config, $logger);
     }
 
     /**
@@ -131,7 +131,7 @@ class MailerFactory
      * @return TransportInterface
      * @throws \InvalidArgumentException If the driver is unknown.
      */
-    private static function getTransport(string $driver, array $config, ?FrameworkLoggerInterface $logger): TransportInterface
+    private static function getTransport(string $driver, array $config, ?MonkeysLoggerInterface $logger): TransportInterface
     {
         $driver = self::validateDriver($driver);
         $config = self::getDriverConfig($driver, $config);

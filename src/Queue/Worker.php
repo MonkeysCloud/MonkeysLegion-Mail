@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Queue;
 
 use MonkeysLegion\Mail\Cli\Traits\CliOutput;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Event\MessageFailed;
 use MonkeysLegion\Mail\Event\MessageSent;
 
@@ -24,7 +24,7 @@ class Worker
 
     public function __construct(
         private QueueInterface $queue,
-        FrameworkLoggerInterface $logger
+        MonkeysLoggerInterface $logger
     ) {
         $this->setLogger($logger);
     }
@@ -40,6 +40,8 @@ class Worker
 
     /**
      * Output a message - either log or print based on mode
+     * 
+     * @param array<string, mixed> $context Additional context for the message
      */
     private function output(string $message, array $context = [], string $level = 'info'): void
     {
@@ -47,16 +49,18 @@ class Worker
             $this->printCliMessage($message, $context, $level);
         } else {
             match ($level) {
-                'error' => $this->logger->error($message, $context),
-                'warning' => $this->logger->warning($message, $context),
-                'notice' => $this->logger->notice($message, $context),
-                default => $this->logger->smartLog($message, $context),
+                'error' => $this->logger?->error($message, $context),
+                'warning' => $this->logger?->warning($message, $context),
+                'notice' => $this->logger?->notice($message, $context),
+                default => $this->logger?->smartLog($message, $context),
             };
         }
     }
 
     /**
      * Print a CLI-friendly colored message
+     * 
+     * @param array<string, mixed> $context Additional context for the message
      */
     private function printCliMessage(string $message, array $context = [], string $level = 'info'): void
     {
@@ -325,7 +329,7 @@ class Worker
         $exceeded = $memoryUsage >= $this->memory;
 
         if ($exceeded && !$this->cliMode) {
-            $this->logger->warning("Memory usage check - limit exceeded", [
+            $this->logger?->warning("Memory usage check - limit exceeded", [
                 'current_usage_mb' => round($memoryUsage, 2),
                 'limit_mb' => $this->memory
             ]);

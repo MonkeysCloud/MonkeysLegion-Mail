@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Event;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 
 class MessageSent
 {
@@ -16,13 +16,13 @@ class MessageSent
      * @param string $jobId Unique identifier for the job
      * @param array<string, mixed> $jobData Data associated with the job
      * @param int $duration Duration in milliseconds it took to send the message
-     * @param FrameworkLoggerInterface|null $logger Logger instance for logging the event
+     * @param MonkeysLoggerInterface|null $logger Logger instance for logging the event
      */
     public function __construct(
         private string $jobId,
         private array $jobData,
         private int $duration,
-        private ?FrameworkLoggerInterface $logger
+        private ?MonkeysLoggerInterface $logger
     ) {
         $this->sentAt = time();
         $this->log();

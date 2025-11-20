@@ -8,7 +8,7 @@ use MonkeysLegion\Cli\Console\Attributes\Command as CommandAttr;
 use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\Cli\Command\MakerHelpers;
 use MonkeysLegion\Cli\Console\Traits\Cli;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Service\ServiceContainer;
 
 #[CommandAttr('mail:test', 'Send a test email')]
@@ -45,8 +45,8 @@ final class MailTestCommand extends Command
             ->print();
 
         $container = ServiceContainer::getInstance();
-        /** @var FrameworkLoggerInterface $logger */
-        $logger = $container->get(FrameworkLoggerInterface::class);
+        /** @var MonkeysLoggerInterface $logger */
+        $logger = $container->get(MonkeysLoggerInterface::class);
 
         try {
             /** @var \MonkeysLegion\Mail\Mailer $mailer */

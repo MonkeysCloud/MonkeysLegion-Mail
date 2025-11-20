@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Transport;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
@@ -17,9 +17,9 @@ final class SendmailTransport implements TransportInterface
 
     /**
      * @param array<string, mixed> $config Configuration for the sendmail transport
-     * @param FrameworkLoggerInterface|null $logger Optional logger instance
+     * @param MonkeysLoggerInterface|null $logger Optional logger instance
      */
-    public function __construct(array $config = [], private ?FrameworkLoggerInterface $logger = null)
+    public function __construct(array $config = [], private ?MonkeysLoggerInterface $logger = null)
     {
         $this->validateAndSetConfig($config);
 

@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Queue;
 
 use MonkeysLegion\Mail\Cli\Traits\CliOutput;
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use Redis;
 use RedisException;
 use MonkeysLegion\Mail\Event\MessageQueued;
@@ -27,8 +27,8 @@ class RedisQueue implements QueueInterface
     ) {
         $this->redis = new Redis();
         $this->container = ServiceContainer::getInstance();
-        /** @var FrameworkLoggerInterface $logger */
-        $logger = $this->container->get(FrameworkLoggerInterface::class);
+        /** @var MonkeysLoggerInterface $logger */
+        $logger = $this->container->get(MonkeysLoggerInterface::class);
         $this->setLogger($logger);
         $this->connect($host, $port);
     }

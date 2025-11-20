@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Event;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 
 class MessageFailed
 {
@@ -18,7 +18,7 @@ class MessageFailed
      * @param \Exception $exception Exception that caused the job to fail
      * @param int $attempts Number of attempts made to process the job
      * @param bool $willRetry Whether the job will be retried
-     * @param FrameworkLoggerInterface $logger Logger instance for logging the event
+     * @param ?MonkeysLoggerInterface $logger Logger instance for logging the event
      */
     public function __construct(
         private string $jobId,
@@ -26,7 +26,7 @@ class MessageFailed
         private \Exception $exception,
         private int $attempts,
         private bool $willRetry,
-        private FrameworkLoggerInterface $logger
+        private ?MonkeysLoggerInterface $logger
     ) {
         $this->failedAt = time();
         $this->logger = $logger;
@@ -35,7 +35,7 @@ class MessageFailed
 
     private function log(): void
     {
-        $this->logger->error("MessageFailed event created", [
+        $this->logger?->error("MessageFailed event created", [
             'job_id' => $this->jobId,
             'job_class' => $this->jobData['job'] ?? 'unknown',
             'attempts' => $this->attempts,

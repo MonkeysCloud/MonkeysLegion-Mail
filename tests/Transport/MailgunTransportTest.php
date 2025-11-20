@@ -2,7 +2,7 @@
 
 namespace MonkeysLegion\Mailer\Tests\Transport;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
 use PHPUnit\Framework\TestCase;
@@ -10,13 +10,13 @@ use PHPUnit\Framework\MockObject\MockObject;
 
 class MailgunTransportTest extends TestCase
 {
-    private FrameworkLoggerInterface&MockObject $logger;
+    private MonkeysLoggerInterface&MockObject $logger;
     /** @var array<string, mixed> */
     private array $validConfig;
 
     protected function setUp(): void
     {
-        $this->logger = $this->createMock(FrameworkLoggerInterface::class);
+        $this->logger = $this->createMock(MonkeysLoggerInterface::class);
 
         // Setup a valid config to be used in most tests
         $this->validConfig = [

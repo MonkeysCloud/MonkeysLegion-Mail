@@ -4,14 +4,14 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Template;
 
-use MonkeysLegion\Core\Contracts\FrameworkLoggerInterface;
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Template\MLView;
 
 class Renderer
 {
     public function __construct(
         private MLView $mlView,
-        private FrameworkLoggerInterface $logger
+        private MonkeysLoggerInterface $logger
     ) {}
 
     /**
