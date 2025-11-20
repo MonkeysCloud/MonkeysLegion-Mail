@@ -7,6 +7,7 @@ namespace MonkeysLegion\Mail\Cli\Command;
 use MonkeysLegion\Cli\Console\Attributes\Command as CommandAttr;
 use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\Cli\Command\MakerHelpers;
+use MonkeysLegion\Cli\Console\Traits\Cli;
 use MonkeysLegion\Mail\Security\DkimSigner;
 
 /**
@@ -17,11 +18,11 @@ use MonkeysLegion\Mail\Security\DkimSigner;
 #[CommandAttr('make:dkim-pkey', 'Generate DKIM private and public key files')]
 final class DkimKeyGenCommand extends Command
 {
-    use MakerHelpers;
+    use MakerHelpers, Cli;
 
     public function handle(): int
     {
-        $path = $this->getArgument(2); // argv[2] = first actual argument
+        $path = $this->argument(0);
         if (!$path) {
             $this->error('Please provide a directory path to save the keys.');
             $this->line('Usage: make:dkim-pkey <directory> [bits]');
@@ -29,7 +30,7 @@ final class DkimKeyGenCommand extends Command
         }
 
         $bits = 2048;
-        $bitsArg = $this->getArgument(3); // argv[3] = optional bits
+        $bitsArg = $this->argument(1);
         if ($bitsArg && is_numeric($bitsArg)) {
             $bits = (int) $bitsArg;
         }
@@ -78,12 +79,5 @@ final class DkimKeyGenCommand extends Command
         $this->line('Add the public key to your DNS as a TXT record for DKIM.');
 
         return self::SUCCESS;
-    }
-
-    private function getArgument(int $position): ?string
-    {
-        /** @var array<int, string> */
-        global $argv;
-        return $argv[$position] ?? null;
     }
 }

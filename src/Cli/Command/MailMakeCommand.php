@@ -25,7 +25,7 @@ final class MailMakeCommand extends Command
 
     public function handle(): int
     {
-        $name = $this->argument(2);
+        $name = $this->argument(0);
 
         if (!$name) {
             return $this->showUsageAndExit();
