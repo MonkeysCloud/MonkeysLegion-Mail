@@ -6,6 +6,9 @@ use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Transport\SmtpTransport;
 use PHPUnit\Framework\TestCase;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+
+#[AllowMockObjectsWithoutExpectations]
 class SmtpTransportTest extends TestCase
 {
     private MonkeysLoggerInterface $logger;

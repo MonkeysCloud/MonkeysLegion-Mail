@@ -4,26 +4,28 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Jobs;
 
+use MonkeysLegion\DI\Traits\ContainerAware;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
-use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\TransportInterface;
+use MonkeysLegion\Queue\Contracts\DispatchableJobInterface;
+use MonkeysLegion\Queue\Contracts\ShouldQueue;
 
 /**
  * Job class for sending emails asynchronously
  * This job will be processed by the queue worker
  */
-class SendMailJob
+class SendMailJob implements DispatchableJobInterface, ShouldQueue
 {
+    use ContainerAware;
+
     private MonkeysLoggerInterface $logger;
-    private ServiceContainer $container;
+    private TransportInterface $transport;
 
     public function __construct(private Message $m)
     {
-        $this->container = ServiceContainer::getInstance();
-        /** @var MonkeysLoggerInterface $logger */
-        $logger = $this->container->get(MonkeysLoggerInterface::class);
-        $this->logger = $logger;
+        $this->logger = $this->resolve(MonkeysLoggerInterface::class);
+        $this->transport = $this->resolve(TransportInterface::class);
     }
 
     /**
@@ -33,15 +35,7 @@ class SendMailJob
     public function handle(): void
     {
         try {
-            // Ensure mailer service is available
-            if (!$this->container->getConfig('mail')) {
-                $this->logger->critical("Mail configuration not found. Services may not be properly bootstrapped.", ['data' => $this->m]);
-                throw new \RuntimeException("Mail configuration not found. Services may not be properly bootstrapped.");
-            }
-
-            /** @var TransportInterface $transport */
-            $transport = $this->container->get(TransportInterface::class);
-            $transport->send($this->m);
+            $this->transport->send($this->m);
         } catch (\Exception $e) {
             $this->logger->error("SendMailJob failed: " . $e->getMessage(), [
                 'content' => $this->m->getContent(),

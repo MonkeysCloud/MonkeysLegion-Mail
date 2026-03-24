@@ -35,24 +35,11 @@ final class MailDefaults
     // Sendmail defaults
     public const SENDMAIL_PATH = '/usr/sbin/sendmail';
 
-    // Redis connection defaults
-    public const REDIS_HOST = '127.0.0.1';
-    public const REDIS_PORT = 6379;
-    public const REDIS_PASSWORD = '';
-    public const REDIS_DB = 0;
-    public const REDIS_TIMEOUT = 30;
-
-    // Queue defaults
-    public const QUEUE_CONNECTION = 'default';
-    public const QUEUE_NAME = 'emails';
-    public const QUEUE_PREFIX = 'queue:';
-    public const QUEUE_FAILED_KEY = 'queue:failed';
-
-    // Worker defaults
-    public const QUEUE_WORKER_SLEEP = 3;
-    public const QUEUE_WORKER_MAX_TRIES = 3;
-    public const QUEUE_WORKER_MEMORY = 128; // MB
-    public const QUEUE_WORKER_TIMEOUT = 60; // seconds
+    // Monkeys Mail defaults
+    public const MONKEYS_MAIL_API_KEY = '';
+    public const MONKEYS_MAIL_DOMAIN = 'monkeys.cloud';
+    public const MONKEYS_MAIL_TRACKING_OPENS = true;
+    public const MONKEYS_MAIL_TRACKING_CLICKS = true;
 
     // Rate limiter defaults
     public const RATE_LIMITER_KEY = 'mail';

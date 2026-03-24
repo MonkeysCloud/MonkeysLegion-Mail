@@ -41,3 +41,11 @@ sendmail_dkim_domain      $_ENV['MAIL_DKIM_DOMAIN'] ?? ''
 # Null Mailer
 null_from_address         $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com'
 null_from_name            $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
+
+# Monkeys Mail Configuration
+monkeys_mail_api_key      $_ENV['MONKEYS_MAIL_API_KEY'] ?? ''
+monkeys_mail_domain       $_ENV['MONKEYS_MAIL_DOMAIN'] ?? 'monkeys.cloud'
+monkeys_mail_from_address $_ENV['MAIL_FROM_ADDRESS'] ?? 'no-reply@monkeys.cloud'
+monkeys_mail_from_name    $_ENV['MAIL_FROM_NAME'] ?? 'MonkeysCloud Support'
+monkeys_mail_track_opens  $_ENV['MONKEYS_MAIL_TRACKING_OPENS'] ?? true
+monkeys_mail_track_clicks $_ENV['MONKEYS_MAIL_TRACKING_CLICKS'] ?? true

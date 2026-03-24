@@ -4,16 +4,17 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Mail;
 
+use MonkeysLegion\DI\Traits\ContainerAware;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\Template\Renderer;
-use MonkeysLegion\Mail\Service\ServiceContainer;
 
 /**
  * Base Mailable class for creating structured mail classes
  */
 abstract class Mailable
 {
+    use ContainerAware;
     // =================================================================
     // PROPERTIES
     // =================================================================
@@ -45,11 +46,14 @@ abstract class Mailable
     /** @var array<string, mixed> */
     protected array $viewData = [];
 
-    /** Service container instance */
-    private ServiceContainer $container;
-
     /** Logger instance */
     private MonkeysLoggerInterface $logger;
+
+    /** Mailer instance */
+    private Mailer $mailer;
+
+    /** Renderer instance */
+    private Renderer $renderer;
 
     // =================================================================
     // CONSTRUCTOR & ABSTRACT METHODS
@@ -57,10 +61,9 @@ abstract class Mailable
 
     public function __construct()
     {
-        $this->container = ServiceContainer::getInstance();
-        /** @var MonkeysLoggerInterface $logger */
-        $logger = $this->container->get(MonkeysLoggerInterface::class);
-        $this->logger = $logger;
+        $this->logger = $this->resolve(MonkeysLoggerInterface::class);
+        $this->mailer = $this->resolve(Mailer::class);
+        $this->renderer = $this->resolve(Renderer::class);
     }
 
     /**
@@ -87,13 +90,10 @@ abstract class Mailable
         try {
             $this->validateBeforeSend();
 
-            /** @var Mailer $mailer */
-            $mailer = $this->container->get(Mailer::class);
-
             // Render content if view is specified
             $content = $this->renderContent();
 
-            $mailer->send(
+            $this->mailer->send(
                 $this->to ?? '',
                 $this->subject ?? '',
                 $content,
@@ -126,13 +126,10 @@ abstract class Mailable
         try {
             $this->validateBeforeSend();
 
-            /** @var Mailer $mailer */
-            $mailer = $this->container->get(Mailer::class);
-
             // Render content if view is specified
             $content = $this->renderContent();
 
-            $jobId = $mailer->queue(
+            $jobId = $this->mailer->queue(
                 $this->to ?? '',
                 $this->subject ?? '',
                 $content,
@@ -483,10 +480,7 @@ abstract class Mailable
         }
 
         try {
-            /** @var Renderer $renderer */
-            $renderer = $this->container->get(Renderer::class);
-
-            $content = $renderer->render($this->view, $this->viewData);
+            $content = $this->renderer->render($this->view, $this->viewData);
             return $content;
         } catch (\Exception $e) {
             $this->logger->error("Failed to render mail content", [
@@ -544,21 +538,8 @@ abstract class Mailable
 
         try {
             /** @var Mailer $mailer */
-            $mailer = $this->container->get(Mailer::class);
-            $mailer->setDriver($driver, $config);
-
-            $this->logger->smartLog("Mail driver set successfully from Mailable", [
-                'class' => static::class,
-                'driver' => $driver,
-                'new_driver_class' => $mailer->getCurrentDriver()
-            ]);
+            $this->mailer->setDriver($driver, $config);
         } catch (\Exception $e) {
-            $this->logger->error("Failed to set mail driver from Mailable", [
-                'class' => static::class,
-                'driver' => $driver,
-                'exception' => $e,
-                'error_message' => $e->getMessage()
-            ]);
             throw $e;
         }
 

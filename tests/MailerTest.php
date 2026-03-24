@@ -2,22 +2,29 @@
 
 namespace MonkeysLegion\Mailer\Tests;
 
+use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Jobs\SendMailJob;
 use MonkeysLegion\Mail\Mailer;
-use MonkeysLegion\Mail\Queue\QueueInterface;
 use MonkeysLegion\Mail\RateLimiter\RateLimiter;
-use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\TransportInterface;
 use MonkeysLegion\Mailer\Tests\Abstracts\AbstractBaseTest;
+use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
 use PHPUnit\Framework\MockObject\MockObject;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+
+#[AllowMockObjectsWithoutExpectations]
 class MailerTest extends AbstractBaseTest
 {
     /** @var TransportInterface&MockObject */
     private TransportInterface $transport;
     /** @var RateLimiter&MockObject */
     private RateLimiter $rateLimiter;
-    private ServiceContainer $container;
+    /** @var QueueDispatcherInterface&MockObject */
+    private QueueDispatcherInterface $queueDispatcher;
+    /** @var MonkeysLoggerInterface&MockObject */
+    private MonkeysLoggerInterface $logger;
+    /** @var Mailer */
     private Mailer $mailer;
 
     public function setUp(): void
@@ -26,8 +33,28 @@ class MailerTest extends AbstractBaseTest
 
         $this->transport = $this->createMock(TransportInterface::class);
         $this->rateLimiter = $this->createMock(RateLimiter::class);
-        $this->container = ServiceContainer::getInstance();
-        $this->mailer = new Mailer($this->transport, $this->rateLimiter, $this->container);
+        $this->queueDispatcher = $this->createMock(QueueDispatcherInterface::class);
+        $this->logger = $this->createMock(MonkeysLoggerInterface::class);
+        
+        $config = [
+            'driver' => 'null',
+            'drivers' => [
+                'null' => [
+                    'from' => [
+                        'address' => 'test@example.com',
+                        'name' => 'Test Sender'
+                    ]
+                ]
+            ]
+        ];
+
+        $this->mailer = new Mailer(
+            $this->transport,
+            $this->rateLimiter,
+            $this->queueDispatcher,
+            $this->logger,
+            $config,
+        );
     }
 
     public function testSendReturnsTrueOnSuccess(): void
@@ -45,8 +72,6 @@ class MailerTest extends AbstractBaseTest
 
     public function testSendCallsTransport(): void
     {
-        $container = ServiceContainer::getInstance();
-
         // Ensure the rate limiter allows sending
         $this->rateLimiter->method('allow')->willReturn(true);
 
@@ -54,7 +79,8 @@ class MailerTest extends AbstractBaseTest
         $this->transport->expects($this->once())
             ->method('send');
 
-        $mailer = new Mailer($this->transport, $this->rateLimiter, $container);
+        $config = $this->mailer->getConfig();
+        $mailer = new Mailer($this->transport, $this->rateLimiter, $this->queueDispatcher, $this->logger, $config);
 
         // Act
         $mailer->send(
@@ -92,43 +118,26 @@ class MailerTest extends AbstractBaseTest
 
     public function testQueueEmailSuccessfully(): void
     {
-        $queue = $this->createMock(QueueInterface::class);
-        $queue->expects($this->once())
-            ->method('push')
-            ->willReturn('job_12345');
+        $this->queueDispatcher->expects($this->once())
+            ->method('dispatch')
+            ->with($this->isInstanceOf(SendMailJob::class), 'default');
 
-        // Use a factory closure for ServiceContainer::set()
-        $this->container->set(QueueInterface::class, function () use ($queue) {
-            return $queue;
-        });
-
-        $jobId = $this->mailer->queue(
+        $result = $this->mailer->queue(
             'test@example.com',
             'Queued Subject',
             'Queued Body'
         );
 
-        $this->assertEquals('job_12345', $jobId);
+        $this->assertTrue($result);
     }
 
     public function testQueueEmailWithCustomQueue(): void
     {
-        $queue = $this->createMock(QueueInterface::class);
-        $queue->expects($this->once())
-            ->method('push')
-            ->with(
-                SendMailJob::class,
-                $this->anything(),
-                'high-priority'
-            )
-            ->willReturn('job_67890');
+        $this->queueDispatcher->expects($this->once())
+            ->method('dispatch')
+            ->with($this->isInstanceOf(SendMailJob::class), 'high-priority');
 
-        // Use a factory closure for ServiceContainer::set()
-        $this->container->set(QueueInterface::class, function () use ($queue) {
-            return $queue;
-        });
-
-        $jobId = $this->mailer->queue(
+        $result = $this->mailer->queue(
             'test@example.com',
             'Priority Subject',
             'Priority Body',
@@ -137,7 +146,7 @@ class MailerTest extends AbstractBaseTest
             'high-priority'
         );
 
-        $this->assertEquals('job_67890', $jobId);
+        $this->assertTrue($result);
     }
 
     public function testSetDriverChangesTransport(): void
@@ -154,7 +163,15 @@ class MailerTest extends AbstractBaseTest
     {
         $this->expectNotToPerformAssertions();
 
-        $config = ['host' => 'test.gmail.com', 'port' => 587, 'encryption' => 'tls', 'username' => 'user', 'password' => 'pass'];
+        $config = [
+            'host' => 'test.gmail.com', 
+            'port' => 587, 
+            'encryption' => 'tls', 
+            'username' => 'user', 
+            'password' => 'pass',
+            'timeout' => 30,
+            'from' => ['address' => 'test@example.com', 'name' => 'Sender']
+        ];
 
         $this->mailer->useSmtp($config);
 
@@ -176,7 +193,9 @@ class MailerTest extends AbstractBaseTest
     {
         $this->expectNotToPerformAssertions();
 
-        $this->mailer->useSendmail();
+        $this->mailer->useSendmail([
+            'from' => ['address' => 'test@example.com', 'name' => 'Sender']
+        ]);
 
         // Should not throw exception
 
@@ -188,7 +207,10 @@ class MailerTest extends AbstractBaseTest
 
         $config = [
             'api_key' => 'test_api_key',
-            'domain' => 'test_domain'
+            'domain' => 'test_domain',
+            'from' => ['address' => 'test@example.com', 'name' => 'Sender'],
+            'timeout' => 30,
+            'connect_timeout' => 10
         ];
         $this->mailer->useMailgun($config);
 

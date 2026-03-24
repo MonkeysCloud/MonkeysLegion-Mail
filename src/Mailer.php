@@ -6,26 +6,21 @@ namespace MonkeysLegion\Mail;
 
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Jobs\SendMailJob;
-use MonkeysLegion\Mail\Queue\QueueInterface;
-use MonkeysLegion\Mail\Queue\RedisQueue;
-use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Event\MessageSent;
 use MonkeysLegion\Mail\RateLimiter\RateLimiter;
 use MonkeysLegion\Mail\Security\DkimSigner;
+use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
 
 class Mailer
 {
-    private ?MonkeysLoggerInterface $logger = null;
 
     public function __construct(
         private TransportInterface $driver,
         private RateLimiter $rateLimiter,
-        private ?ServiceContainer $container = null
+        private QueueDispatcherInterface $dispatcher,
+        private MonkeysLoggerInterface $logger,
+        private array $rawConfig
     ) {
-
-        /** @var MonkeysLoggerInterface $logger */
-        $logger = $this->container?->get(MonkeysLoggerInterface::class);
-        $this->logger = $logger;
     }
 
     /**
@@ -161,20 +156,20 @@ class Mailer
             // Sign the message if DKIM signing is enabled
             $message = $this->sign($message);
 
-            // Get queue instance from container or create default Redis queue
-            $queueInstance = $this->getQueueInstance();
-
-            $jobId = $queueInstance->push(SendMailJob::class, $message, $queue);
+            // Use injected dispatcher to queue the job
+            $this->dispatcher->dispatch(
+                job: new SendMailJob($message),
+                queue: $queue ?? 'default'
+            );
 
             $this->logger?->smartLog("Email queued successfully", [
-                'job_id' => $jobId,
                 'to' => $to,
                 'subject' => $subject,
                 'queue' => $queue ?? 'default',
-                'queue_class' => get_class($queueInstance),
+                'dispatcher_class' => get_class($this->dispatcher),
             ]);
 
-            return $jobId;
+            return true; // We don't have a direct job ID easily from dispatcher without more work
         } catch (\Exception $e) {
             $this->logger?->warning("Failed to queue email", [
                 'to' => $to,
@@ -206,22 +201,12 @@ class Mailer
             'has_custom_config' => !empty($config)
         ]);
 
-        if ($this->container === null) {
-            $this->logger?->warning("Service container is not available, cannot change mail driver.");
-            throw new \RuntimeException("Service container is not available.");
-        }
-
         try {
-            $mailConfigRaw = $this->container->getConfig('mail');
-
-            /** @var array<string, mixed> $mailConfig */
-            $mailConfig = $mailConfigRaw;
-
-            if (!isset($mailConfig['drivers']) || !is_array($mailConfig['drivers'])) {
+            if (!isset($this->rawConfig['drivers']) || !is_array($this->rawConfig['drivers'])) {
                 throw new \RuntimeException('Mail config "drivers" key must be an array.');
             }
 
-            $drivers = $mailConfig['drivers'];
+            $drivers = $this->rawConfig['drivers'];
 
             $existingDriverConfig = $drivers[$driverName] ?? [];
 
@@ -236,7 +221,7 @@ class Mailer
             }
 
             /** @var array<string, mixed> $fullConfig */
-            $fullConfig = array_replace_recursive($mailConfig, [
+            $fullConfig = array_replace_recursive($this->rawConfig, [
                 'driver' => $driverName,
                 'drivers' => array_replace_recursive($drivers, [$driverName => $driverConfig])
             ]);
@@ -326,45 +311,13 @@ class Mailer
         $this->setDriver('mailgun', $config);
     }
 
-    private function getQueueInstance(): QueueInterface
-    {
-        if ($this->container === null) {
-            $this->logger?->warning("Service container is null, using fallback Redis queue");
-            return new RedisQueue();
-        }
-
-        try {
-            /** @var QueueInterface $queue */
-            $queue = $this->container->get(QueueInterface::class);
-
-            $this->logger?->debug("Using queue from container", [
-                'queue_class' => get_class($queue)
-            ]);
-
-            return $queue;
-        } catch (\Exception $e) {
-            $this->logger?->error("Container queue not available, using fallback Redis queue", [
-                'exception' => $e,
-                'error_message' => $e->getMessage()
-            ]);
-
-            // Fallback to default Redis queue
-            return new RedisQueue();
-        }
-    }
 
     /**
      * Set the From header on the message using driver configuration
      */
     private function setFromHeader(Message $message): void
     {
-        if ($this->container === null) {
-            $this->logger?->error("Service container is null, cannot set From header");
-            throw new \RuntimeException("Service container is required to set From header");
-        }
-
-        $config = $this->container->getConfig('mail');
-
+        $config = $this->rawConfig;
         if (!array_key_exists('driver', $config)) {
             $this->logger?->error("Mail config missing 'driver' key");
             throw new \RuntimeException("Mail driver is not configured");
@@ -413,12 +366,7 @@ class Mailer
 
     private function sign(Message $m): Message
     {
-        if ($this->container === null) {
-            $this->logger?->notice("Service container is null, cannot sign message");
-            return $m;
-        }
-
-        $config = $this->container->getConfig('mail');
+        $config = $this->rawConfig;
 
         if (!isset($config['driver']) || !is_string($config['driver'])) {
             $this->logger?->error("Mail config missing 'driver' key or it is not a string");
@@ -474,5 +422,14 @@ class Mailer
         ]);
 
         return $m;
+    }
+    
+    /**
+     * Get the raw configuration array.
+     * @return array<string, mixed>
+     */
+    public function getConfig(): array
+    {
+        return $this->rawConfig;
     }
 }

@@ -3,25 +3,66 @@
 namespace MonkeysLegion\Mailer\Tests\Integration;
 
 use MonkeysLegion\Mail\Mailer;
-use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mailer\Tests\Abstracts\AbstractBaseTest;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+
+#[AllowMockObjectsWithoutExpectations]
 class FullWorkflowTest extends AbstractBaseTest
 {
+    private Mailer $mailer;
+
+    public function setUp(): void
+    {
+        parent::setUp();
+
+        /** @var \MonkeysLegion\Mail\TransportInterface&\PHPUnit\Framework\MockObject\MockObject $transport */
+        $transport = $this->createMock(\MonkeysLegion\Mail\TransportInterface::class);
+        /** @var \MonkeysLegion\Mail\RateLimiter\RateLimiter&\PHPUnit\Framework\MockObject\MockObject $rateLimiter */
+        $rateLimiter = $this->createMock(\MonkeysLegion\Mail\RateLimiter\RateLimiter::class);
+        $rateLimiter->method('allow')->willReturn(true);
+        /** @var \MonkeysLegion\Queue\Contracts\QueueDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher */
+        $dispatcher = $this->createMock(\MonkeysLegion\Queue\Contracts\QueueDispatcherInterface::class);
+        $logger = new \MonkeysLegion\Logger\Logger\NullLogger();
+        
+        $config = [
+            'driver' => 'null',
+            'drivers' => [
+                'null' => [
+                    'from' => [
+                        'address' => 'test@example.com',
+                        'name' => 'Test Sender'
+                    ]
+                ],
+                'smtp' => [
+                    'from' => [
+                        'address' => 'test@example.com',
+                        'name' => 'Test Sender'
+                    ],
+                    'host' => 'localhost',
+                    'port' => 25
+                ]
+            ]
+        ];
+
+        $this->mailer = new Mailer(
+            $transport,
+            $rateLimiter,
+            $dispatcher,
+            $logger,
+            $config
+        );
+    }
+
     public function testCompleteEmailSendingWorkflow(): void
     {
         $this->expectNotToPerformAssertions();
 
-        $container = ServiceContainer::getInstance();
-
-        /** @var Mailer $mailer */
-        $mailer = $container->get(Mailer::class);
-
-        // Use null transport for testing
-        $mailer->useNull();
+            // Use null transport for testing
+        $this->mailer->useNull();
 
         // Test should not throw exception
-        $mailer->send(
+        $this->mailer->send(
             'test@example.com',
             'Integration Test Email',
             '<h1>Test Content</h1><p>This is a test email.</p>',
@@ -31,41 +72,27 @@ class FullWorkflowTest extends AbstractBaseTest
 
     public function testMailerDriverSwitching(): void
     {
-        $container = ServiceContainer::getInstance();
-
-        /** @var Mailer $mailer */
-        $mailer = $container->get(Mailer::class);
-
-        $originalDriver = $mailer->getCurrentDriver();
+        $originalDriver = $this->mailer->getCurrentDriver();
 
         // Switch to SMTP first, then to null
-        $mailer->useSmtp(['host' => 'test.smtp.com', 'port' => 587]);
-        $smtpDriver = $mailer->getCurrentDriver();
+        $this->mailer->useSmtp([
+            'host' => 'test.smtp.com', 
+            'port' => 587, 
+            'username' => 'test', 
+            'password' => 'secret', 
+            'timeout' => 30,
+            'from' => [
+                'address' => 'test@example.com',
+                'name' => 'Sender'
+            ]
+        ]);
+        $smtpDriver = $this->mailer->getCurrentDriver();
 
-        $mailer->useNull();
-        $nullDriver = $mailer->getCurrentDriver();
+        $this->mailer->useNull();
+        $nullDriver = $this->mailer->getCurrentDriver();
 
         $this->assertNotEquals($originalDriver, $smtpDriver);
         $this->assertNotEquals($smtpDriver, $nullDriver);
         $this->assertStringContainsString('NullTransport', $nullDriver);
-    }
-
-    public function testServiceContainerIntegration(): void
-    {
-        $container = ServiceContainer::getInstance();
-
-        // Check if service exists by trying to get it
-        try {
-            /** @var Mailer $mailer */
-            $mailer = $container->get(Mailer::class);
-            $this->assertInstanceOf(Mailer::class, $mailer);
-
-            // Test singleton behavior
-            /** @var Mailer $mailer2 */
-            $mailer2 = $container->get(Mailer::class);
-            $this->assertSame($mailer, $mailer2);
-        } catch (\Exception $e) {
-            $this->fail('Mailer service not found in container: ' . $e->getMessage());
-        }
     }
 }

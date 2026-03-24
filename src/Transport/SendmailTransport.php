@@ -38,7 +38,7 @@ final class SendmailTransport implements TransportInterface
      */
     private function validateAndSetConfig(array $config): void
     {
-        $this->path = safeString($config['path'], '/usr/sbin/sendmail');
+        $this->path = safeString($config['path'] ?? null, '/usr/sbin/sendmail');
 
         // Validate path exists, but don't check executable yet (might be running as different user)
         if (!file_exists($this->path)) {

@@ -90,8 +90,6 @@ final class MailInstallCommand extends Command
     }
 
     /**
-     * Ensure the MailServiceProvider is registered in config/app.php.
-     *
      * @param string $projectRoot
      */
     private function ensureEnvKeys(string $projectRoot): void
@@ -118,7 +116,11 @@ final class MailInstallCommand extends Command
             'MAIL_TIMEOUT',
             'MAIL_DKIM_PRIVATE_KEY',
             'MAIL_DKIM_SELECTOR',
-            'MAIL_DKIM_DOMAIN'
+            'MAIL_DKIM_DOMAIN',
+            'MONKEYS_MAIL_API_KEY',
+            'MONKEYS_MAIL_DOMAIN',
+            'MONKEYS_MAIL_TRACKING_OPENS',
+            'MONKEYS_MAIL_TRACKING_CLICKS'
         ];
 
         $missing = [];
@@ -146,7 +148,7 @@ final class MailInstallCommand extends Command
         $append = "# Mail configuration added by mail:install command\n";
         foreach ($missing as $key) {
             $comment = match ($key) {
-                'MAIL_DRIVER' => '# Mail driver (e.g., smtp, sendmail, etc.)',
+                'MAIL_DRIVER' => '# Mail driver (e.g., smtp, sendmail, monkeys_mail etc.)',
                 'MAIL_HOST' => '# Mail server host',
                 'MAIL_PORT' => '# Mail server port',
                 'MAIL_USERNAME' => '# Mail server username',
@@ -158,6 +160,10 @@ final class MailInstallCommand extends Command
                 'MAIL_DKIM_PRIVATE_KEY' => '# DKIM private key for signing emails',
                 'MAIL_DKIM_SELECTOR' => '# DKIM selector for identifying the key',
                 'MAIL_DKIM_DOMAIN' => '# DKIM domain for signing emails',
+                'MONKEYS_MAIL_API_KEY' => '# API Key for Monkeys Mail driver',
+                'MONKEYS_MAIL_DOMAIN' => '# Verified domain for Monkeys Mail driver',
+                'MONKEYS_MAIL_TRACKING_OPENS' => '# Toggles open tracking for Monkeys Mail',
+                'MONKEYS_MAIL_TRACKING_CLICKS' => '# Toggles click tracking for Monkeys Mail',
             };
             $append .= "$key=" . strtoupper($key) . "_VALUE $comment\n";
         }
@@ -214,13 +220,9 @@ final class MailInstallCommand extends Command
 
         $defaults = [
             'driver'               => '"smtp"',
-            'queue_enabled'        => 'true',
-            'default_queue'        => '"emails"',
             'template_engine'      => '"mlview"',
             'views_path'           => '"resources/views"',
             'cache_path'           => '"storage/cache/views"',
-            'retry_attempts'       => '3',
-            'retry_delay'          => '5',
             'timeout'              => '30',
         ];
 

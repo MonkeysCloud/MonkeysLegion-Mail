@@ -406,8 +406,6 @@ class MailgunTransport implements TransportInterface
         $curlError = curl_error($ch);
         $curlErrno = curl_errno($ch);
 
-        curl_close($ch);
-
         if ($response === false) {
             $this->logger?->error("cURL request failed", [
                 'errno' => $curlErrno,

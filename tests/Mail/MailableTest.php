@@ -5,6 +5,9 @@ namespace MonkeysLegion\Mailer\Tests\Mail;
 use MonkeysLegion\Mail\Mail\Mailable;
 use MonkeysLegion\Mailer\Tests\Abstracts\AbstractBaseTest;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+
+#[AllowMockObjectsWithoutExpectations]
 class MailableTest extends AbstractBaseTest
 {
     public function testMailableCanSetAndGetProperties(): void

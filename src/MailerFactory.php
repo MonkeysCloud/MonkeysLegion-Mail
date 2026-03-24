@@ -4,28 +4,23 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail;
 
+use MonkeysLegion\DI\Container;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\MailDriverName;
-use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
+use MonkeysLegion\Mail\Transport\MonkeysMailTransport;
 use MonkeysLegion\Mail\Transport\NullTransport;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
 use MonkeysLegion\Mail\Transport\SmtpTransport;
 
 class MailerFactory
 {
-    private ?MonkeysLoggerInterface $logger;
-
-    public function __construct(private ServiceContainer $container)
-    {
-        try {
-            /** @var MonkeysLoggerInterface $logger */
-            $logger = $this->container->get(MonkeysLoggerInterface::class);
-            $this->logger = $logger;
-        } catch (\Exception $e) {
-            $this->logger?->error($e->getMessage());
-            $this->logger = null;
-        }
+    public function __construct(
+        private MonkeysLoggerInterface $logger,
+        private array $config,
+        private Container $container
+    ) {
+        self::$logger = $logger;
     }
 
     /**
@@ -64,19 +59,19 @@ class MailerFactory
     public function setDriver(string $driver): TransportInterface
     {
         try {
-            $config = $this->container->getConfig('mail');
             $driver = $this->validateDriver($driver);
-            $config = array_merge(['driver' => $driver], $config);
+            $config = array_merge(['driver' => $driver], $this->config);
+            $transport = self::make($config);
 
-            $this->container->set(TransportInterface::class, function () use ($config) {
-                return self::make($config, $this->logger);
+            $this->container->set(TransportInterface::class, function () use ($transport) {
+                return $transport;
             });
-
-            /** @var TransportInterface $transport */
-            $transport = $this->container->get(TransportInterface::class);
             return $transport;
         } catch (\InvalidArgumentException $e) {
-            $this->logger?->error($e->getMessage());
+            $this->logger->error('Failed to set mail driver', [
+                'driver' => $driver,
+                'error' => $e->getMessage(),
+            ]);
             throw $e;
         }
     }
@@ -116,6 +111,7 @@ class MailerFactory
             MailDriverName::SMTP->value => $config[MailDriverName::SMTP->value],
             MailDriverName::SENDMAIL->value => $config[MailDriverName::SENDMAIL->value],
             MailDriverName::MAILGUN->value => $config[MailDriverName::MAILGUN->value],
+            MailDriverName::MONKEYS_MAIL->value => $config[MailDriverName::MONKEYS_MAIL->value],
             MailDriverName::NULL->value => $config[MailDriverName::NULL->value],
             default => throw new \InvalidArgumentException("Unknown driver: $driver"),
         };
@@ -131,7 +127,7 @@ class MailerFactory
      * @return TransportInterface
      * @throws \InvalidArgumentException If the driver is unknown.
      */
-    private static function getTransport(string $driver, array $config, ?MonkeysLoggerInterface $logger): TransportInterface
+    private static function getTransport(string $driver, array $config, ?MonkeysLoggerInterface $logger = null): TransportInterface
     {
         $driver = self::validateDriver($driver);
         $config = self::getDriverConfig($driver, $config);
@@ -139,6 +135,7 @@ class MailerFactory
             MailDriverName::SMTP->value => new SmtpTransport($config, $logger),
             MailDriverName::SENDMAIL->value => new SendmailTransport($config, $logger),
             MailDriverName::MAILGUN->value => new MailgunTransport($config, $logger),
+            MailDriverName::MONKEYS_MAIL->value => new MonkeysMailTransport($config, $logger),
             MailDriverName::NULL->value => new NullTransport($config, $logger),
             default => throw new \InvalidArgumentException("Unknown driver: $driver"),
         };

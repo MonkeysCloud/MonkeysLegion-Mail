@@ -8,6 +8,9 @@ use MonkeysLegion\Mail\Transport\MailgunTransport;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\MockObject\MockObject;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+
+#[AllowMockObjectsWithoutExpectations]
 class MailgunTransportTest extends TestCase
 {
     private MonkeysLoggerInterface&MockObject $logger;

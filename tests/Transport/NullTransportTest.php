@@ -7,6 +7,9 @@ use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\NullTransport;
 use PHPUnit\Framework\TestCase;
 
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+
+#[AllowMockObjectsWithoutExpectations]
 class NullTransportTest extends TestCase
 {
     private MonkeysLoggerInterface $logger;

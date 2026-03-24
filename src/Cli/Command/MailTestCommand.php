@@ -9,12 +9,20 @@ use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\Cli\Command\MakerHelpers;
 use MonkeysLegion\Cli\Console\Traits\Cli;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
-use MonkeysLegion\Mail\Service\ServiceContainer;
+use MonkeysLegion\Mail\Mailer;
 
 #[CommandAttr('mail:test', 'Send a test email')]
 final class MailTestCommand extends Command
 {
     use MakerHelpers, Cli;
+
+    public function __construct(
+        private MonkeysLoggerInterface $logger,
+        private Mailer $mailer,
+    )
+    {
+        return parent::__construct();
+    }
 
     public function handle(): int
     {
@@ -44,29 +52,22 @@ final class MailTestCommand extends Command
             ->info('Sending test email to:')->space()->add($email, 'cyan', 'bold')
             ->print();
 
-        $container = ServiceContainer::getInstance();
-        /** @var MonkeysLoggerInterface $logger */
-        $logger = $container->get(MonkeysLoggerInterface::class);
-
         try {
-            /** @var \MonkeysLegion\Mail\Mailer $mailer */
-            $mailer = $container->get(\MonkeysLegion\Mail\Mailer::class);
-
-            $mailer->send(
+            $this->mailer->send(
                 $email,
                 '[TEST] Mailer setup is working',
                 'This is a test message from your mail system.',
                 'text/plain'
             );
 
-            $logger->info("Test email sent", ['email' => $email]);
+            $this->logger->info("Test email sent", ['email' => $email]);
 
             echo "\n";
             $this->cliLine()
                 ->success('✓ Test email sent successfully!')
                 ->print();
         } catch (\Exception $e) {
-            $logger->error("Test email failed", [
+            $this->logger->error("Test email failed", [
                 'exception' => $e,
                 'email' => $email,
                 'trace' => $e->getTraceAsString()

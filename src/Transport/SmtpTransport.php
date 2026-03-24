@@ -36,13 +36,6 @@ final class SmtpTransport implements TransportInterface
         private array $config,
         private ?MonkeysLoggerInterface $logger
     ) {
-        $this->logger?->smartLog("SMTP Transport constructor called", [
-            'config_keys' => array_keys($config),
-            'has_host' => isset($config['host']),
-            'has_port' => isset($config['port']),
-            'has_encryption' => isset($config['encryption'])
-        ]);
-
         $this->validateSmtpConfig($config);
 
         $this->logger?->smartLog("SMTP Transport initialized", [
