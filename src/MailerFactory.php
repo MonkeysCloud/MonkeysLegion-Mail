@@ -19,9 +19,7 @@ class MailerFactory
         private MonkeysLoggerInterface $logger,
         private array $config,
         private Container $container
-    ) {
-        self::$logger = $logger;
-    }
+    ) {}
 
     /**
      * Create a Mailer instance based on the provided configuration.

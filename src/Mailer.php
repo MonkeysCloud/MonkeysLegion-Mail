@@ -14,13 +14,36 @@ use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
 class Mailer
 {
 
+    /**
+     * Mailer constructor.
+     *
+     * @param TransportInterface $driver The mail transport driver to use for sending emails.
+     * @param RateLimiter $rateLimiter The rate limiter instance to control email sending frequency.
+     * @param QueueDispatcherInterface $dispatcher The queue dispatcher for handling background email jobs.
+     * @param MonkeysLoggerInterface|null $logger Optional logger for logging mailer activities and events.
+     * @param array<string, mixed> $rawConfig The raw configuration array for the mailer and drivers.
+     */
     public function __construct(
         private TransportInterface $driver,
         private RateLimiter $rateLimiter,
         private QueueDispatcherInterface $dispatcher,
         private MonkeysLoggerInterface $logger,
-        private array $rawConfig
+        private array $rawConfig = [],
     ) {
+        $this->logger?->debug("Mailer initialized", [
+            'driver' => get_class($this->driver),
+            'rate_limiter' => get_class($this->rateLimiter),
+            'dispatcher' => get_class($this->dispatcher),
+        ]);
+        if (empty($this->rawConfig)) {
+            $this->logger?->warning("Mail configuration is empty or missing", [
+                'config' => $this->rawConfig
+            ]);
+        } else {
+            $this->logger?->debug("Mail configuration loaded", [
+                'config_keys' => array_keys($this->rawConfig)
+            ]);
+        }
     }
 
     /**
@@ -423,7 +446,7 @@ class Mailer
 
         return $m;
     }
-    
+
     /**
      * Get the raw configuration array.
      * @return array<string, mixed>

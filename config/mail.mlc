@@ -1,0 +1,137 @@
+## MonkeysMail configuration
+
+/*
+|--------------------------------------------------------------------------
+| Default Mailer
+|--------------------------------------------------------------------------
+|
+| This option controls the default mailer that is used to send all email
+| messages unless another mailer is explicitly specified when sending
+| the message.
+|
+*/
+
+
+driver = ${MAIL_DRIVER:-null}
+
+drivers {
+    /*
+    |--------------------------------------------------------------------------
+    | SMTP Mailer
+    |--------------------------------------------------------------------------
+    |
+    | This mailer is used to send email messages via SMTP.
+    |
+    */
+    smtp {
+        host = ${MAIL_HOST:-''}
+        port = ${MAIL_PORT:-587}
+        encryption = ${MAIL_ENCRYPTION:-tls}
+        username = ${MAIL_USERNAME:-''}
+        password = ${MAIL_PASSWORD:-''}
+        timeout = ${MAIL_TIMEOUT:-30}
+        from {
+            address = ${MAIL_FROM_ADDRESS:-'noreply@yourapp.com'}
+            name = ${MAIL_FROM_NAME:-'My MonkeysMail'}
+        }
+        dkim_private_key = ${MAILGUN_DKIM_PRIVATE_KEY:-''}
+        dkim_selector = ${MAILGUN_DKIM_SELECTOR:-''}
+        dkim_domain = ${MAILGUN_DKIM_DOMAIN:-''}
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Mailgun Mailer
+    |--------------------------------------------------------------------------
+    |
+    | This mailer is used to send email messages via Mailgun.
+    |
+    */
+    mailgun {
+        domain = ${MAILGUN_DOMAIN:-''}
+        apikey = ${MAILGUN_API_KEY:-''}
+        from {
+            address = ${MAILGUN_FROM_ADDRESS:-'noreply@yourapp.com'}
+            name = ${MAILGUN_FROM_NAME:-'My MonkeysMail'}
+        }
+        tracking {
+            opens = ${MAILGUN_TRACKING_OPENS:-true}
+            clicks = ${MAILGUN_TRACKING_CLICKS:-true}
+        }
+        delivery_time = ${MAILGUN_DELIVERY_TIME:-null}
+        tags = ${MAILGUN_TAGS:-[]}
+        variables {
+            # Add any custom variables you want to include in the email
+        }
+        region = ${MAILGUN_REGION:-'us'}
+        timeout = ${MAILGUN_TIMEOUT:-30}
+        connection_timeout = ${MAILGUN_CONNECTION_TIMEOUT:-30}
+        dkim_private_key = ${MAILGUN_DKIM_PRIVATE_KEY:-''}
+        dkim_selector = ${MAILGUN_DKIM_SELECTOR:-''}
+        dkim_domain = ${MAILGUN_DKIM_DOMAIN:-''}
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Sendmail Mailer
+    |--------------------------------------------------------------------------
+    |
+    | This mailer is used to send email messages via the sendmail program.
+    | It uses the system's sendmail binary to send emails.
+    |
+    */
+    sendmail {
+        path = ${SENDMAIL_PATH:-'/usr/sbin/sendmail'}
+        from {
+            address = ${SENDMAIL_FROM_ADDRESS:-'noreply@yourapp.com'}
+            name = ${SENDMAIL_FROM_NAME:-'My MonkeysMail'}
+        }
+        dkim_private_key = ${MAILGUN_DKIM_PRIVATE_KEY:-''}
+        dkim_selector = ${MAILGUN_DKIM_SELECTOR:-''}
+        dkim_domain = ${MAILGUN_DKIM_DOMAIN:-''}
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Monkeys Mail (MonkeysLegion API)
+    |--------------------------------------------------------------------------
+    |
+    | This driver sends emails via the MonkeysMail HTTP API.
+    |
+    */
+    monkeys_mail {
+        api_key = ${MONKEYSMAIL_API_KEY:-''}
+        url = ${MONKEYSMAIL_URL:-'https://smtp.monkeysmail.com/messages/send'}
+        domain = ${MONKEYSMAIL_DOMAIN:-''}
+        from {
+            address = ${MONKEYSMAIL_FROM_ADDRESS:-'noreply@yourapp.com'}
+            name = ${MONKEYSMAIL_FROM_NAME:-'My MonkeysMail'}
+        }
+        tracking_opens = ${MONKEYSMAIL_TRACKING_OPENS:-true}
+        tracking_clicks = ${MONKEYSMAIL_TRACKING_CLICKS:-true}
+        timeout = ${MONKEYSMAIL_TIMEOUT:-30}
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | Null Mailer
+    |--------------------------------------------------------------------------
+    |
+    | This mailer is used to discard all email messages.
+    | It is useful for testing and development purposes.
+    |
+    */
+    null {
+        from {
+            address = ${NULL_FROM_ADDRESS:-'noreply@yourapp.com'}
+            name = ${NULL_FROM_NAME:-'My MonkeysMail'}
+        }
+    }
+}
+
+rate_limiter {
+    key = ${RATE_LIMITER_KEY:-'mail_rate_limiter'} // Unique key for rate limiting, can be based on user ID or IP address
+    limit = ${RATE_LIMITER_LIMIT:-60} // Maximum number of requests allowed within the time window
+    seconds = ${RATE_LIMITER_SECONDS:-60} // Time window for rate limiting in seconds
+    storage_path = ${RATE_LIMITER_STORAGE_PATH:-'storage/rate_limit'} // Path to store rate limit data starting from the 'project_root/storage'
+}

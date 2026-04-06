@@ -28,16 +28,12 @@ final class MailInstallCommand extends Command
 
         $this->cliLine()
             ->info('Installing Mail package...')
+            ->newline()
             ->print();
-        echo "\n";
 
         // 1) Copy scaffolding files
         $map = [
-            "{$stubDir}/config/mail.php"                              => "{$projectRoot}/config/mail.php",
             "{$stubDir}/config/mail.mlc"                              => "{$projectRoot}/config/mail.mlc",
-            "{$stubDir}/config/mail.dev.php"                   => "{$projectRoot}/config/mail/mail.dev.php",
-            "{$stubDir}/config/mail.prod.php"                  => "{$projectRoot}/config/mail/mail.prod.php",
-            "{$stubDir}/config/mail.test.php"                  => "{$projectRoot}/config/mail/mail.test.php",
             "{$stubDir}/resources/views/components/email-button.ml.php"      => "{$projectRoot}/resources/views/components/email-button.ml.php",
             "{$stubDir}/resources/views/components/email-card.ml.php"      => "{$projectRoot}/resources/views/components/email-card.ml.php",
             "{$stubDir}/resources/views/components/email-content.ml.php"      => "{$projectRoot}/resources/views/components/email-content.ml.php",
@@ -72,18 +68,18 @@ final class MailInstallCommand extends Command
             }
         }
 
-        echo "\n";
+        $this->cliLine()->newline()->print();
 
         // 2) Ensure .env contains Mail keys
         $this->ensureEnvKeys($projectRoot);
 
-        echo "\n";
+        $this->cliLine()->newline()->print();
 
         // 3) Patch config/app.mlc: add mail { … } section
         $this->addMailConfig($projectRoot);
 
-        echo "\n";
         $this->cliLine()
+            ->newline()
             ->success('✓ Mail installation complete!')
             ->print();
         return self::SUCCESS;

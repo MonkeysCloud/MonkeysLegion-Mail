@@ -6,9 +6,9 @@ The MonkeysLegion Mail package enables seamless background email processing by i
 
 ## 🚀 How It Works
 
-1.  **Queue the mail**: When you call `$mailer->queue()` or `$mailable->queue()`, your email is transformed into a `SendMailJob`.
-2.  **Dispatch to standard dispatcher**: The job is dispatched via the framework's `QueueDispatcherInterface`.
-3.  **Process by central workers**: Background workers managed by `MonkeysLegion-Queue` pick up these jobs and execute them.
+1. **Queue the mail**: When you call `$mailer->queue()` or `$mailable->queue()`, your email is transformed into a `SendMailJob`.
+2. **Dispatch to standard dispatcher**: The job is dispatched via the framework's `QueueDispatcherInterface`.
+3. **Process by central workers**: Background workers managed by `MonkeysLegion-Queue` pick up these jobs and execute them.
 
 ---
 
@@ -51,6 +51,7 @@ $mail->setTo('user@example.com')
 Since the package delegates all queue logic to the framework's central queue system, use the standard `queue` CLI commands:
 
 ### Start a Worker
+
 To process emails, run a worker dedicated to the `emails` queue (or `default`):
 
 ```bash
@@ -58,6 +59,7 @@ php ml queue:work emails
 ```
 
 ### Manage Failures
+
 If an API or SMTP server is down, jobs will move to the failed queue and can be retried:
 
 ```bash
@@ -73,12 +75,14 @@ php ml queue:retry --all
 ## 🛠️ Performance & Scalability
 
 The queue system allows you to:
--   **Improve HTTP response times**: Users don't wait for your SMTP server during a request.
--   **Scale horizontally**: Run 10+ workers as separate processes to process massive email campaigns.
--   **Automatic Retries**: Failed attempts due to network issues are retried automatically.
--   **Rate Limit Control**: Adjust worker numbers to stay within your provider's rate limits.
+
+- **Improve HTTP response times**: Users don't wait for your SMTP server during a request.
+- **Scale horizontally**: Run 10+ workers as separate processes to process massive email campaigns.
+- **Automatic Retries**: Failed attempts due to network issues are retried automatically.
+- **Rate Limit Control**: Adjust worker numbers to stay within your provider's rate limits.
 
 ### Production Setup (Supervisor)
+
 Use a process manager like **Supervisor** to ensure at least 2 workers are always running in production:
 
 ```ini
