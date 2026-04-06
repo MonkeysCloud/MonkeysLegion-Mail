@@ -9,10 +9,13 @@ use MonkeysLegion\Mail\Jobs\SendMailJob;
 use MonkeysLegion\Mail\Event\MessageSent;
 use MonkeysLegion\Mail\RateLimiter\RateLimiter;
 use MonkeysLegion\Mail\Security\DkimSigner;
+use MonkeysLegion\Mlc\Config;
 use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
 
 class Mailer
 {
+
+    private array $rawConfig = [];
 
     /**
      * Mailer constructor.
@@ -21,29 +24,28 @@ class Mailer
      * @param RateLimiter $rateLimiter The rate limiter instance to control email sending frequency.
      * @param QueueDispatcherInterface $dispatcher The queue dispatcher for handling background email jobs.
      * @param MonkeysLoggerInterface|null $logger Optional logger for logging mailer activities and events.
-     * @param array<string, mixed> $rawConfig The raw configuration array for the mailer and drivers.
+     * @param Config $mlcConfig The MLC configuration instance for accessing mail configuration settings.
      */
     public function __construct(
         private TransportInterface $driver,
         private RateLimiter $rateLimiter,
         private QueueDispatcherInterface $dispatcher,
         private MonkeysLoggerInterface $logger,
-        private array $rawConfig = [],
+        private Config $mlcConfig,
     ) {
-        $this->logger?->debug("Mailer initialized", [
-            'driver' => get_class($this->driver),
-            'rate_limiter' => get_class($this->rateLimiter),
-            'dispatcher' => get_class($this->dispatcher),
-        ]);
-        if (empty($this->rawConfig)) {
-            $this->logger?->warning("Mail configuration is empty or missing", [
-                'config' => $this->rawConfig
-            ]);
-        } else {
-            $this->logger?->debug("Mail configuration loaded", [
-                'config_keys' => array_keys($this->rawConfig)
-            ]);
+        if (!$mlcConfig->has('mail') || !is_array($mlcConfig->get('mail')) || empty($mlcConfig->get('mail'))) {
+            throw new \RuntimeException("Mail configuration is missing or invalid. Please ensure 'mail' config is defined and is an array.");
         }
+        $this->rawConfig = $mlcConfig->get('mail');
+        $this->logger->debug(
+            "Mailer initialized with driver: " . get_class($driver),
+            [
+                'driver' => get_class($driver),
+                'rate_limiter' => get_class($rateLimiter),
+                'queue_dispatcher' => get_class($dispatcher),
+                'mlc_config_keys' => array_keys($this->rawConfig),
+            ]
+        );
     }
 
     /**
@@ -62,7 +64,7 @@ class Mailer
             $allowed = $this->rateLimiter->allow();
 
             if (!$allowed) {
-                $this->logger?->smartLog("Rate limit exceeded for sending emails", [
+                $this->logger->smartLog("Rate limit exceeded for sending emails", [
                     'to' => $to,
                     'subject' => $subject,
                     'content_type' => $contentType,
@@ -73,7 +75,7 @@ class Mailer
                 throw new \RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
             }
 
-            $this->logger?->smartLog("Attempting to send email", [
+            $this->logger->smartLog("Attempting to send email", [
                 'to' => $to,
                 'subject' => $subject,
                 'content_type' => $contentType,
@@ -98,7 +100,7 @@ class Mailer
 
             $this->driver->send($message);
             $duration = round((microtime(true) - $startTime) * 1000, 2); // Convert to milliseconds
-            $this->logger?->smartLog("Email sent successfully", [
+            $this->logger->smartLog("Email sent successfully", [
                 'to' => $to,
                 'subject' => $subject,
                 'duration_ms' => $duration,
@@ -121,7 +123,7 @@ class Mailer
         } catch (\Exception $e) {
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
-            $this->logger?->warning("Email sending failed", [
+            $this->logger->warning("Email sending failed", [
                 'to' => $to,
                 'subject' => $subject,
                 'duration_ms' => $duration,
@@ -154,7 +156,7 @@ class Mailer
         array $attachments = [],
         ?string $queue = null
     ): mixed {
-        $this->logger?->smartLog("Queuing email for background processing", [
+        $this->logger->smartLog("Queuing email for background processing", [
             'to' => $to,
             'subject' => $subject,
             'content_type' => $contentType,
@@ -185,7 +187,7 @@ class Mailer
                 queue: $queue ?? 'default'
             );
 
-            $this->logger?->smartLog("Email queued successfully", [
+            $this->logger->smartLog("Email queued successfully", [
                 'to' => $to,
                 'subject' => $subject,
                 'queue' => $queue ?? 'default',
@@ -194,7 +196,7 @@ class Mailer
 
             return true; // We don't have a direct job ID easily from dispatcher without more work
         } catch (\Exception $e) {
-            $this->logger?->warning("Failed to queue email", [
+            $this->logger->warning("Failed to queue email", [
                 'to' => $to,
                 'subject' => $subject,
                 'queue' => $queue ?? 'default',
@@ -218,7 +220,7 @@ class Mailer
     {
         $oldDriver = get_class($this->driver);
 
-        $this->logger?->smartLog("Changing mail driver", [
+        $this->logger->smartLog("Changing mail driver", [
             'old_driver' => $oldDriver,
             'new_driver' => $driverName,
             'has_custom_config' => !empty($config)
@@ -251,13 +253,13 @@ class Mailer
 
             $this->driver = MailerFactory::make($fullConfig, $this->logger);
 
-            $this->logger?->smartLog("Mail driver changed successfully", [
+            $this->logger->smartLog("Mail driver changed successfully", [
                 'old_driver' => $oldDriver,
                 'new_driver' => get_class($this->driver),
                 'driver_name' => $driverName
             ]);
         } catch (\Exception $e) {
-            $this->logger?->error("Failed to change mail driver", [
+            $this->logger->error("Failed to change mail driver", [
                 'old_driver' => $oldDriver,
                 'attempted_driver' => $driverName,
                 'exception' => $e,
@@ -285,7 +287,7 @@ class Mailer
      */
     public function useSmtp(array $config = []): void
     {
-        $this->logger?->info("Switching to SMTP driver", [
+        $this->logger->info("Switching to SMTP driver", [
             'current_driver' => get_class($this->driver),
             'has_custom_config' => !empty($config)
         ]);
@@ -299,7 +301,7 @@ class Mailer
      */
     public function useNull(array $config = []): void
     {
-        $this->logger?->info("Switching to null driver for testing", [
+        $this->logger->info("Switching to null driver for testing", [
             'current_driver' => get_class($this->driver),
             'has_custom_config' => !empty($config)
         ]);
@@ -313,7 +315,7 @@ class Mailer
      */
     public function useSendmail(array $config = []): void
     {
-        $this->logger?->info("Switching to sendmail driver", [
+        $this->logger->info("Switching to sendmail driver", [
             'current_driver' => get_class($this->driver),
             'has_custom_config' => !empty($config)
         ]);
@@ -327,7 +329,7 @@ class Mailer
      */
     public function useMailgun(array $config = []): void
     {
-        $this->logger?->info("Switching to Mailgun driver", [
+        $this->logger->info("Switching to Mailgun driver", [
             'current_driver' => get_class($this->driver),
             'has_custom_config' => !empty($config)
         ]);
@@ -342,32 +344,32 @@ class Mailer
     {
         $config = $this->rawConfig;
         if (!array_key_exists('driver', $config)) {
-            $this->logger?->error("Mail config missing 'driver' key");
+            $this->logger->error("Mail config missing 'driver' key");
             throw new \RuntimeException("Mail driver is not configured");
         }
         /** @var string $driverName */
         $driverName = $config['driver'];
 
         if (!array_key_exists('drivers', $config) || !is_array($config['drivers'])) {
-            $this->logger?->error("Mail config missing 'drivers' key or it is not an array");
+            $this->logger->error("Mail config missing 'drivers' key or it is not an array");
             throw new \RuntimeException("Mail drivers configuration is invalid");
         }
         $drivers = $config['drivers'];
 
         if (!array_key_exists($driverName, $drivers) || !is_array($drivers[$driverName])) {
-            $this->logger?->error("Driver config for '{$driverName}' is missing or not an array");
+            $this->logger->error("Driver config for '{$driverName}' is missing or not an array");
             throw new \RuntimeException("Driver config for '{$driverName}' must be an array");
         }
         $driverConfig = $drivers[$driverName];
 
         if (!array_key_exists('from', $driverConfig) || !is_array($driverConfig['from'])) {
-            $this->logger?->error("Driver config for '{$driverName}' missing 'from' key or it is not an array");
+            $this->logger->error("Driver config for '{$driverName}' missing 'from' key or it is not an array");
             throw new \RuntimeException("Driver config for '{$driverName}' must have a 'from' array");
         }
         $from = $driverConfig['from'];
 
         if (empty($from['address']) || !filter_var($from['address'], FILTER_VALIDATE_EMAIL) || !is_string($from['address'])) {
-            $this->logger?->error("Invalid 'from.address' configured in mail driver '{$driverName}'");
+            $this->logger->error("Invalid 'from.address' configured in mail driver '{$driverName}'");
             throw new \RuntimeException("Invalid 'from.address' configured in mail driver '{$driverName}'. Please update your mail configuration.");
         }
 
@@ -380,7 +382,7 @@ class Mailer
 
         $message->setFrom($fromHeader);
 
-        $this->logger?->debug("From header set on message", [
+        $this->logger->debug("From header set on message", [
             'from_address' => $fromAddress,
             'from_name' => $fromName,
             'from_header' => $fromHeader
@@ -392,19 +394,19 @@ class Mailer
         $config = $this->rawConfig;
 
         if (!isset($config['driver']) || !is_string($config['driver'])) {
-            $this->logger?->error("Mail config missing 'driver' key or it is not a string");
+            $this->logger->error("Mail config missing 'driver' key or it is not a string");
             throw new \RuntimeException("Mail driver is not configured");
         }
 
         $driverName = $config['driver'];
 
         if (!isset($config['drivers']) || !is_array($config['drivers'])) {
-            $this->logger?->error("Mail config missing 'drivers' array");
+            $this->logger->error("Mail config missing 'drivers' array");
             throw new \RuntimeException("Mail drivers config missing");
         }
 
         if (!isset($config['drivers'][$driverName]) || !is_array($config['drivers'][$driverName])) {
-            $this->logger?->error("Driver config for '{$driverName}' is missing or not an array");
+            $this->logger->error("Driver config for '{$driverName}' is missing or not an array");
             throw new \RuntimeException("Driver config for '{$driverName}' must be an array");
         }
 
@@ -418,7 +420,7 @@ class Mailer
         ];
 
         if (!DkimSigner::shouldSign(get_class($this->driver), $dkimConfig)) {
-            $this->logger?->debug("DKIM signing skipped for local transport", [
+            $this->logger->debug("DKIM signing skipped for local transport", [
                 'driver' => get_class($this->driver),
             ]);
             return $m;
@@ -438,7 +440,7 @@ class Mailer
 
         $m->setDkimSignature($dkimSignature);
 
-        $this->logger?->debug("DKIM signature generated and attached to message", [
+        $this->logger->debug("DKIM signature generated and attached to message", [
             'signature_length' => strlen($dkimSignature),
             'domain' => $dkimConfig['dkim_domain'],
             'selector' => $dkimConfig['dkim_selector'],
