@@ -25,15 +25,36 @@ final class MailInstallCommand extends Command
     {
         $projectRoot = base_path();
         $stubDir = __DIR__ . '/../../../stubs';
+        $publishedFiles = 0;
+        $skippedFiles = 0;
+        $failedFiles = 0;
+
+        $this->showInstallHeader();
 
         $this->cliLine()
-            ->info('Installing Mail package...')
+            ->info('Step 1/3')->space()->muted('Choose config format')
+            ->print();
+        $configType = $this->chooseConfigType();
+        $configStub = $configType === 'php' ? "{$stubDir}/config/mail.php" : "{$stubDir}/config/mail.mlc";
+        $configTarget = $configType === 'php' ? "{$projectRoot}/config/mail.php" : "{$projectRoot}/config/mail.mlc";
+
+        if (!is_dir($stubDir)) {
+            $this->cliLine()
+                ->error("Stub directory not found:")->space()->add($stubDir, 'red')
+                ->print();
+            return self::FAILURE;
+        }
+        $this->cliLine()
+            ->success('✓ Selected config:')->space()->add($configType === 'php' ? 'Standard PHP (mail.php)' : 'MonkeysLegion-Mlc (mail.mlc)', 'cyan')
             ->newline()
             ->print();
 
-        // 1) Copy scaffolding files
+        $this->cliLine()
+            ->info('Step 2/3')->space()->muted('Publish scaffolding files')
+            ->print();
+
         $map = [
-            "{$stubDir}/config/mail.mlc"                              => "{$projectRoot}/config/mail.mlc",
+            $configStub                              => $configTarget,
             "{$stubDir}/resources/views/components/email-button.ml.php"      => "{$projectRoot}/resources/views/components/email-button.ml.php",
             "{$stubDir}/resources/views/components/email-card.ml.php"      => "{$projectRoot}/resources/views/components/email-card.ml.php",
             "{$stubDir}/resources/views/components/email-content.ml.php"      => "{$projectRoot}/resources/views/components/email-content.ml.php",
@@ -49,6 +70,13 @@ final class MailInstallCommand extends Command
         ];
 
         foreach ($map as $from => $to) {
+            if (!file_exists($from)) {
+                $this->cliLine()
+                    ->warning("Source file not found:")->space()->add($from, 'yellow')
+                    ->print();
+                $failedFiles++;
+                continue;
+            }
             if (is_dir($from)) {
                 $this->mirror($from, $to);
                 $this->cliLine()
@@ -58,44 +86,75 @@ final class MailInstallCommand extends Command
             }
 
             if (file_exists($to) && !$this->shouldOverwrite($to, $projectRoot)) {
+                $skippedFiles++;
                 continue;
             }
 
             if ($this->copyFile($from, $to)) {
+                $publishedFiles++;
                 $this->cliLine()
                     ->success('✓ Published file')->space()->add(str_replace($projectRoot . '/', '', $to), 'cyan')
                     ->print();
+            } else {
+                $failedFiles++;
             }
         }
 
         $this->cliLine()->newline()->print();
 
-        // 2) Ensure .env contains Mail keys
-        $this->ensureEnvKeys($projectRoot);
+        $this->cliLine()
+            ->info('Step 3/3')->space()->muted('Ensure .env keys')
+            ->print();
+        $addedEnvKeys = $this->ensureEnvKeys($projectRoot);
 
         $this->cliLine()->newline()->print();
 
-        // 3) Patch config/app.mlc: add mail { … } section
-        $this->addMailConfig($projectRoot);
+        $this->showInstallSummary($publishedFiles, $skippedFiles, $failedFiles, $addedEnvKeys);
+        return self::SUCCESS;
+    }
+
+    private function chooseConfigType(): string
+    {
+        $this->cliLine()
+            ->muted('Options:')
+            ->print();
+        $this->cliLine()
+            ->add('  • ', 'white')->add('mlc', 'cyan', 'bold')->muted(' (MonkeysLegion config)')
+            ->print();
+        $this->cliLine()
+            ->add('  • ', 'white')->add('php', 'yellow', 'bold')->muted(' (Standard PHP array config)')
+            ->print();
+
+        $answer = strtolower(trim($this->ask(
+            'Will you use MonkeysLegion-Mlc or standard PHP config? [mlc/php] (default: mlc)'
+        )));
+
+        if ($answer === '' || in_array($answer, ['mlc', 'monkeyslegion-mlc'], true)) {
+            return 'mlc';
+        }
+
+        if (in_array($answer, ['php', 'standard', 'standard-php'], true)) {
+            return 'php';
+        }
 
         $this->cliLine()
-            ->newline()
-            ->success('✓ Mail installation complete!')
+            ->warning('Invalid choice. Using default: MonkeysLegion-Mlc config.')
             ->print();
-        return self::SUCCESS;
+
+        return 'mlc';
     }
 
     /**
      * @param string $projectRoot
      */
-    private function ensureEnvKeys(string $projectRoot): void
+    private function ensureEnvKeys(string $projectRoot): ?int
     {
         $envFile = $projectRoot . '/.env';
         if (!file_exists($envFile)) {
             $this->cliLine()
                 ->warning('.env file not found; skipping Mail key injection.')
                 ->print();
-            return;
+            return null;
         }
 
         $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -137,7 +196,7 @@ final class MailInstallCommand extends Command
             $this->cliLine()
                 ->info('All Mail keys already present in .env.')
                 ->print();
-            return;
+            return 0;
         }
 
         // Append missing keys with placeholder comments
@@ -168,107 +227,7 @@ final class MailInstallCommand extends Command
         $this->cliLine()
             ->success('✓ Added missing Mail keys to .env:')->space()->add(implode(', ', $missing), 'yellow')
             ->print();
-    }
-
-    /**
-     * Make sure config/app.mlc contains a mail { … } section
-     *
-     * @param string $projectRoot
-     */
-    private function addMailConfig(string $projectRoot): void
-    {
-        $path = 'config/app.mlc';
-        $mlcFile = "{$projectRoot}/$path";
-        if (!is_file($mlcFile)) {
-            $this->cliLine()
-                ->warning("$path not found; skipping mail section injection.")
-                ->print();
-            return;
-        }
-
-        $lines = file($mlcFile, FILE_IGNORE_NEW_LINES);
-        if ($lines === false) throw new \RuntimeException("Failed to read $path at: $mlcFile");
-
-        $mailStart = null;
-        $mailEnd   = null;
-        foreach ($lines as $i => $line) {
-            if (preg_match('/^\s*mail\s*\{\s*$/', $line)) {
-                $mailStart = $i;
-                $depth = 1;
-                for ($j = $i + 1, $n = count($lines); $j < $n; $j++) {
-                    if (strpos($lines[$j], '{') !== false) $depth++;
-                    if (strpos($lines[$j], '}') !== false) $depth--;
-                    if ($depth === 0) {
-                        $mailEnd = $j;
-                        break;
-                    }
-                }
-                break;
-            }
-        }
-
-        $indent = '    ';
-        if ($mailStart !== null && $mailStart + 1 < count($lines)) {
-            if (preg_match('/^(\s+)\S/', $lines[$mailStart + 1], $m)) {
-                $indent = $m[1];
-            }
-        }
-
-        $defaults = [
-            'driver'               => '"smtp"',
-            'template_engine'      => '"mlview"',
-            'views_path'           => '"resources/views"',
-            'cache_path'           => '"storage/cache/views"',
-            'timeout'              => '30',
-        ];
-
-        $existing = [];
-
-        if ($mailStart !== null) {
-            for ($k = $mailStart + 1; $k < $mailEnd; $k++) {
-                if (preg_match('/^\s*([A-Za-z0-9_]+)\s*=\s*(.+)$/', $lines[$k], $m)) {
-                    $existing[$m[1]] = trim($m[2]);
-                }
-            }
-        }
-
-        $kv = $defaults;
-        foreach ($existing as $k => $v) {
-            $kv[$k] = $v;
-        }
-
-        $block = [];
-        $block[] = 'mail {';
-        foreach ($kv as $k => $v) {
-            $block[] = $indent . $k . ' = ' . $v;
-        }
-        $block[] = '}';
-
-        if ($mailStart !== null && $mailEnd !== null) {
-            array_splice($lines, $mailStart, $mailEnd - $mailStart + 1, $block);
-        } else {
-            $insertAt = count($lines);
-            foreach ($lines as $i => $line) {
-                if (preg_match('/^\s*auth\s*\{\s*$/', $line)) {
-                    $d = 1;
-                    for ($j = $i + 1; $j < count($lines); $j++) {
-                        if (strpos($lines[$j], '{') !== false) $d++;
-                        if (strpos($lines[$j], '}') !== false) $d--;
-                        if ($d === 0) {
-                            $insertAt = $j + 1;
-                            break;
-                        }
-                    }
-                    break;
-                }
-            }
-            array_splice($lines, $insertAt, 0, array_merge([''], $block));
-        }
-
-        file_put_contents($mlcFile, implode("\n", $lines) . "\n");
-        $this->cliLine()
-            ->success("✓ Added/merged mail { … } section in")->space()->add($path, 'cyan')
-            ->print();
+        return count($missing);
     }
 
     /**
@@ -353,5 +312,48 @@ final class MailInstallCommand extends Command
             return $default;
         }
         return in_array(strtolower($answer), ['y', 'yes'], true);
+    }
+
+    private function showInstallHeader(): void
+    {
+        $this->cliLine()->newline()->print();
+        $this->cliLine()
+            ->add('MonkeysLegion Mail Installer', 'cyan', 'bold')
+            ->print();
+        $this->cliLine()
+            ->muted('Publish config, templates, mail classes, and .env mail keys')
+            ->newline()
+            ->print();
+    }
+
+    private function showInstallSummary(int $publishedFiles, int $skippedFiles, int $failedFiles, ?int $addedEnvKeys): void
+    {
+        $this->cliLine()
+            ->success('✓ Mail installation complete!')
+            ->print();
+
+        $this->cliLine()
+            ->info('Summary:')
+            ->print();
+        $this->cliLine()
+            ->add('  • Published: ', 'white')->add((string)$publishedFiles, 'green', 'bold')
+            ->print();
+        $this->cliLine()
+            ->add('  • Skipped: ', 'white')->add((string)$skippedFiles, 'yellow', 'bold')
+            ->print();
+        $this->cliLine()
+            ->add('  • Failed: ', 'white')->add((string)$failedFiles, $failedFiles > 0 ? 'red' : 'green', 'bold')
+            ->print();
+
+        if ($addedEnvKeys === null) {
+            $this->cliLine()
+                ->add('  • .env: ', 'white')->add('not found', 'yellow', 'bold')
+                ->print();
+            return;
+        }
+
+        $this->cliLine()
+            ->add('  • .env keys added: ', 'white')->add((string)$addedEnvKeys, $addedEnvKeys > 0 ? 'yellow' : 'green', 'bold')
+            ->print();
     }
 }

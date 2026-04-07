@@ -1,28 +1,16 @@
 ## MonkeysMail configuration
 
-/*
-|--------------------------------------------------------------------------
-| Default Mailer
-|--------------------------------------------------------------------------
-|
-| This option controls the default mailer that is used to send all email
-| messages unless another mailer is explicitly specified when sending
-| the message.
-|
-*/
+# Default Mailer
+# This option controls the default mailer that is used to send all email
+# messages unless another mailer is explicitly specified when sending
+# the message.
 
 
 driver = ${MAIL_DRIVER:-null}
 
 drivers {
-    /*
-    |--------------------------------------------------------------------------
-    | SMTP Mailer
-    |--------------------------------------------------------------------------
-    |
-    | This mailer is used to send email messages via SMTP.
-    |
-    */
+    # SMTP Mailer
+    # This mailer is used to send email messages via SMTP.
     smtp {
         host = ${MAIL_HOST:-''}
         port = ${MAIL_PORT:-587}
@@ -39,14 +27,8 @@ drivers {
         dkim_domain = ${MAILGUN_DKIM_DOMAIN:-''}
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Mailgun Mailer
-    |--------------------------------------------------------------------------
-    |
-    | This mailer is used to send email messages via Mailgun.
-    |
-    */
+    # Mailgun Mailer
+    # This mailer is used to send email messages via Mailgun.
     mailgun {
         domain = ${MAILGUN_DOMAIN:-''}
         apikey = ${MAILGUN_API_KEY:-''}
@@ -71,15 +53,9 @@ drivers {
         dkim_domain = ${MAILGUN_DKIM_DOMAIN:-''}
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Sendmail Mailer
-    |--------------------------------------------------------------------------
-    |
-    | This mailer is used to send email messages via the sendmail program.
-    | It uses the system's sendmail binary to send emails.
-    |
-    */
+    # Sendmail Mailer
+    # This mailer is used to send email messages via the sendmail program.
+    # It uses the system's sendmail binary to send emails.
     sendmail {
         path = ${SENDMAIL_PATH:-'/usr/sbin/sendmail'}
         from {
@@ -91,14 +67,8 @@ drivers {
         dkim_domain = ${MAILGUN_DKIM_DOMAIN:-''}
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Monkeys Mail (MonkeysLegion API)
-    |--------------------------------------------------------------------------
-    |
-    | This driver sends emails via the MonkeysMail HTTP API.
-    |
-    */
+    # Monkeys Mail (MonkeysLegion API)
+    # This driver sends emails via the MonkeysMail HTTP API.
     monkeys_mail {
         api_key = ${MONKEYSMAIL_API_KEY:-''}
         url = ${MONKEYSMAIL_URL:-'https://smtp.monkeysmail.com/messages/send'}
@@ -112,15 +82,9 @@ drivers {
         timeout = ${MONKEYSMAIL_TIMEOUT:-30}
     }
 
-    /*
-    |--------------------------------------------------------------------------
-    | Null Mailer
-    |--------------------------------------------------------------------------
-    |
-    | This mailer is used to discard all email messages.
-    | It is useful for testing and development purposes.
-    |
-    */
+    # Null Mailer
+    # This mailer is used to discard all email messages.
+    # It is useful for testing and development purposes.
     null {
         from {
             address = ${NULL_FROM_ADDRESS:-'noreply@yourapp.com'}
@@ -130,8 +94,16 @@ drivers {
 }
 
 rate_limiter {
-    key = ${RATE_LIMITER_KEY:-'mail_rate_limiter'} // Unique key for rate limiting, can be based on user ID or IP address
-    limit = ${RATE_LIMITER_LIMIT:-60} // Maximum number of requests allowed within the time window
-    seconds = ${RATE_LIMITER_SECONDS:-60} // Time window for rate limiting in seconds
-    storage_path = ${RATE_LIMITER_STORAGE_PATH:-'storage/rate_limit'} // Path to store rate limit data starting from the 'project_root/storage'
+    
+    # Unique key for rate limiting, can be based on user ID or IP address
+    key = ${RATE_LIMITER_KEY:-'mail_rate_limiter'}
+
+    # Maximum number of requests allowed within the time window
+    limit = ${RATE_LIMITER_LIMIT:-60}
+
+    # Time window for rate limiting in seconds
+    seconds = ${RATE_LIMITER_SECONDS:-60}
+
+    # Path to store rate limit data starting from the 'project_root/storage'
+    storage_path = ${RATE_LIMITER_STORAGE_PATH:-'storage/rate_limit'}
 }

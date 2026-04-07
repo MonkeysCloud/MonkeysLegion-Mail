@@ -9,13 +9,10 @@ use MonkeysLegion\Mail\Jobs\SendMailJob;
 use MonkeysLegion\Mail\Event\MessageSent;
 use MonkeysLegion\Mail\RateLimiter\RateLimiter;
 use MonkeysLegion\Mail\Security\DkimSigner;
-use MonkeysLegion\Mlc\Config;
 use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
 
 class Mailer
 {
-
-    private array $rawConfig = [];
 
     /**
      * Mailer constructor.
@@ -24,19 +21,15 @@ class Mailer
      * @param RateLimiter $rateLimiter The rate limiter instance to control email sending frequency.
      * @param QueueDispatcherInterface $dispatcher The queue dispatcher for handling background email jobs.
      * @param MonkeysLoggerInterface|null $logger Optional logger for logging mailer activities and events.
-     * @param Config $mlcConfig The MLC configuration instance for accessing mail configuration settings.
+     * @param array $rawConfig The configuration array for the mailer, typically loaded from MLC config or normal php config. This should include driver configurations and other mail settings.
      */
     public function __construct(
         private TransportInterface $driver,
         private RateLimiter $rateLimiter,
         private QueueDispatcherInterface $dispatcher,
         private MonkeysLoggerInterface $logger,
-        private Config $mlcConfig,
+        private array $rawConfig = [],
     ) {
-        if (!$mlcConfig->has('mail') || !is_array($mlcConfig->get('mail')) || empty($mlcConfig->get('mail'))) {
-            throw new \RuntimeException("Mail configuration is missing or invalid. Please ensure 'mail' config is defined and is an array.");
-        }
-        $this->rawConfig = $mlcConfig->get('mail');
         $this->logger->debug(
             "Mailer initialized with driver: " . get_class($driver),
             [

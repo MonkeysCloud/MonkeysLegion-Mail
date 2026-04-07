@@ -105,6 +105,22 @@ return [
         ],
 
         /*|--------------------------------------------------------------------------
+        | Monkeys Mail (MonkeysLegion API)
+        |--------------------------------------------------------------------------
+        | This driver sends emails via the MonkeysMail HTTP API.
+        |*/
+        'monkeys_mail' => [
+            'api_key' => $_ENV['MONKEYS_MAIL_API_KEY'] ?? '',
+            'domain' => $_ENV['MONKEYS_MAIL_DOMAIN'] ?? 'monkeys.cloud',
+            'from' => [
+                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'no-reply@monkeys.cloud',
+                'name' => $_ENV['MAIL_FROM_NAME'] ?? 'MonkeysCloud Support',
+            ],
+            'tracking_opens' => filter_var($_ENV['MONKEYS_MAIL_TRACKING_OPENS'] ?? true, FILTER_VALIDATE_BOOLEAN),
+            'tracking_clicks' => filter_var($_ENV['MONKEYS_MAIL_TRACKING_CLICKS'] ?? true, FILTER_VALIDATE_BOOLEAN),
+        ],
+
+        /*|--------------------------------------------------------------------------
         | Null Mailer
         |--------------------------------------------------------------------------
         | This mailer is used to discard all email messages.
