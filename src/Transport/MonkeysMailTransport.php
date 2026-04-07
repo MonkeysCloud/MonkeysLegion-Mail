@@ -11,6 +11,7 @@ use MonkeysLegion\Mail\TransportInterface;
 class MonkeysMailTransport implements TransportInterface
 {
     private string $apiKey;
+    /** @var array<string, mixed> */
     private array $config;
 
     /**
@@ -24,6 +25,9 @@ class MonkeysMailTransport implements TransportInterface
         $this->validateAndSetConfig($config);
     }
 
+    /**
+     * @param array<string, mixed> $config
+     */
     private function validateAndSetConfig(array $config): void
     {
         if (!isset($config['api_key']) || !is_string($config['api_key'])) {
@@ -74,6 +78,9 @@ class MonkeysMailTransport implements TransportInterface
         }
     }
 
+    /**
+     * @param array<string, mixed> $payload
+     */
     protected function makeRequest(array $payload): void
     {
         $ch = curl_init('https://smtp.monkeysmail.com/messages/send');
@@ -83,8 +90,13 @@ class MonkeysMailTransport implements TransportInterface
             'X-API-Key: ' . $this->apiKey,
         ];
 
+        $jsonPayload = json_encode($payload);
+        if ($jsonPayload === false) {
+            throw new \RuntimeException('Failed to encode payload as JSON');
+        }
+
         curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($payload));
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
         curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
         curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
         curl_setopt($ch, CURLOPT_TIMEOUT, 30);

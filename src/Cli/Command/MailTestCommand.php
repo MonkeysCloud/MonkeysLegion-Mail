@@ -21,7 +21,7 @@ final class MailTestCommand extends Command
         private Mailer $mailer,
     )
     {
-        return parent::__construct();
+        parent::__construct();
     }
 
     public function handle(): int

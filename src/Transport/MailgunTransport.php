@@ -4,7 +4,6 @@ namespace MonkeysLegion\Mail\Transport;
 
 use CURLFile;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
-use MonkeysLegion\Mail\Enums\MailDefaults;
 use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Enums\MailgunRegion;
 use MonkeysLegion\Mail\Message;
@@ -371,6 +370,10 @@ class MailgunTransport implements TransportInterface
      */
     protected function makeRequest(array $postData): array
     {
+        if ($this->endpoint === '') {
+            throw new \RuntimeException('Mailgun endpoint is not configured');
+        }
+
         $ch = curl_init();
 
         // Check if we have file uploads (CURLFile objects)

@@ -47,7 +47,7 @@ abstract class Mailable
     protected array $viewData = [];
 
     /** Logger instance */
-    private MonkeysLoggerInterface $logger;
+    private ?MonkeysLoggerInterface $logger;
 
     /** Mailer instance */
     private Mailer $mailer;
@@ -61,9 +61,25 @@ abstract class Mailable
 
     public function __construct()
     {
-        $this->logger = $this->resolve(MonkeysLoggerInterface::class);
-        $this->mailer = $this->resolve(Mailer::class);
-        $this->renderer = $this->resolve(Renderer::class);
+        /** @var MonkeysLoggerInterface|null $logger */
+        $logger = $this->has(MonkeysLoggerInterface::class) ? $this->resolve(MonkeysLoggerInterface::class) : null;
+        $this->logger = $logger;
+
+        /** @var Mailer|null $mailer */
+        $mailer = $this->has(Mailer::class) ? $this->resolve(Mailer::class) : null;
+        if (!$mailer) {
+            $this->logger?->error("No mailer configured. Mailable cannot be used.");
+            throw new \RuntimeException("No mailer configured.");
+        }
+
+        /** @var Renderer|null $renderer */
+        $renderer = $this->has(Renderer::class) ? $this->resolve(Renderer::class) : null;
+        if (!$renderer) {
+            $this->logger?->error("No renderer configured. Mailable cannot be used.");
+            throw new \RuntimeException("No renderer configured.");
+        }
+        $this->mailer = $mailer;
+        $this->renderer = $renderer;
     }
 
     /**
@@ -101,7 +117,7 @@ abstract class Mailable
                 $this->attachments
             );
         } catch (\Exception $e) {
-            $this->logger->error("Mailable sending failed", [
+            $this->logger?->error("Mailable sending failed", [
                 'class' => static::class,
                 'to' => $this->to,
                 'exception' => $e,
@@ -138,7 +154,7 @@ abstract class Mailable
                 $this->queue
             );
 
-            $this->logger->smartLog("Mailable queued successfully", [
+            $this->logger?->smartLog("Mailable queued successfully", [
                 'class' => static::class,
                 'job_id' => $jobId,
                 'to' => $this->to
@@ -146,7 +162,7 @@ abstract class Mailable
 
             return $jobId;
         } catch (\Exception $e) {
-            $this->logger->error("Mailable queueing failed", [
+            $this->logger?->error("Mailable queueing failed", [
                 'class' => static::class,
                 'to' => $this->to,
                 'exception' => $e,
@@ -483,7 +499,7 @@ abstract class Mailable
             $content = $this->renderer->render($this->view, $this->viewData);
             return $content;
         } catch (\Exception $e) {
-            $this->logger->error("Failed to render mail content", [
+            $this->logger?->error("Failed to render mail content", [
                 'class' => static::class,
                 'view' => $this->view,
                 'exception' => $e,
@@ -513,7 +529,7 @@ abstract class Mailable
         }
 
         if (!empty($errors)) {
-            $this->logger->error("Mail validation failed", [
+            $this->logger?->error("Mail validation failed", [
                 'class' => static::class,
                 'errors' => $errors
             ]);
@@ -530,14 +546,13 @@ abstract class Mailable
      */
     public function setDriver(string $driver, array $config = []): self
     {
-        $this->logger->smartLog("Setting mail driver from Mailable", [
+        $this->logger?->smartLog("Setting mail driver from Mailable", [
             'class' => static::class,
             'driver' => $driver,
             'has_custom_config' => !empty($config)
         ]);
 
         try {
-            /** @var Mailer $mailer */
             $this->mailer->setDriver($driver, $config);
         } catch (\Exception $e) {
             throw $e;

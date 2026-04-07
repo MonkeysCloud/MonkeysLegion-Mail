@@ -1,9 +1,0 @@
-# phpstan.neon
-
-parameters:
-    level: max
-
-    paths:
-        - src
-        - tests
-        

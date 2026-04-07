@@ -13,8 +13,35 @@ use MonkeysLegion\Mail\Transport\NullTransport;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
 use MonkeysLegion\Mail\Transport\SmtpTransport;
 
+/**
+ * Class MailerFactory
+ *
+ * A centralized factory service responsible for resolving and managing mail transports.
+ * The factory implements a "Manager" pattern, allowing the application to toggle 
+ * between different delivery providers (SMTP, Mailgun, etc.) while abstracting 
+ * the underlying implementation from the consumer.
+ *
+ * @package MonkeysLegion\Mail
+ */
 class MailerFactory
 {
+
+    /**
+     * Initialises the MailerFactory service.
+     *
+     * This factory manages the lifecycle and instantiation of various mail transports.
+     * It maintains the application's mail configuration and provides mechanisms to 
+     * swap the active transport implementation within the DI Container at runtime.
+     *
+     * @param MonkeysLoggerInterface $logger    The logging service for tracking transport 
+     * initialization and driver-switch failures.
+     * @param array<string, mixed>   $config    The global mail configuration containing 
+     * default driver settings and driver-specific 
+     * connection parameters.
+     * @param Container              $container The Dependency Injection container used to 
+     * rebind the TransportInterface when the 
+     * active driver is changed.
+     */
     public function __construct(
         private MonkeysLoggerInterface $logger,
         private array $config,
