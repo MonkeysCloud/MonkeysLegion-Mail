@@ -19,8 +19,7 @@ final class MailTestCommand extends Command
     public function __construct(
         private MonkeysLoggerInterface $logger,
         private Mailer $mailer,
-    )
-    {
+    ) {
         parent::__construct();
     }
 
@@ -50,6 +49,7 @@ final class MailTestCommand extends Command
 
         $this->cliLine()
             ->info('Sending test email to:')->space()->add($email, 'cyan', 'bold')
+            ->newline()
             ->print();
 
         try {
@@ -62,9 +62,9 @@ final class MailTestCommand extends Command
 
             $this->logger->info("Test email sent", ['email' => $email]);
 
-            echo "\n";
             $this->cliLine()
                 ->success('✓ Test email sent successfully!')
+                ->newline()
                 ->print();
         } catch (\Exception $e) {
             $this->logger->error("Test email failed", [
@@ -73,12 +73,13 @@ final class MailTestCommand extends Command
                 'trace' => $e->getTraceAsString()
             ]);
 
-            echo "\n";
             $this->cliLine()
                 ->error('✗ Failed to send test email')
+                ->newline()
                 ->print();
             $this->cliLine()
                 ->error('Error:')->space()->add($e->getMessage(), 'red')
+                ->newline()
                 ->print();
             return self::FAILURE;
         }

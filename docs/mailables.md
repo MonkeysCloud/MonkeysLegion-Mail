@@ -60,6 +60,7 @@ $mail->setTo('user@example.com')->queue();
 ## 🎨 Template Binding
 
 ### Using ML View Engine
+
 Root directory for views is: `root/resources/views/`.
 A template named `emails.welcome` should be at: `root/resources/views/emails/welcome.ml.php`.
 
@@ -120,3 +121,11 @@ public function build(): self
                 });
 }
 ```
+
+---
+
+## 🔔 Events & Hooks
+
+Mailables automatically propagate their class name to the event system. You can listen for successful sends or failures globally via an event dispatcher or by hooking into the `onSent` and `onFailed` methods of the `Mailer` instance.
+
+For more information on the event system, see the **[Events & Hooks Documentation](events.md)**.

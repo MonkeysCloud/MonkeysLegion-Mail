@@ -57,7 +57,7 @@ class MailerFactory
      */
     public static function make(array $config = [], ?MonkeysLoggerInterface $logger = null): TransportInterface
     {
-        $driver = safeString($config['driver'], 'null');
+        $driver = safeString($config['driver'] ?? 'null', 'null');
         return self::getTransport($driver, $config, $logger);
     }
 

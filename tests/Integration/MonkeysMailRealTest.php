@@ -7,6 +7,9 @@ namespace MonkeysLegion\Mailer\Tests\Integration;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\MonkeysMailTransport;
 use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestDox;
 
 /**
  * Integration test for MonkeysMail API.
@@ -16,6 +19,7 @@ use PHPUnit\Framework\TestCase;
  * export MONKEYS_MAIL_API_KEY='your-real-key-here'
  * ./vendor/bin/phpunit tests/Integration/MonkeysMailRealTest.php
  */
+#[AllowMockObjectsWithoutExpectations]
 class MonkeysMailRealTest extends TestCase
 {
     private string $apiKey;
@@ -24,13 +28,15 @@ class MonkeysMailRealTest extends TestCase
     protected function setUp(): void
     {
         $this->apiKey = $_ENV['MONKEYS_MAIL_API_KEY'] ?? '';
-        $this->recipient = 'marouane.amanar07@gmail.com';
+        $this->recipient = $_ENV['MONKEYS_MAIL_RECIPIENT'] ?? '';
 
-        if (empty($this->apiKey)) {
-            $this->markTestSkipped('Real API key not provided in environment variable MONKEYS_MAIL_API_KEY.');
+        if (empty($this->apiKey) || empty($this->recipient)) {
+            $this->markTestSkipped('Real API key or recipient not provided in environment variable MONKEYS_MAIL_API_KEY or MONKEYS_MAIL_RECIPIENT.');
         }
     }
 
+    #[Test]
+    #[TestDox('Sends email using real MonkeysMail API')]
     public function testRealApiSend(): void
     {
         $config = [

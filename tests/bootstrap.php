@@ -31,4 +31,4 @@ if (file_exists(dirname(__DIR__) . '/.env')) {
     $dotenv->load();
 }
 
-echo "Test environment initialized\n";
+

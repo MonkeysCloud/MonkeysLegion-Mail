@@ -28,6 +28,7 @@
     <exclude>
       <directory>./src/Resources</directory>
       <directory>./src/Cli</directory>
+      <directory>./src/Enums</directory>
     </exclude>
   </source>
   <php>

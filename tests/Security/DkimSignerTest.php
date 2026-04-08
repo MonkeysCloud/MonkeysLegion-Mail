@@ -1,15 +1,26 @@
 <?php
 
+declare(strict_types=1);
+
 namespace MonkeysLegion\Mailer\Tests\Security;
 
 use MonkeysLegion\Mail\Security\DkimSigner;
 use MonkeysLegion\Mail\Transport\NullTransport;
+use MonkeysLegion\Mail\Transport\SendmailTransport;
 use MonkeysLegion\Mail\Transport\SmtpTransport;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\TestCase;
 
+#[CoversClass(DkimSigner::class)]
+#[AllowMockObjectsWithoutExpectations]
 class DkimSignerTest extends TestCase
 {
-    public function testGenerateKeysReturnsKeyPair(): void
+    #[Test]
+    #[TestDox('generateKeys returns a valid RSA key pair')]
+    public function test_generate_keys_returns_key_pair(): void
     {
         if (!extension_loaded('openssl')) {
             $this->markTestSkipped('OpenSSL extension not available');
@@ -23,7 +34,9 @@ class DkimSignerTest extends TestCase
         $this->assertStringContainsString('BEGIN PUBLIC KEY', $keys['public']);
     }
 
-    public function testShouldSignReturnsTrueForSupportedTransports(): void
+    #[Test]
+    #[TestDox('shouldSign returns true for a supported remote transport with full DKIM config')]
+    public function test_should_sign_returns_true_for_supported_transports(): void
     {
         $config = [
             'dkim_private_key' => 'test_key',
@@ -36,7 +49,9 @@ class DkimSignerTest extends TestCase
         $this->assertTrue($shouldSign);
     }
 
-    public function testShouldSignReturnsFalseForLocalTransports(): void
+    #[Test]
+    #[TestDox('shouldSign returns false for local transports like NullTransport')]
+    public function test_should_sign_returns_false_for_local_transports(): void
     {
         $config = [
             'dkim_private_key' => 'test_key',
@@ -49,7 +64,9 @@ class DkimSignerTest extends TestCase
         $this->assertFalse($shouldSign);
     }
 
-    public function testShouldSignReturnsFalseWhenConfigMissing(): void
+    #[Test]
+    #[TestDox('shouldSign returns false when DKIM config keys are empty')]
+    public function test_should_sign_returns_false_when_config_missing(): void
     {
         $config = [
             'dkim_private_key' => '',
@@ -62,7 +79,9 @@ class DkimSignerTest extends TestCase
         $this->assertFalse($shouldSign);
     }
 
-    public function testConstructorSetsProperties(): void
+    #[Test]
+    #[TestDox('Constructor accepts private key selector and domain without throwing')]
+    public function test_constructor_sets_properties(): void
     {
         $this->expectNotToPerformAssertions();
 
@@ -73,7 +92,9 @@ class DkimSignerTest extends TestCase
         $signer = new DkimSigner($privateKey, $selector, $domain);
     }
 
-    public function testSignGeneratesValidSignature(): void
+    #[Test]
+    #[TestDox('sign generates a valid DKIM-Signature header')]
+    public function test_sign_generates_valid_signature(): void
     {
         if (!extension_loaded('openssl')) {
             $this->markTestSkipped('OpenSSL extension not available');
@@ -100,5 +121,18 @@ class DkimSignerTest extends TestCase
         $this->assertStringContainsString('a=rsa-sha256', $signature);
         $this->assertStringContainsString('d=example.com', $signature);
         $this->assertStringContainsString('s=default', $signature);
+    }
+
+    #[Test]
+    #[TestDox('shouldSign returns false for SendmailTransport')]
+    public function test_should_sign_returns_false_for_sendmail(): void
+    {
+        $config = [
+            'dkim_private_key' => 'key',
+            'dkim_selector'    => 'sel',
+            'dkim_domain'      => 'example.com',
+        ];
+
+        $this->assertFalse(DkimSigner::shouldSign(SendmailTransport::class, $config));
     }
 }

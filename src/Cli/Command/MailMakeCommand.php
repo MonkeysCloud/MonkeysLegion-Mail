@@ -266,8 +266,9 @@ final class MailMakeCommand extends Command
 
         $this->cliLine()
             ->success('✓ Mail class created:')->space()->add($relativePath, 'cyan')
+            ->newline()
             ->print();
-        echo "\n";
+
         $this->cliLine()
             ->info('Next steps:')
             ->print();

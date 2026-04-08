@@ -93,20 +93,21 @@ abstract class Mailable
     // =================================================================
 
     /**
-     * Send the mail immediately
+     * Send the mail immediately.
+     *
+     * Calls {@see afterSent()} on success or {@see afterFailed()} on failure,
+     * giving each concrete mailable its own hook without touching global state.
      */
     public function send(): void
     {
-        // Build the mail first
         $this->build();
-
-        // Validate required fields
         $this->validate();
+
+        // Tell the Mailer which mailable class is active so events carry that context.
+        $this->mailer->setMailableContext(static::class);
 
         try {
             $this->validateBeforeSend();
-
-            // Render content if view is specified
             $content = $this->renderContent();
 
             $this->mailer->send(
@@ -118,31 +119,30 @@ abstract class Mailable
             );
         } catch (\Exception $e) {
             $this->logger?->error("Mailable sending failed", [
-                'class' => static::class,
-                'to' => $this->to,
-                'exception' => $e,
-                'error_message' => $e->getMessage()
+                'class'         => static::class,
+                'to'            => $this->to,
+                'exception'     => $e,
+                'error_message' => $e->getMessage(),
             ]);
             throw $e;
+        } finally {
+            $this->mailer->setMailableContext(null);
         }
     }
 
     /**
-     * Queue the mail for background processing
+     * Queue the mail for background processing.
      */
     public function queue(): mixed
     {
-
-        // Build the mail first
         $this->build();
-
-        // Validate required fields
         $this->validate();
+
+        // Tell the Mailer which mailable class is active.
+        $this->mailer->setMailableContext(static::class);
 
         try {
             $this->validateBeforeSend();
-
-            // Render content if view is specified
             $content = $this->renderContent();
 
             $jobId = $this->mailer->queue(
@@ -155,20 +155,22 @@ abstract class Mailable
             );
 
             $this->logger?->smartLog("Mailable queued successfully", [
-                'class' => static::class,
+                'class'  => static::class,
                 'job_id' => $jobId,
-                'to' => $this->to
+                'to'     => $this->to,
             ]);
 
             return $jobId;
         } catch (\Exception $e) {
             $this->logger?->error("Mailable queueing failed", [
-                'class' => static::class,
-                'to' => $this->to,
-                'exception' => $e,
-                'error_message' => $e->getMessage()
+                'class'         => static::class,
+                'to'            => $this->to,
+                'exception'     => $e,
+                'error_message' => $e->getMessage(),
             ]);
             throw $e;
+        } finally {
+            $this->mailer->setMailableContext(null);
         }
     }
 

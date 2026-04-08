@@ -24,7 +24,7 @@
             "MonkeysLegion\\Mailer\\Tests\\": "tests/"
         },
         "files": [
-            "src/Template/helpers.php"
+            "src/Support/helpers.php"
         ]
     },
     "minimum-stability": "dev",
@@ -38,6 +38,7 @@
         "monkeyscloud/monkeyslegion-logger": "^1.0",
         "monkeyscloud/monkeyslegion-queue": "^1.1",
         "monkeyscloud/monkeyslegion-template": "^1.0",
+        "psr/event-dispatcher": "^1.0",
         "psr/log": "^3.0",
         "vlucas/phpdotenv": "^5.6"
     },

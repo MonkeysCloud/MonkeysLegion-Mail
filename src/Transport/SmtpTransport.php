@@ -100,7 +100,11 @@ final class SmtpTransport implements TransportInterface
                 'trace' => $e->getTraceAsString()
             ]);
 
-            $this->disconnect();
+            try {
+                $this->disconnect();
+            } catch (\Exception $ignored) {
+                // Ignore disconnect errors when we already have a major failure
+            }
             throw new \RuntimeException("SMTP send failed: " . $e->getMessage(), 0, $e);
         }
     }
@@ -194,12 +198,12 @@ final class SmtpTransport implements TransportInterface
                     'address' => $this->address,
                     'expected_type' => 'string'
                 ]);
-                throw new \InvalidArgumentException('SMTP address must be a non-null string');
+                throw new InvalidArgumentException('SMTP address must be a non-null string');
             }
 
             $errno = 0;
             $errstr = '';
-            $socket = @stream_socket_client(
+            $socket = stream_socket_client(
                 $this->address,
                 $errstr,
                 $errno,
@@ -216,6 +220,9 @@ final class SmtpTransport implements TransportInterface
             }
 
             $this->socket = $socket;
+            
+            // Set socket timeout for subsequent reads/writes
+            stream_set_timeout($this->socket, $this->timeout);
 
             $banner = $this->readResponse();
             if (substr($banner, 0, 3) !== '220') {
@@ -240,7 +247,6 @@ final class SmtpTransport implements TransportInterface
                 throw new \RuntimeException("Unsupported encryption method: {$this->encryption}");
             }
 
-            // For STARTTLS or no encryption: send EHLO immediately
             if ($this->encryption !== Encryption::SSL->value) {
                 $this->sendCommand("EHLO localhost");
                 $ehloResponse = $this->readResponse();
@@ -252,19 +258,16 @@ final class SmtpTransport implements TransportInterface
                     throw new \RuntimeException("EHLO failed. Server response: " . trim($ehloResponse));
                 }
 
-                $this->handleEncryption($ehloResponse);
-            }
-
-            // After STARTTLS handshake, or in case of direct SSL connection
-            if ($this->encryption === Encryption::SSL->value || $this->encryption === Encryption::TLS->value) {
+                $ehloResponse = $this->handleEncryption($ehloResponse);
+            } else {
                 $this->sendCommand("EHLO localhost");
                 $ehloResponse = $this->readResponse();
 
                 if (!$ehloResponse || substr($ehloResponse, 0, 3) !== '250') {
-                    $this->logger?->error("Second EHLO failed", [
+                    $this->logger?->error("EHLO failed", [
                         'response' => trim($ehloResponse)
                     ]);
-                    throw new \RuntimeException("Second EHLO failed. Server response: " . trim($ehloResponse));
+                    throw new \RuntimeException("EHLO failed. Server response: " . trim($ehloResponse));
                 }
             }
 
@@ -282,6 +285,8 @@ final class SmtpTransport implements TransportInterface
 
                 $this->logger?->smartLog("SMTP authentication successful");
             }
+        } catch (InvalidArgumentException $e) {
+            throw $e;
         } catch (\Exception $e) {
             $this->logger?->error("SMTP connection setup failed", [
                 'exception' => $e,
@@ -323,11 +328,11 @@ final class SmtpTransport implements TransportInterface
             return 'ssl://' . $this->host . ':' . $this->port;
         }
 
-        // For 'tls' or 'none', use plain address (unencrypted TCP initially)
-        return $this->host . ':' . $this->port;
+        // Explicitly use tcp:// for unencrypted or STARTTLS connections
+        return 'tcp://' . $this->host . ':' . $this->port;
     }
 
-    private function handleEncryption(string $ehloResponse): void
+    private function handleEncryption(string $ehloResponse): string
     {
         $this->logger?->smartLog("Handling SMTP encryption", [
             'encryption_type' => $this->encryption,
@@ -361,15 +366,23 @@ final class SmtpTransport implements TransportInterface
 
             // Re-EHLO is mandatory after STARTTLS
             $this->sendCommand("EHLO localhost");
-            $this->expectResponse(250);
+            $newEhloResponse = $this->readResponse();
+            $responseCode = (int) substr(trim($newEhloResponse), 0, 3);
+            if ($responseCode !== 250) {
+                throw new \RuntimeException("SMTP Error: Expected code 250, got $responseCode. Server response: " . trim($newEhloResponse));
+            }
+            return $newEhloResponse;
         } elseif ($this->encryption === Encryption::NONE->value) {
             $this->logger?->smartLog("Using no encryption");
+            return $ehloResponse;
         } elseif ($this->encryption !== Encryption::SSL->value) {
             $this->logger?->error("Unsupported encryption method", [
                 'encryption' => $this->encryption
             ]);
             throw new InvalidArgumentException('Unsupported encryption method: ' . $this->encryption);
         }
+
+        return $ehloResponse;
     }
 
 
@@ -434,25 +447,37 @@ final class SmtpTransport implements TransportInterface
         }
 
         $response = '';
-        $timeout = time() + $this->timeout;
+        $startTime = time();
 
-        while ($line = fgets($this->socket)) {
-            if (time() > $timeout) {
-                $this->logger?->error("SMTP response timeout", [
-                    'timeout_seconds' => $this->timeout
-                ]);
-                throw new \RuntimeException("SMTP response timeout after {$this->timeout} seconds");
+        while (!feof($this->socket)) {
+            $line = fgets($this->socket);
+            
+            if ($line === false) {
+                $info = stream_get_meta_data($this->socket);
+                if ($info['timed_out']) {
+                    throw new \RuntimeException("SMTP response timeout after {$this->timeout} seconds");
+                }
+                break;
             }
 
             $response .= $line;
+            // SMTP multi-line response: all lines start with 'XYZ-' except the last one 'XYZ '
             if (preg_match('/^\d{3} /', $line)) {
                 break;
+            }
+
+            if (time() - $startTime > $this->timeout) {
+                 throw new \RuntimeException("SMTP reading timeout exceeded {$this->timeout} seconds");
             }
         }
 
         if (empty($response)) {
-            $this->logger?->error("No response received from SMTP server");
-            throw new \RuntimeException("No response received from SMTP server");
+            $this->logger?->error("No response received from SMTP server", [
+                'host' => $this->host,
+                'port' => $this->port,
+                'feof' => feof($this->socket)
+            ]);
+            throw new \RuntimeException("No response received from SMTP server (Host: {$this->host}:{$this->port})");
         }
 
         $this->logger?->smartLog("Received SMTP response", [
