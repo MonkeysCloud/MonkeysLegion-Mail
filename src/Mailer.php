@@ -13,6 +13,10 @@ use MonkeysLegion\Mail\Security\DkimSigner;
 use MonkeysLegion\Queue\Contracts\QueueDispatcherInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 
+use Exception;
+use InvalidArgumentException;
+use RuntimeException;
+
 class Mailer
 {
     /**
@@ -148,7 +152,7 @@ class Mailer
                     'attachment_count' => count($attachments),
                     'driver'           => get_class($this->driver),
                 ]);
-                throw new \RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
+                throw new RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
             }
 
             $this->logger?->smartLog("Attempting to send email", [
@@ -199,9 +203,9 @@ class Mailer
                 $listener($sent);
             }
 
-        } catch (\InvalidArgumentException $e) {
-            throw new \InvalidArgumentException($e->getMessage(), 0, $e);
-        } catch (\Exception $e) {
+        } catch (InvalidArgumentException $e) {
+            throw new InvalidArgumentException($e->getMessage(), 0, $e);
+        } catch (Exception $e) {
             $duration = (int) round((microtime(true) - $startTime) * 1000);
 
             $this->logger?->warning("Email sending failed", [
@@ -229,7 +233,7 @@ class Mailer
             $failed = new MessageFailed(
                 $messageId,
                 $messageData,
-                $e instanceof \Exception ? $e : new \RuntimeException($e->getMessage()),
+                $e instanceof Exception ? $e : new RuntimeException($e->getMessage()),
                 1,
                 false,
                 $this->logger,
@@ -240,7 +244,7 @@ class Mailer
                 $listener($failed);
             }
 
-            throw new \RuntimeException($e->getMessage(), 0, $e);
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
     }
 
@@ -295,7 +299,7 @@ class Mailer
 
             return true;
 
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger?->warning("Failed to queue email", [
                 'to'            => $to,
                 'subject'       => $subject,
@@ -329,7 +333,7 @@ class Mailer
                 $listener($failed);
             }
 
-            throw new \RuntimeException($e->getMessage(), 0, $e);
+            throw new RuntimeException($e->getMessage(), 0, $e);
         }
     }
 
@@ -351,7 +355,7 @@ class Mailer
 
         try {
             if (!isset($this->rawConfig['drivers']) || !is_array($this->rawConfig['drivers'])) {
-                throw new \RuntimeException('Mail config "drivers" key must be an array.');
+                throw new RuntimeException('Mail config "drivers" key must be an array.');
             }
 
             $drivers = $this->rawConfig['drivers'];
@@ -374,7 +378,7 @@ class Mailer
                 'new_driver'  => get_class($this->driver),
                 'driver_name' => $driverName,
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger?->error("Failed to change mail driver", [
                 'old_driver'       => $oldDriver,
                 'attempted_driver' => $driverName,
@@ -440,7 +444,7 @@ class Mailer
 
         if (!array_key_exists('driver', $config)) {
             $this->logger?->error("Mail config missing 'driver' key");
-            throw new \RuntimeException("Mail driver is not configured");
+            throw new RuntimeException("Mail driver is not configured");
         }
 
         /** @var string $driverName */
@@ -448,28 +452,28 @@ class Mailer
 
         if (!array_key_exists('drivers', $config) || !is_array($config['drivers'])) {
             $this->logger?->error("Mail config missing 'drivers' key or it is not an array");
-            throw new \RuntimeException("Mail drivers configuration is invalid");
+            throw new RuntimeException("Mail drivers configuration is invalid");
         }
 
         $drivers = $config['drivers'];
 
         if (!array_key_exists($driverName, $drivers) || !is_array($drivers[$driverName])) {
             $this->logger?->error("Driver config for '{$driverName}' is missing or not an array");
-            throw new \RuntimeException("Driver config for '{$driverName}' must be an array");
+            throw new RuntimeException("Driver config for '{$driverName}' must be an array");
         }
 
         $driverConfig = $drivers[$driverName];
 
         if (!array_key_exists('from', $driverConfig) || !is_array($driverConfig['from'])) {
             $this->logger?->error("Driver config for '{$driverName}' missing 'from' key or it is not an array");
-            throw new \RuntimeException("Driver config for '{$driverName}' must have a 'from' array");
+            throw new RuntimeException("Driver config for '{$driverName}' must have a 'from' array");
         }
 
         $from = $driverConfig['from'];
 
         if (empty($from['address']) || !filter_var($from['address'], FILTER_VALIDATE_EMAIL) || !is_string($from['address'])) {
             $this->logger?->error("Invalid 'from.address' configured in mail driver '{$driverName}'");
-            throw new \RuntimeException("Invalid 'from.address' configured in mail driver '{$driverName}'. Please update your mail configuration.");
+            throw new RuntimeException("Invalid 'from.address' configured in mail driver '{$driverName}'. Please update your mail configuration.");
         }
 
         $fromAddress = trim($from['address']);
@@ -491,19 +495,19 @@ class Mailer
 
         if (!isset($config['driver']) || !is_string($config['driver'])) {
             $this->logger?->error("Mail config missing 'driver' key or it is not a string");
-            throw new \RuntimeException("Mail driver is not configured");
+            throw new RuntimeException("Mail driver is not configured");
         }
 
         $driverName = $config['driver'];
 
         if (!isset($config['drivers']) || !is_array($config['drivers'])) {
             $this->logger?->error("Mail config missing 'drivers' array");
-            throw new \RuntimeException("Mail drivers config missing");
+            throw new RuntimeException("Mail drivers config missing");
         }
 
         if (!isset($config['drivers'][$driverName]) || !is_array($config['drivers'][$driverName])) {
             $this->logger?->error("Driver config for '{$driverName}' is missing or not an array");
-            throw new \RuntimeException("Driver config for '{$driverName}' must be an array");
+            throw new RuntimeException("Driver config for '{$driverName}' must be an array");
         }
 
         $driverConfig = $config['drivers'][$driverName];

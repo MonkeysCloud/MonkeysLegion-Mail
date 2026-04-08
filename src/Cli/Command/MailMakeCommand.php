@@ -9,6 +9,8 @@ use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\Cli\Command\MakerHelpers;
 use MonkeysLegion\Cli\Console\Traits\Cli;
 
+use InvalidArgumentException;
+
 /**
  * Class MailMakeCommand
  *
@@ -122,7 +124,7 @@ final class MailMakeCommand extends Command
 
         // Validate class name format
         if (!preg_match('/^[A-Z][a-zA-Z0-9]*$/', $className)) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 "Invalid class name: {$className}. " .
                     "Class names must start with a capital letter and contain only letters and numbers."
             );

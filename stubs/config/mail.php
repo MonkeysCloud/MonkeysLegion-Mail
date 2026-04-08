@@ -9,7 +9,7 @@ return [
     |
     | This option controls the default mailer that is used to send all email
     | messages unless another mailer is explicitly specified when sending
-    | the message.a
+    | the message.
     |
     */
 
@@ -35,9 +35,6 @@ return [
                 'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com',
                 'name' => $_ENV['MAIL_FROM_NAME'] ?? 'My App'
             ],
-            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
-            'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
-            'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
         ],
 
         /*|--------------------------------------------------------------------------

@@ -12,7 +12,7 @@ use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
 
-final class SmtpTransport implements TransportInterface
+class SmtpTransport implements TransportInterface
 {
     private string $host;
     private int $port;
@@ -220,7 +220,7 @@ final class SmtpTransport implements TransportInterface
             }
 
             $this->socket = $socket;
-            
+
             // Set socket timeout for subsequent reads/writes
             stream_set_timeout($this->socket, $this->timeout);
 
@@ -451,7 +451,7 @@ final class SmtpTransport implements TransportInterface
 
         while (!feof($this->socket)) {
             $line = fgets($this->socket);
-            
+
             if ($line === false) {
                 $info = stream_get_meta_data($this->socket);
                 if ($info['timed_out']) {
@@ -467,7 +467,7 @@ final class SmtpTransport implements TransportInterface
             }
 
             if (time() - $startTime > $this->timeout) {
-                 throw new \RuntimeException("SMTP reading timeout exceeded {$this->timeout} seconds");
+                throw new \RuntimeException("SMTP reading timeout exceeded {$this->timeout} seconds");
             }
         }
 

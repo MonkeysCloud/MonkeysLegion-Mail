@@ -22,16 +22,16 @@ drivers {
             address = ${MAIL_FROM_ADDRESS:-'noreply@yourapp.com'}
             name = ${MAIL_FROM_NAME:-'My MonkeysMail'}
         }
-        dkim_private_key = ${MAILGUN_DKIM_PRIVATE_KEY:-''}
-        dkim_selector = ${MAILGUN_DKIM_SELECTOR:-''}
-        dkim_domain = ${MAILGUN_DKIM_DOMAIN:-''}
+        dkim_private_key = ${MAIL_DKIM_PRIVATE_KEY:-''}
+        dkim_selector = ${MAIL_DKIM_SELECTOR:-''}
+        dkim_domain = ${MAIL_DKIM_DOMAIN:-''}
     }
 
     # Mailgun Mailer
     # This mailer is used to send email messages via Mailgun.
     mailgun {
         domain = ${MAILGUN_DOMAIN:-''}
-        apikey = ${MAILGUN_API_KEY:-''}
+        api_key = ${MAILGUN_API_KEY:-''}
         from {
             address = ${MAILGUN_FROM_ADDRESS:-'noreply@yourapp.com'}
             name = ${MAILGUN_FROM_NAME:-'My MonkeysMail'}
@@ -62,24 +62,21 @@ drivers {
             address = ${SENDMAIL_FROM_ADDRESS:-'noreply@yourapp.com'}
             name = ${SENDMAIL_FROM_NAME:-'My MonkeysMail'}
         }
-        dkim_private_key = ${MAILGUN_DKIM_PRIVATE_KEY:-''}
-        dkim_selector = ${MAILGUN_DKIM_SELECTOR:-''}
-        dkim_domain = ${MAILGUN_DKIM_DOMAIN:-''}
     }
 
     # Monkeys Mail (MonkeysLegion API)
     # This driver sends emails via the MonkeysMail HTTP API.
     monkeys_mail {
-        api_key = ${MONKEYSMAIL_API_KEY:-''}
-        url = ${MONKEYSMAIL_URL:-'https://smtp.monkeysmail.com/messages/send'}
-        domain = ${MONKEYSMAIL_DOMAIN:-''}
+        api_key = ${MONKEYS_MAIL_API_KEY:-''}
+        url = ${MONKEYS_MAIL_URL:-'https://smtp.monkeysmail.com/messages/send'}
+        domain = ${MONKEYS_MAIL_DOMAIN:-''}
         from {
-            address = ${MONKEYSMAIL_FROM_ADDRESS:-'noreply@yourapp.com'}
-            name = ${MONKEYSMAIL_FROM_NAME:-'My MonkeysMail'}
+            address = ${MONKEYS_MAIL_FROM_ADDRESS:-'noreply@yourapp.com'}
+            name = ${MONKEYS_MAIL_FROM_NAME:-'My MonkeysMail'}
         }
-        tracking_opens = ${MONKEYSMAIL_TRACKING_OPENS:-true}
-        tracking_clicks = ${MONKEYSMAIL_TRACKING_CLICKS:-true}
-        timeout = ${MONKEYSMAIL_TIMEOUT:-30}
+        tracking_opens = ${MONKEYS_MAIL_TRACKING_OPENS:-true}
+        tracking_clicks = ${MONKEYS_MAIL_TRACKING_CLICKS:-true}
+        timeout = ${MONKEYS_MAIL_TIMEOUT:-30}
     }
 
     # Null Mailer

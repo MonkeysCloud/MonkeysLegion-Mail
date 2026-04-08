@@ -9,6 +9,10 @@ use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\Template\Renderer;
 
+use Exception;
+use InvalidArgumentException;
+use RuntimeException;
+
 /**
  * Base Mailable class for creating structured mail classes
  */
@@ -69,14 +73,14 @@ abstract class Mailable
         $mailer = $this->has(Mailer::class) ? $this->resolve(Mailer::class) : null;
         if (!$mailer) {
             $this->logger?->error("No mailer configured. Mailable cannot be used.");
-            throw new \RuntimeException("No mailer configured.");
+            throw new RuntimeException("No mailer configured.");
         }
 
         /** @var Renderer|null $renderer */
         $renderer = $this->has(Renderer::class) ? $this->resolve(Renderer::class) : null;
         if (!$renderer) {
             $this->logger?->error("No renderer configured. Mailable cannot be used.");
-            throw new \RuntimeException("No renderer configured.");
+            throw new RuntimeException("No renderer configured.");
         }
         $this->mailer = $mailer;
         $this->renderer = $renderer;
@@ -117,7 +121,7 @@ abstract class Mailable
                 $this->contentType,
                 $this->attachments
             );
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger?->error("Mailable sending failed", [
                 'class'         => static::class,
                 'to'            => $this->to,
@@ -161,7 +165,7 @@ abstract class Mailable
             ]);
 
             return $jobId;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger?->error("Mailable queueing failed", [
                 'class'         => static::class,
                 'to'            => $this->to,
@@ -345,19 +349,19 @@ abstract class Mailable
             match ($key) {
                 'to' => is_string($value)
                     ? $this->setTo($value)
-                    : throw new \InvalidArgumentException("Config 'to' must be string"),
+                    : throw new InvalidArgumentException("Config 'to' must be string"),
 
                 'subject' => is_string($value)
                     ? $this->setSubject($value)
-                    : throw new \InvalidArgumentException("Config 'subject' must be string"),
+                    : throw new InvalidArgumentException("Config 'subject' must be string"),
 
                 'view' => is_string($value)
                     ? $this->setView($value)
-                    : throw new \InvalidArgumentException("Config 'view' must be string"),
+                    : throw new InvalidArgumentException("Config 'view' must be string"),
 
                 'queue' => is_string($value)
                     ? $this->setQueue($value)
-                    : throw new \InvalidArgumentException("Config 'queue' must be string"),
+                    : throw new InvalidArgumentException("Config 'queue' must be string"),
 
                 'viewData' => is_array($value)
                     ? $this->mergeViewData((function ($arr) {
@@ -367,15 +371,15 @@ abstract class Mailable
                         }
                         return $result;
                     })($value))
-                    : throw new \InvalidArgumentException("Config 'viewData' must be array"),
+                    : throw new InvalidArgumentException("Config 'viewData' must be array"),
 
                 'timeout' => is_int($value)
                     ? $this->setTimeout($value)
-                    : throw new \InvalidArgumentException("Config 'timeout' must be int"),
+                    : throw new InvalidArgumentException("Config 'timeout' must be int"),
 
                 'maxTries' => is_int($value)
                     ? $this->setMaxTries($value)
-                    : throw new \InvalidArgumentException("Config 'maxTries' must be int"),
+                    : throw new InvalidArgumentException("Config 'maxTries' must be int"),
 
                 default => null, // safely ignore unknown keys
             };
@@ -494,20 +498,20 @@ abstract class Mailable
     private function renderContent(): string
     {
         if ($this->view === null) {
-            throw new \InvalidArgumentException("No view specified for mail class " . static::class);
+            throw new InvalidArgumentException("No view specified for mail class " . static::class);
         }
 
         try {
             $content = $this->renderer->render($this->view, $this->viewData);
             return $content;
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $this->logger?->error("Failed to render mail content", [
                 'class' => static::class,
                 'view' => $this->view,
                 'exception' => $e,
                 'error_message' => $e->getMessage()
             ]);
-            throw new \RuntimeException("Failed to render mail content: " . $e->getMessage(), 0, $e);
+            throw new RuntimeException("Failed to render mail content: " . $e->getMessage(), 0, $e);
         }
     }
 
@@ -535,7 +539,7 @@ abstract class Mailable
                 'class' => static::class,
                 'errors' => $errors
             ]);
-            throw new \InvalidArgumentException(implode(', ', $errors));
+            throw new InvalidArgumentException(implode(', ', $errors));
         }
     }
 
@@ -544,7 +548,7 @@ abstract class Mailable
      * @param string $driver The driver name (e.g., 'smtp', 'sendmail')
      * @param array<string, mixed> $config Optional configuration for the driver
      * @return $this
-     * @throws \Exception If the driver cannot be set
+     * @throws Exception If the driver cannot be set
      */
     public function setDriver(string $driver, array $config = []): self
     {
@@ -556,7 +560,7 @@ abstract class Mailable
 
         try {
             $this->mailer->setDriver($driver, $config);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             throw $e;
         }
 
@@ -621,11 +625,11 @@ abstract class Mailable
     private function validateBeforeSend(): void
     {
         if (!is_string($this->to) || empty($this->to) || !filter_var($this->to, FILTER_VALIDATE_EMAIL)) {
-            throw new \InvalidArgumentException("Valid recipient email address is required");
+            throw new InvalidArgumentException("Valid recipient email address is required");
         }
 
         if (!is_string($this->subject)) {
-            throw new \InvalidArgumentException("Subject must be a valid string");
+            throw new InvalidArgumentException("Subject must be a valid string");
         }
     }
 }

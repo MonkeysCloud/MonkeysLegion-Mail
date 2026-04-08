@@ -13,6 +13,9 @@ use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\CoversClass;
 
+use InvalidArgumentException;
+use RuntimeException;
+
 #[CoversClass(MonkeysMailTransport::class)]
 #[AllowMockObjectsWithoutExpectations]
 class MonkeysMailTransportTest extends TestCase
@@ -48,7 +51,7 @@ class MonkeysMailTransportTest extends TestCase
         $invalidConfig = $this->validConfig;
         unset($invalidConfig['api_key']);
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("MonkeysMail configuration is missing a valid 'api_key'");
 
         new MonkeysMailTransport($invalidConfig, $this->logger);
@@ -98,12 +101,12 @@ class MonkeysMailTransportTest extends TestCase
         $message->method('getContent')->willReturn('<h1>Hello</h1>');
 
         $transport->method('makeRequest')
-            ->will($this->throwException(new \RuntimeException('API Error')));
+            ->will($this->throwException(new RuntimeException('API Error')));
 
         $this->logger->expects($this->once())
             ->method('error');
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $transport->send($message);
     }
 
@@ -112,7 +115,7 @@ class MonkeysMailTransportTest extends TestCase
     {
         $invalidConfig = ['api_key' => 123]; // Not a string
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("MonkeysMail configuration is missing a valid 'api_key'");
 
         new MonkeysMailTransport($invalidConfig, $this->logger);
@@ -265,7 +268,7 @@ class MonkeysMailTransportTest extends TestCase
         ];
 
         // This will fail because we can't actually connect to the API
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $transport->publicMakeRequest($payload);
     }
 
@@ -293,7 +296,7 @@ class MonkeysMailTransportTest extends TestCase
             'recursive' => $recursive
         ];
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Failed to encode payload as JSON');
         $transport->publicMakeRequest($payload);
     }

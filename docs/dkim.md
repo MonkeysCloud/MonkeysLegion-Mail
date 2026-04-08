@@ -64,7 +64,8 @@ DKIM-Signature: v=1; a=rsa-sha256; c=relaxed/relaxed; d=yourdomain.com; s=defaul
 
 ## 🛠️ Features
 
-- **Automatic Signing**: When configured, all emails are automatically signed regardless of the transport (SMTP, MonkeysMail, Sendmail).
+**Automatic Signing**: When configured, emails sent through supported non-local transports are automatically signed (for example, SMTP and MailGun). Sendmail and MonkeysMail are not automatically DKIM-signed.
+
 - **Manual Signing**: Use the `DkimSigner` class if you wish to sign messages manually.
 - **Queue Compatibility**: DKIM signatures are preserved through the queue processing lifecycle.
 - **Raw Key Support**: Simplified configuration—just paste the actual key data.

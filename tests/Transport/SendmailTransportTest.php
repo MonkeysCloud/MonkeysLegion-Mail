@@ -8,19 +8,22 @@ declare(strict_types=1);
  */
 namespace MonkeysLegion\Mail\Transport;
 
+use MonkeysLegion\Mailer\Tests\Transport\SendmailTransportTest;
+use MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest;
+
 if (!function_exists('MonkeysLegion\Mail\Transport\is_executable')) {
     function is_executable(string $path): bool
     {
-        return \MonkeysLegion\Mailer\Tests\Transport\SendmailTransportTest::$isExecutable ?? \is_executable($path);
+        return SendmailTransportTest::$isExecutable ?? \is_executable($path);
     }
 }
 
 if (!function_exists('MonkeysLegion\Mail\Transport\proc_open')) {
     function proc_open(string $command, array $descriptorspec, array &$pipes): mixed
     {
-        if (\MonkeysLegion\Mailer\Tests\Transport\SendmailTransportTest::$procOpenReturn !== null) {
-            $pipes = \MonkeysLegion\Mailer\Tests\Transport\SendmailTransportTest::$mockedPipes;
-            return \MonkeysLegion\Mailer\Tests\Transport\SendmailTransportTest::$procOpenReturn;
+        if (SendmailTransportTest::$procOpenReturn !== null) {
+            $pipes = SendmailTransportTest::$mockedPipes;
+            return SendmailTransportTest::$procOpenReturn;
         }
         return \proc_open($command, $descriptorspec, $pipes);
     }
@@ -29,18 +32,18 @@ if (!function_exists('MonkeysLegion\Mail\Transport\proc_open')) {
 if (!function_exists('MonkeysLegion\Mail\Transport\proc_close')) {
     function proc_close(mixed $process): int
     {
-        return \MonkeysLegion\Mailer\Tests\Transport\SendmailTransportTest::$procCloseReturn ?? 0;
+        return SendmailTransportTest::$procCloseReturn ?? 0;
     }
 }
 
 if (!function_exists('MonkeysLegion\Mail\Transport\fwrite')) {
     function fwrite(mixed $handle, string $string): int|false
     {
-        if (isset(\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock) && \MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock === $handle) {
-            \MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$lastWrittenData .= $string;
+        if (isset(SmtpTransportTest::$socketMock) && SmtpTransportTest::$socketMock === $handle) {
+            SmtpTransportTest::$lastWrittenData .= $string;
             return strlen($string);
         }
-        if (\MonkeysLegion\Mailer\Tests\Transport\SendmailTransportTest::$procOpenReturn !== null) {
+        if (SendmailTransportTest::$procOpenReturn !== null) {
             // Sendmail uses pipes
             return strlen($string);
         }
@@ -58,12 +61,13 @@ if (!function_exists('MonkeysLegion\Mail\Transport\fclose')) {
 if (!function_exists('MonkeysLegion\Mail\Transport\stream_get_contents')) {
     function stream_get_contents(mixed $handle): string|false
     {
-        return \MonkeysLegion\Mailer\Tests\Transport\SendmailTransportTest::$streamContents ?? '';
+        return SendmailTransportTest::$streamContents ?? '';
     }
 }
 
 namespace MonkeysLegion\Mailer\Tests\Transport;
 
+use InvalidArgumentException;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
@@ -73,6 +77,7 @@ use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use RuntimeException;
 
 #[CoversClass(SendmailTransport::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -138,7 +143,7 @@ class SendmailTransportTest extends TestCase
         $config = $this->validConfig;
         unset($config['from']);
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Sendmail configuration must include 'from' address");
         new SendmailTransport($config, $this->logger);
     }
@@ -150,7 +155,7 @@ class SendmailTransportTest extends TestCase
         $config = $this->validConfig;
         $config['from'] = 'not-an-array';
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Sendmail configuration must include 'from' address");
         new SendmailTransport($config, $this->logger);
     }
@@ -162,7 +167,7 @@ class SendmailTransportTest extends TestCase
         $config = $this->validConfig;
         $config['from']['address'] = 'bad-email';
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Invalid 'from' email address format");
         new SendmailTransport($config, $this->logger);
     }
@@ -174,7 +179,7 @@ class SendmailTransportTest extends TestCase
         $config = $this->validConfig;
         $config['from']['address'] = '';
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         new SendmailTransport($config, $this->logger);
     }
 
@@ -247,7 +252,7 @@ class SendmailTransportTest extends TestCase
 
         $this->logger->expects($this->atLeastOnce())->method('error');
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Sendmail binary not found or not executable');
         $transport->send($message);
     }
@@ -322,7 +327,7 @@ class SendmailTransportTest extends TestCase
 
         $this->logger->expects($this->atLeastOnce())->method('error');
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Failed to open sendmail process');
         $transport->send($message);
     }
@@ -342,7 +347,7 @@ class SendmailTransportTest extends TestCase
 
         $this->logger->expects($this->atLeastOnce())->method('error');
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Sendmail failed with exit code 1');
         $transport->send($message);
     }
@@ -404,7 +409,7 @@ class SendmailTransportTest extends TestCase
             ->method('error')
             ->with($this->stringContains('Sendmail failed'), $this->isArray());
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $transport->send($message);
     }
 

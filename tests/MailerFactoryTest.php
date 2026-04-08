@@ -13,6 +13,8 @@ use MonkeysLegion\Mail\Transport\NullTransport;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
 use MonkeysLegion\Mail\Transport\SmtpTransport;
 
+use InvalidArgumentException;
+
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
@@ -188,7 +190,7 @@ class MailerFactoryTest extends TestCase
             'drivers' => []
         ];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Unknown driver');
 
         MailerFactory::make($config, $this->logger);
@@ -202,7 +204,7 @@ class MailerFactoryTest extends TestCase
             'driver' => 'smtp'
         ];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('No drivers configured');
 
         MailerFactory::make($config, $this->logger);
@@ -291,7 +293,7 @@ class MailerFactoryTest extends TestCase
 
         $factory = new MailerFactory($this->logger, $config, $this->container);
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
 
         $factory->setDriver('invalid_driver');
     }
@@ -314,7 +316,7 @@ class MailerFactoryTest extends TestCase
 
         $factory = new MailerFactory($this->logger, $config, $this->container);
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Unknown driver');
 
         $factory->setDriver('invalid');

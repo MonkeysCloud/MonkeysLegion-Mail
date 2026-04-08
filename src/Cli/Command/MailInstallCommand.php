@@ -32,7 +32,7 @@ final class MailInstallCommand extends Command
         $this->showInstallHeader();
 
         $this->cliLine()
-            ->info('Step 1/3')->space()->muted('Choose config format')
+            ->info('Step 1/2')->space()->muted('Choose config format')
             ->print();
         $configType = $this->chooseConfigType();
         $configStub = $configType === 'php' ? "{$stubDir}/config/mail.php" : "{$stubDir}/config/mail.mlc";
@@ -50,7 +50,7 @@ final class MailInstallCommand extends Command
             ->print();
 
         $this->cliLine()
-            ->info('Step 2/3')->space()->muted('Publish scaffolding files')
+            ->info('Step 2/2')->space()->muted('Publish scaffolding files')
             ->print();
 
         $map = [
@@ -102,13 +102,6 @@ final class MailInstallCommand extends Command
 
         $this->cliLine()->newline()->print();
 
-        $this->cliLine()
-            ->info('Step 3/3')->space()->muted('Ensure .env keys')
-            ->print();
-        $addedEnvKeys = $this->ensureEnvKeys($projectRoot);
-
-        $this->cliLine()->newline()->print();
-
         $this->showInstallSummary($publishedFiles, $skippedFiles, $failedFiles, $addedEnvKeys);
         return self::SUCCESS;
     }
@@ -142,92 +135,6 @@ final class MailInstallCommand extends Command
             ->print();
 
         return 'mlc';
-    }
-
-    /**
-     * @param string $projectRoot
-     */
-    private function ensureEnvKeys(string $projectRoot): ?int
-    {
-        $envFile = $projectRoot . '/.env';
-        if (!file_exists($envFile)) {
-            $this->cliLine()
-                ->warning('.env file not found; skipping Mail key injection.')
-                ->print();
-            return null;
-        }
-
-        $lines = file($envFile, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
-        if ($lines === false) throw new \RuntimeException("Failed to read .env file at: $envFile");
-        $required = [
-            'MAIL_DRIVER',
-            'MAIL_HOST',
-            'MAIL_PORT',
-            'MAIL_USERNAME',
-            'MAIL_PASSWORD',
-            'MAIL_ENCRYPTION',
-            'MAIL_FROM_ADDRESS',
-            'MAIL_FROM_NAME',
-            'MAIL_TIMEOUT',
-            'MAIL_DKIM_PRIVATE_KEY',
-            'MAIL_DKIM_SELECTOR',
-            'MAIL_DKIM_DOMAIN',
-            'MONKEYS_MAIL_API_KEY',
-            'MONKEYS_MAIL_DOMAIN',
-            'MONKEYS_MAIL_TRACKING_OPENS',
-            'MONKEYS_MAIL_TRACKING_CLICKS'
-        ];
-
-        $missing = [];
-        foreach ($required as $key) {
-            $found = false;
-            foreach ($lines as $line) {
-                if (str_starts_with(trim($line), "$key=")) {
-                    $found = true;
-                    break;
-                }
-            }
-            if (!$found) {
-                $missing[] = $key;
-            }
-        }
-
-        if (empty($missing)) {
-            $this->cliLine()
-                ->info('All Mail keys already present in .env.')
-                ->print();
-            return 0;
-        }
-
-        // Append missing keys with placeholder comments
-        $append = "# Mail configuration added by mail:install command\n";
-        foreach ($missing as $key) {
-            $comment = match ($key) {
-                'MAIL_DRIVER' => '# Mail driver (e.g., smtp, sendmail, monkeys_mail etc.)',
-                'MAIL_HOST' => '# Mail server host',
-                'MAIL_PORT' => '# Mail server port',
-                'MAIL_USERNAME' => '# Mail server username',
-                'MAIL_PASSWORD' => '# Mail server password',
-                'MAIL_ENCRYPTION' => '# Mail encryption protocol (e.g., tls, ssl)',
-                'MAIL_FROM_ADDRESS' => '# Default sender email address',
-                'MAIL_FROM_NAME' => '# Default sender name',
-                'MAIL_TIMEOUT' => '# Mail server timeout (in seconds)',
-                'MAIL_DKIM_PRIVATE_KEY' => '# DKIM private key for signing emails',
-                'MAIL_DKIM_SELECTOR' => '# DKIM selector for identifying the key',
-                'MAIL_DKIM_DOMAIN' => '# DKIM domain for signing emails',
-                'MONKEYS_MAIL_API_KEY' => '# API Key for Monkeys Mail driver',
-                'MONKEYS_MAIL_DOMAIN' => '# Verified domain for Monkeys Mail driver',
-                'MONKEYS_MAIL_TRACKING_OPENS' => '# Toggles open tracking for Monkeys Mail',
-                'MONKEYS_MAIL_TRACKING_CLICKS' => '# Toggles click tracking for Monkeys Mail',
-            };
-            $append .= "$key=" . strtoupper($key) . "_VALUE $comment\n";
-        }
-
-        file_put_contents($envFile, "\n" . $append, FILE_APPEND);
-        $this->cliLine()
-            ->success('✓ Added missing Mail keys to .env:')->space()->add(implode(', ', $missing), 'yellow')
-            ->print();
-        return count($missing);
     }
 
     /**

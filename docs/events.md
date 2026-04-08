@@ -14,7 +14,7 @@ Triggered after an email has been successfully handed off to the transport drive
 
 | Method | Description |
 |--------|-------------|
-| `getMessageId(): string` | The unique ID assigned to the message. |
+| `getJobId(): string` | The unique ID assigned to the job. |
 | `getJobData(): array` | Original data (`to`, `subject`, `content`, etc.). |
 | `getDuration(): int` | Time spent sending in milliseconds. |
 | `getMailableClass(): ?string` | The FQCN of the originating Mailable class. |
@@ -25,7 +25,7 @@ Triggered when an error occurs during the sending process (e.g., transport failu
 
 | Method | Description |
 |--------|-------------|
-| `getException(): \Throwable` | The underlying error that caused the failure. |
+| `getException(): \Exception` | The underlying error that caused the failure. |
 | `getJobData(): array` | Original data that failed to send. |
 | `getMailableClass(): ?string` | The FQCN of the originating Mailable class. |
 

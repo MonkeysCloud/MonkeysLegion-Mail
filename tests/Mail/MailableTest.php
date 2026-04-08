@@ -10,6 +10,10 @@ use MonkeysLegion\Mail\Mail\Mailable;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\Template\Renderer;
 use MonkeysLegion\Mailer\Tests\Abstracts\AbstractBaseTest;
+
+use InvalidArgumentException;
+use RuntimeException;
+
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -42,7 +46,7 @@ class MailableTest extends AbstractBaseTest
         $container = Container::instance();
         $container->set(Mailer::class, fn() => null);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('No mailer configured');
         new TestMailable();
     }
@@ -54,7 +58,7 @@ class MailableTest extends AbstractBaseTest
         $container = Container::instance();
         $container->set(Renderer::class, fn() => null);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('No renderer configured');
         new TestMailable();
     }
@@ -164,7 +168,7 @@ class MailableTest extends AbstractBaseTest
     {
         $mailable = new TestMailable();
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $mailable->configure(['to' => 123]);
     }
 
@@ -217,7 +221,7 @@ class MailableTest extends AbstractBaseTest
         $mailable = new TestMailable();
         // Just build, validate should throw exception since to and subject are empty
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Recipient email address is required');
         $mailable->send();
     }
@@ -229,7 +233,7 @@ class MailableTest extends AbstractBaseTest
         $mailable = new TestMailable();
         $mailable->setTo('invalid-email')->setSubject('A');
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid recipient email address');
         $mailable->send();
     }
@@ -246,7 +250,7 @@ class MailableTest extends AbstractBaseTest
             }
         };
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('No view specified');
         $mailable->send();
     }
@@ -311,9 +315,9 @@ class MailableTest extends AbstractBaseTest
 
         $this->renderer->expects($this->once())
             ->method('render')
-            ->willThrowException(new \RuntimeException("Render error"));
+            ->willThrowException(new RuntimeException("Render error"));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Failed to render mail content: Render error');
         $mailable->send();
     }
@@ -351,9 +355,9 @@ class MailableTest extends AbstractBaseTest
 
         $this->mailer->expects($this->once())
             ->method('queue')
-            ->willThrowException(new \RuntimeException("Queue failed"));
+            ->willThrowException(new RuntimeException("Queue failed"));
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Queue failed');
         $mailable->queue();
     }
@@ -379,9 +383,9 @@ class MailableTest extends AbstractBaseTest
 
         $this->mailer->expects($this->once())
             ->method('setDriver')
-            ->willThrowException(new \InvalidArgumentException("Driver bad"));
+            ->willThrowException(new InvalidArgumentException("Driver bad"));
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $mailable->setDriver('bad');
     }
 }

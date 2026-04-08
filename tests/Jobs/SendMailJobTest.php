@@ -10,6 +10,11 @@ use MonkeysLegion\Mail\Jobs\SendMailJob;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
 use MonkeysLegion\Mailer\Tests\Abstracts\AbstractBaseTest;
+
+use Exception;
+use InvalidArgumentException;
+use RuntimeException;
+
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
@@ -72,7 +77,7 @@ class SendMailJobTest extends AbstractBaseTest
                 $this->anything()
             );
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('No mail transport configured');
 
         new SendMailJob($this->message);
@@ -94,7 +99,7 @@ class SendMailJobTest extends AbstractBaseTest
     #[TestDox('Handle method logs error and rethrows exception on failure')]
     public function handleMethodLogsErrorAndRethrowsExceptionOnFailure(): void
     {
-        $exception = new \Exception('Transport failure');
+        $exception = new Exception('Transport failure');
 
         $this->transport->expects($this->once())
             ->method('send')
@@ -115,7 +120,7 @@ class SendMailJobTest extends AbstractBaseTest
 
         $job = new SendMailJob($this->message);
 
-        $this->expectException(\Exception::class);
+        $this->expectException(Exception::class);
         $this->expectExceptionMessage('Transport failure');
 
         $job->handle();
@@ -245,11 +250,11 @@ class SendMailJobTest extends AbstractBaseTest
     {
         $this->transport->expects($this->once())
             ->method('send')
-            ->willThrowException(new \RuntimeException('SMTP connection failed'));
+            ->willThrowException(new RuntimeException('SMTP connection failed'));
 
         $job = new SendMailJob($this->message);
 
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('SMTP connection failed');
 
         $job->handle();
@@ -261,11 +266,11 @@ class SendMailJobTest extends AbstractBaseTest
     {
         $this->transport->expects($this->once())
             ->method('send')
-            ->willThrowException(new \InvalidArgumentException('Invalid email format'));
+            ->willThrowException(new InvalidArgumentException('Invalid email format'));
 
         $job = new SendMailJob($this->message);
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid email format');
 
         $job->handle();

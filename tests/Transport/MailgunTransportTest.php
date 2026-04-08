@@ -4,45 +4,47 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Transport;
 
+use MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest;
+
 /**
  * Namespace-level cURL mocks for MailgunTransport testing
  */
 function curl_init($url = null) {
-    if (!\MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$mockingEnabled) return \curl_init($url);
-    return \MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$curlInitReturn ?? \curl_init($url);
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_init($url);
+    return MailgunTransportTest::$curlInitReturn ?? \curl_init($url);
 }
 
 function curl_setopt_array($ch, $options) {
-    if (!\MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$mockingEnabled) return \curl_setopt_array($ch, $options);
-    \MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$lastCurlOptions = $options;
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_setopt_array($ch, $options);
+    MailgunTransportTest::$lastCurlOptions = $options;
     return true;
 }
 
 function curl_exec($ch) {
-    if (!\MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$mockingEnabled) return \curl_exec($ch);
-    return \MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$curlExecReturn ?? false;
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_exec($ch);
+    return MailgunTransportTest::$curlExecReturn ?? false;
 }
 
 function curl_getinfo($ch, $opt = null) {
-    if (!\MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$mockingEnabled) return \curl_getinfo($ch, $opt);
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_getinfo($ch, $opt);
     if ($opt === CURLINFO_HTTP_CODE) {
-        return \MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$curlHttpCode ?? 200;
+        return MailgunTransportTest::$curlHttpCode ?? 200;
     }
     return \curl_getinfo($ch, $opt);
 }
 
 function curl_error($ch) {
-    if (!\MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$mockingEnabled) return \curl_error($ch);
-    return \MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$curlError ?? '';
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_error($ch);
+    return MailgunTransportTest::$curlError ?? '';
 }
 
 function curl_errno($ch) {
-    if (!\MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$mockingEnabled) return \curl_errno($ch);
-    return \MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$curlErrno ?? 0;
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_errno($ch);
+    return MailgunTransportTest::$curlErrno ?? 0;
 }
 
 function curl_close($ch) {
-    if (!\MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest::$mockingEnabled) return \curl_close($ch);
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_close($ch);
     return null;
 }
 
@@ -60,6 +62,8 @@ if (!function_exists('MonkeysLegion\Mail\Transport\normalizeAttachment')) {
 
 namespace MonkeysLegion\Mailer\Tests\Transport;
 
+use Exception;
+use InvalidArgumentException;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
@@ -69,6 +73,7 @@ use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
 use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
 #[CoversClass(MailgunTransport::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -160,7 +165,7 @@ class MailgunTransportTest extends TestCase
         $config = $this->validConfig;
         $config['region'] = 'invalid';
         
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         new MailgunTransport($config);
     }
 
@@ -168,7 +173,7 @@ class MailgunTransportTest extends TestCase
     #[TestDox('Constructor throws on missing config')]
     public function test_constructor_missing_config(): void
     {
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         new MailgunTransport([]);
     }
 
@@ -270,7 +275,7 @@ class MailgunTransportTest extends TestCase
         $transport = new MailgunTransport($this->validConfig, $this->logger);
         $message = new Message('a@b.com', 'S', 'B');
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('cURL request failed');
         $transport->send($message);
     }
@@ -283,15 +288,15 @@ class MailgunTransportTest extends TestCase
         $message = new Message('a@b.com', 'S', 'B');
 
         $errors = [
-            400 => \InvalidArgumentException::class,
-            401 => \RuntimeException::class,
-            402 => \RuntimeException::class,
-            404 => \RuntimeException::class,
-            413 => \RuntimeException::class,
-            429 => \RuntimeException::class,
-            500 => \RuntimeException::class,
-            503 => \RuntimeException::class,
-            418 => \RuntimeException::class, // default
+            400 => InvalidArgumentException::class,
+            401 => RuntimeException::class,
+            402 => RuntimeException::class,
+            404 => RuntimeException::class,
+            413 => RuntimeException::class,
+            429 => RuntimeException::class,
+            500 => RuntimeException::class,
+            503 => RuntimeException::class,
+            418 => RuntimeException::class, // default
         ];
 
         foreach ($errors as $code => $exception) {
@@ -301,7 +306,7 @@ class MailgunTransportTest extends TestCase
             try {
                 $transport->send($message);
                 $this->fail("Should have thrown $exception for code $code");
-            } catch (\Exception $e) {
+            } catch (Exception $e) {
                 $this->assertInstanceOf($exception, $e, "Failed for code $code");
             }
         }
@@ -315,7 +320,7 @@ class MailgunTransportTest extends TestCase
         
         $transport = new MailgunTransport($this->validConfig);
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Invalid JSON response');
         $transport->send(new Message('a@b.com', 'S', 'B'));
     }
@@ -326,7 +331,7 @@ class MailgunTransportTest extends TestCase
     {
         $config = $this->validConfig;
         $config['from'] = 'invalid';
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         new MailgunTransport($config);
     }
 
@@ -341,7 +346,7 @@ class MailgunTransportTest extends TestCase
         try {
             new MailgunTransport($config);
             $this->fail('Should throw for 0 timeout');
-        } catch (\InvalidArgumentException) {}
+        } catch (InvalidArgumentException) {}
 
         // Invalid connect_timeout
         $config = $this->validConfig;
@@ -349,6 +354,6 @@ class MailgunTransportTest extends TestCase
         try {
             new MailgunTransport($config);
             $this->fail('Should throw for 0 connect_timeout');
-        } catch (\InvalidArgumentException) {}
+        } catch (InvalidArgumentException) {}
     }
 }

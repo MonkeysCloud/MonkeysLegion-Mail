@@ -4,16 +4,18 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Transport;
 
+use MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest;
+
 /**
  * Mocking global functions for SmtpTransport testing
  */
 if (!function_exists('MonkeysLegion\Mail\Transport\stream_socket_client')) {
     function stream_socket_client($address, &$errstr, &$errno, $timeout) {
-        if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$failSocket) {
+        if (SmtpTransportTest::$failSocket) {
             $errno = 61; $errstr = 'Refused'; return false;
         }
-        if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock) {
-            return \MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock;
+        if (SmtpTransportTest::$socketMock) {
+            return SmtpTransportTest::$socketMock;
         }
         // Passthrough to the real function if we are not in a controlled mock state
         return \stream_socket_client($address, $errstr, $errno, $timeout);
@@ -22,8 +24,8 @@ if (!function_exists('MonkeysLegion\Mail\Transport\stream_socket_client')) {
 
 if (!function_exists('MonkeysLegion\Mail\Transport\stream_socket_enable_crypto')) {
     function stream_socket_enable_crypto($socket, $enable, $type) {
-        if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock === $socket) {
-            return \MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$cryptoMock ?? true;
+        if (SmtpTransportTest::$socketMock === $socket) {
+            return SmtpTransportTest::$cryptoMock ?? true;
         }
         return \stream_socket_enable_crypto($socket, $enable, $type);
     }
@@ -31,11 +33,11 @@ if (!function_exists('MonkeysLegion\Mail\Transport\stream_socket_enable_crypto')
 
 if (!function_exists('MonkeysLegion\Mail\Transport\fwrite')) {
     function fwrite($stream, string $data) {
-        if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock === $stream) {
-            if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$failWrite) {
+        if (SmtpTransportTest::$socketMock === $stream) {
+            if (SmtpTransportTest::$failWrite) {
                 return false;
             }
-            \MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$lastWrittenData .= $data;
+            SmtpTransportTest::$lastWrittenData .= $data;
             return strlen($data);
         }
         return \fwrite($stream, $data);
@@ -44,9 +46,9 @@ if (!function_exists('MonkeysLegion\Mail\Transport\fwrite')) {
 
 if (!function_exists('MonkeysLegion\Mail\Transport\fgets')) {
     function fgets($stream) {
-        if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock === $stream) {
-            if (!empty(\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$readBuffer)) {
-                return array_shift(\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$readBuffer);
+        if (SmtpTransportTest::$socketMock === $stream) {
+            if (!empty(SmtpTransportTest::$readBuffer)) {
+                return array_shift(SmtpTransportTest::$readBuffer);
             }
             return false;
         }
@@ -56,17 +58,17 @@ if (!function_exists('MonkeysLegion\Mail\Transport\fgets')) {
 
 if (!function_exists('MonkeysLegion\Mail\Transport\time')) {
     function time() {
-        if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$forceTimeout) {
-            \MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$timeValue += 10;
+        if (SmtpTransportTest::$forceTimeout) {
+            SmtpTransportTest::$timeValue += 10;
         }
-        return \MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$timeValue ?? \time();
+        return SmtpTransportTest::$timeValue ?? \time();
     }
 }
 
 if (!function_exists('MonkeysLegion\Mail\Transport\feof')) {
     function feof($stream) {
-        if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock === $stream) {
-            return empty(\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$readBuffer);
+        if (SmtpTransportTest::$socketMock === $stream) {
+            return empty(SmtpTransportTest::$readBuffer);
         }
         return \feof($stream);
     }
@@ -74,8 +76,8 @@ if (!function_exists('MonkeysLegion\Mail\Transport\feof')) {
 
 if (!function_exists('MonkeysLegion\Mail\Transport\stream_get_meta_data')) {
     function stream_get_meta_data($stream) {
-        if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock === $stream) {
-            return ['timed_out' => \MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$forceTimeout];
+        if (SmtpTransportTest::$socketMock === $stream) {
+            return ['timed_out' => SmtpTransportTest::$forceTimeout];
         }
         return \stream_get_meta_data($stream);
     }
@@ -83,7 +85,7 @@ if (!function_exists('MonkeysLegion\Mail\Transport\stream_get_meta_data')) {
 
 if (!function_exists('MonkeysLegion\Mail\Transport\stream_set_timeout')) {
     function stream_set_timeout($stream, $seconds) {
-        if (\MonkeysLegion\Mailer\Tests\Transport\SmtpTransportTest::$socketMock === $stream) {
+        if (SmtpTransportTest::$socketMock === $stream) {
             return true;
         }
         return \stream_set_timeout($stream, $seconds);
@@ -101,6 +103,7 @@ if (!function_exists('MonkeysLegion\Mail\Transport\normalizeAttachment')) {
 
 namespace MonkeysLegion\Mailer\Tests\Transport;
 
+use InvalidArgumentException;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Transport\SmtpTransport;
 use MonkeysLegion\Mail\Message;
@@ -110,6 +113,7 @@ use PHPUnit\Framework\Attributes\CoversClass;
 use PHPUnit\Framework\Attributes\Test;
 use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
+use RuntimeException;
 
 #[CoversClass(SmtpTransport::class)]
 #[AllowMockObjectsWithoutExpectations]
@@ -224,7 +228,7 @@ class SmtpTransportTest extends TestCase
         $this->pushResponse("220 Banner");
         $this->pushResponse("250 OK"); // No STARTTLS
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Server does not support STARTTLS');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -239,7 +243,7 @@ class SmtpTransportTest extends TestCase
         
         self::$forceTimeout = true;
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('SMTP reading timeout exceeded');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -281,7 +285,7 @@ class SmtpTransportTest extends TestCase
         try {
             new SmtpTransport([], null);
             $this->fail('Should have failed for empty config');
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Missing required config key', $e->getMessage());
         }
 
@@ -291,7 +295,7 @@ class SmtpTransportTest extends TestCase
         try {
             new SmtpTransport($badConfig, null);
             $this->fail();
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString("'host' must be a string", $e->getMessage());
         }
 
@@ -301,7 +305,7 @@ class SmtpTransportTest extends TestCase
         try {
             new SmtpTransport($badConfig, null);
             $this->fail();
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString("'port' must be an integer", $e->getMessage());
         }
 
@@ -311,7 +315,7 @@ class SmtpTransportTest extends TestCase
         try {
             new SmtpTransport($badConfig, null);
             $this->fail();
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Invalid encryption value', $e->getMessage());
         }
 
@@ -327,7 +331,7 @@ class SmtpTransportTest extends TestCase
         try {
             new SmtpTransport($badConfig, null);
             $this->fail();
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString("'from' must be an array", $e->getMessage());
         }
     }
@@ -374,7 +378,7 @@ class SmtpTransportTest extends TestCase
     {
         $transport = new SmtpTransport($this->validConfig, $this->logger);
         
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $transport->setEncryption('invalid_crypto');
     }
 
@@ -385,7 +389,7 @@ class SmtpTransportTest extends TestCase
         $transport = new SmtpTransport($this->validConfig, $this->logger);
         $this->pushResponse("500 Go away");
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('SMTP server did not greet properly');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -402,7 +406,7 @@ class SmtpTransportTest extends TestCase
         try {
             $transport->send(new Message('to@x.com', 'S', 'B'));
             $this->fail();
-        } catch (\RuntimeException $e) {
+        } catch (RuntimeException $e) {
             $this->assertStringContainsString('EHLO failed', $e->getMessage());
         }
 
@@ -415,7 +419,7 @@ class SmtpTransportTest extends TestCase
         try {
             $transportSsl->send(new Message('to@x.com', 'S', 'B'));
             $this->fail();
-        } catch (\RuntimeException $e) {
+        } catch (RuntimeException $e) {
             $this->assertStringContainsString('EHLO failed', $e->getMessage());
         }
     }
@@ -450,7 +454,7 @@ class SmtpTransportTest extends TestCase
         $this->pushResponse("250-localhost\n250 CRAM-MD5");
         $this->pushResponse("500 Not supported"); // Should be 334
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Server did not accept CRAM-MD5 start');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -468,7 +472,7 @@ class SmtpTransportTest extends TestCase
         $this->pushResponse("220 Ready"); // STARTTLS
         $this->pushResponse("500 EHLO failed after TLS"); // Second EHLO failure
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('got 500');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -487,7 +491,7 @@ class SmtpTransportTest extends TestCase
         
         self::$cryptoMock = false; // Trigger failure
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Failed to enable TLS');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -503,7 +507,7 @@ class SmtpTransportTest extends TestCase
         
         self::$failWrite = true;
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('SMTP connection setup failed');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -519,7 +523,7 @@ class SmtpTransportTest extends TestCase
         $this->pushResponse("220 Greeting");
         $this->pushResponse("500 EHLO failed");
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('EHLO failed');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -535,7 +539,7 @@ class SmtpTransportTest extends TestCase
         $this->pushResponse("220 Greeting");
         $this->pushResponse("500 EHLO SSL failed");
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('EHLO failed');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -568,7 +572,7 @@ class SmtpTransportTest extends TestCase
         $transport = new SmtpTransport($this->validConfig, $this->logger);
         self::$readBuffer = []; // Force empty read
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('No response received from SMTP server');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -583,7 +587,7 @@ class SmtpTransportTest extends TestCase
         $this->pushResponse("334 U"); $this->pushResponse("334 P"); $this->pushResponse("235 OK");
         $this->pushResponse("500 Internal Error"); // Expected 250 for MAIL FROM
         
-        $this->expectException(\RuntimeException::class);
+        $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Expected code 250, got 500');
         $transport->send(new Message('to@x.com', 'S', 'B'));
     }
@@ -598,7 +602,7 @@ class SmtpTransportTest extends TestCase
         try {
             $transport->setFrom('not-an-email');
             $this->fail();
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Invalid email address', $e->getMessage());
         }
 
@@ -606,7 +610,7 @@ class SmtpTransportTest extends TestCase
         try {
             $transport->setHost('');
             $this->fail();
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('cannot be empty', $e->getMessage());
         }
 
@@ -614,13 +618,13 @@ class SmtpTransportTest extends TestCase
         try {
             $transport->setPort(0);
             $this->fail();
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Invalid SMTP port', $e->getMessage());
         }
         try {
             $transport->setPort(70000);
             $this->fail();
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Invalid SMTP port', $e->getMessage());
         }
 
@@ -628,7 +632,7 @@ class SmtpTransportTest extends TestCase
         try {
             $transport->setTimeout(0);
             $this->fail();
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->assertStringContainsString('Invalid timeout', $e->getMessage());
         }
     }

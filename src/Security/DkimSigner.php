@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Security;
 
+use MonkeysLegion\Mail\Transport\MonkeysMailTransport;
 use MonkeysLegion\Mail\Transport\NullTransport;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
 use RuntimeException;
@@ -210,7 +211,11 @@ class DkimSigner
      */
     public static function shouldSign(string $transportName, array $config): bool
     {
-        $localTransports = [NullTransport::class, SendmailTransport::class];
+        $localTransports = [
+            NullTransport::class, // just a dummy transport for testing, no need to sign
+            SendmailTransport::class, // TODO: Consider planing for milter integration in the future, but for now we won't sign emails sent via sendmail
+            MonkeysMailTransport::class // Signing is handled in the platform's mailer, so we don't want to sign again here
+        ];
         return !in_array($transportName, $localTransports) && !empty($config['dkim_private_key'])
             && !empty($config['dkim_selector']) && !empty($config['dkim_domain']);
     }
