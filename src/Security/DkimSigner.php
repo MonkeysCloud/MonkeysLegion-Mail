@@ -61,7 +61,7 @@ class DkimSigner
         $privateKey = '';
         $exportResult = openssl_pkey_export($keyResource, $privateKey, null, $config);
 
-        if (!is_string($privateKey) || $privateKey === '') {
+        if (!\is_string($privateKey) || $privateKey === '') {
             throw new RuntimeException("Exported private key is not a valid string");
         }
 
@@ -77,7 +77,7 @@ class DkimSigner
             throw new RuntimeException("Failed to get public key details: $error");
         }
 
-        if (!isset($publicKeyDetails['key']) || !is_string($publicKeyDetails['key']) || $publicKeyDetails['key'] === '') {
+        if (!isset($publicKeyDetails['key']) || !\is_string($publicKeyDetails['key']) || $publicKeyDetails['key'] === '') {
             throw new RuntimeException("Public key is not a valid string");
         }
 
@@ -118,7 +118,7 @@ class DkimSigner
         $signature = '';
         $signResult = openssl_sign($stringToSign, $signature, $privateKey, OPENSSL_ALGO_SHA256);
 
-        if (!$signResult || !is_string($signature) || $signature === '') {
+        if (!$signResult || !\is_string($signature) || $signature === '') {
             throw new RuntimeException("Failed to sign DKIM headers: " . openssl_error_string());
         }
 

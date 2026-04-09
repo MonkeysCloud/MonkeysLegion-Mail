@@ -146,13 +146,13 @@ final class MailMakeCommand extends Command
             }
 
             $composer = json_decode($content, true);
-            if (!is_array($composer)) {
+            if (!\is_array($composer)) {
                 $this->error("Invalid composer.json format at: $composerPath");
                 throw new \RuntimeException("Invalid composer.json format at: $composerPath");
             }
 
             $autoload = [];
-            if (isset($composer['autoload']) && is_array($composer['autoload'])) {
+            if (isset($composer['autoload']) && \is_array($composer['autoload'])) {
                 $autoload = $composer['autoload']['psr-4'] ?? [];
             }
 

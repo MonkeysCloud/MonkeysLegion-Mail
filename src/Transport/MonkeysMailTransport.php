@@ -44,20 +44,22 @@ class MonkeysMailTransport implements TransportInterface
                 throw new InvalidArgumentException("MonkeysMail configuration is missing a valid '$key'");
             }
         }
-        if (!is_string($config['api_key'])) {
+        if (!\is_string($config['api_key'])) {
             throw new InvalidArgumentException("MonkeysMail configuration is missing a valid 'api_key'");
         }
-        if (
-            !is_array($config['from'] ?? null) ||
-            !isset($config['from']['address'], $config['from']['name']) ||
-            !is_string($config['from']['address']) ||
-            !is_string($config['from']['name'])
-        ) {
-            $config['from']['name'] = 'MonkeysMail';
+        $from = $config['from'] ?? [];
+        if (!\is_array($from)) {
+            $from = [];
         }
+
         $this->apiKey = $config['api_key'];
-        $this->fromEmail = $config['from']['address'] ?? '';
-        $this->fromName = $config['from']['name'];
+        $this->fromEmail = \is_string($from['address'] ?? null) ? $from['address'] : '';
+        $this->fromName = \is_string($from['name'] ?? null) ? $from['name'] : 'MonkeysMail';
+
+        $config['from'] = [
+            'address' => $this->fromEmail,
+            'name' => $this->fromName,
+        ];
         $this->config = $config;
     }
 
@@ -66,24 +68,26 @@ class MonkeysMailTransport implements TransportInterface
         $startTime = microtime(true);
 
         try {
-            $to = array_map('trim', explode(',', $message->getTo()));
+            // Prepare Recipients
+            $to = array_filter(array_map('trim', explode(',', $message->getTo())));
 
-            $email = empty($message->getFromEmail()) || !filter_var($message->getFromEmail(), FILTER_VALIDATE_EMAIL)
-                ? $this->fromEmail
-                : $message->getFromEmail();
-            $name = empty($message->getFromName()) || !is_string($message->getFromName())
-                ? $this->fromName
-                : $message->getFromName();
+            if (empty($to)) {
+                throw new InvalidArgumentException("Message has no valid recipients.");
+            }
+
+            // Resolve Sender (Message specific OR Class Default)
+            $fromEmail = filter_var($message->getFromEmail(), FILTER_VALIDATE_EMAIL) ?: $this->fromEmail;
+            $fromName  = $message->getFromName() ?: $this->fromName;
 
             $payload = [
                 'from' => [
-                    'email' => $email,
-                    'name'  => $name
+                    'email' => $fromEmail,
+                    'name'  => $fromName
                 ],
-                'to'      => $to,
-                'subject' => $message->getSubject(),
-                'text'    => $message->getTextBody(),
-                'html'    => $message->getHtmlBody(),
+                'to'       => array_values($to), // array_values resets indices after filter
+                'subject'  => $message->getSubject(),
+                'text'     => $message->getTextBody(),
+                'html'     => $message->getHtmlBody(),
                 'tracking' => [
                     'opens'  => (bool)($this->config['tracking_opens'] ?? true),
                     'clicks' => (bool)($this->config['tracking_clicks'] ?? true)
@@ -114,7 +118,8 @@ class MonkeysMailTransport implements TransportInterface
      */
     protected function makeRequest(array $payload): void
     {
-        $url = isset($this->config['api_url']) ? $this->config['url'] : null;
+        $apiUrl = $this->config['api_url'] ?? null;
+        $url = \is_string($apiUrl) ? $apiUrl : null;
         if ($url !== null && !filter_var($url, FILTER_VALIDATE_URL)) {
             throw new InvalidArgumentException("Invalid 'api_url' provided in MonkeysMail configuration");
         }

@@ -33,7 +33,7 @@ class RateLimiter
             $timestamps = array_values($timestamps); // reindex to a list
 
 
-            if (count($timestamps) < $this->limit) {
+            if (\count($timestamps) < $this->limit) {
                 // Allowed - add current timestamp
                 $timestamps[] = $now;
                 $this->writeTimestamps($timestamps);
@@ -61,7 +61,7 @@ class RateLimiter
         // Filter timestamps within window
         $timestamps = array_filter($timestamps, fn($ts) => $ts >= $windowStart);
 
-        return max(0, $this->limit - count($timestamps));
+        return max(0, $this->limit - \count($timestamps));
     }
 
     /**
@@ -130,7 +130,7 @@ class RateLimiter
             $validTimestamps = array_filter($timestamps, fn($ts) => $ts >= $windowStart);
 
             // If we removed old timestamps, write the cleaned data back
-            if (count($validTimestamps) < count($timestamps)) {
+            if (\count($validTimestamps) < \count($timestamps)) {
                 if (empty($validTimestamps)) {
                     // No valid timestamps left, delete the file
                     return $this->reset();
@@ -226,13 +226,13 @@ class RateLimiter
 
         // Filter timestamps within window
         $validTimestamps = array_filter($timestamps, fn($ts) => $ts >= $windowStart);
-        $expiredCount = count($timestamps) - count($validTimestamps);
+        $expiredCount = \count($timestamps) - \count($validTimestamps);
 
         return [
             'key' => $this->key,
             'limit' => $this->limit,
             'window_seconds' => $this->seconds,
-            'current_requests' => count($validTimestamps),
+            'current_requests' => \count($validTimestamps),
             'remaining_requests' => $this->remaining(),
             'expired_records' => $expiredCount,
             'reset_in_seconds' => $this->resetTime(),
@@ -276,14 +276,14 @@ class RateLimiter
         $timestamps = json_decode($content, true);
 
         // Validate and filter so only float values remain and keys are sequential integers (list)
-        if (!is_array($timestamps)) {
+        if (!\is_array($timestamps)) {
             return [];
         }
 
         // Filter only float or numeric values and reindex to ensure list
         $filtered = [];
         foreach ($timestamps as $value) {
-            if (is_numeric($value)) {
+            if (\is_numeric($value)) {
                 $filtered[] = (float) $value;
             }
         }

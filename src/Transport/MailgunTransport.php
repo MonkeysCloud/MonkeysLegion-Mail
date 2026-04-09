@@ -63,7 +63,7 @@ class MailgunTransport implements TransportInterface
         // Validate required fields
         $required = ['api_key', 'domain'];
         $missing = array_filter($required, function ($key) use ($config) {
-            return !isset($config[$key]) || !is_string($config[$key]) || trim($config[$key]) === '';
+            return !isset($config[$key]) || !\is_string($config[$key]) || trim($config[$key]) === '';
         });
 
         if (!empty($missing)) {
@@ -77,7 +77,7 @@ class MailgunTransport implements TransportInterface
         $this->domain = safeString($config['domain']);
 
         // Validate and assign 'from'
-        if (isset($config['from']) && is_array($config['from'])) {
+        if (isset($config['from']) && \is_array($config['from'])) {
             $fromAddress = safeString($config['from']['address']);
             $fromName = safeString($config['from']['name']);
 
@@ -108,19 +108,19 @@ class MailgunTransport implements TransportInterface
         }
 
         // Timeout settings
-        if (!isset($config['timeout']) || !is_int($config['timeout']) || $config['timeout'] <= 0) {
+        if (!isset($config['timeout']) || !\is_int($config['timeout']) || $config['timeout'] <= 0) {
             throw new InvalidArgumentException("Invalid timeout value. Must be a positive integer.");
         }
         $this->timeout = $config['timeout'];
 
-        if (!isset($config['connect_timeout']) || !is_int($config['connect_timeout']) || $config['connect_timeout'] <= 0) {
+        if (!isset($config['connect_timeout']) || !\is_int($config['connect_timeout']) || $config['connect_timeout'] <= 0) {
             throw new InvalidArgumentException("Invalid connect_timeout value. Must be a positive integer.");
         }
         $this->connectTimeout = $config['connect_timeout'];
 
         // Tracking options
         $this->tracking = [];
-        if (isset($config['tracking']) && is_array($config['tracking'])) {
+        if (isset($config['tracking']) && \is_array($config['tracking'])) {
             $this->tracking = [
                 'clicks' => isset($config['tracking']['clicks']) ? (bool)$config['tracking']['clicks'] : true,
                 'opens' => isset($config['tracking']['opens']) ? (bool)$config['tracking']['opens'] : true
@@ -133,16 +133,16 @@ class MailgunTransport implements TransportInterface
         }
 
         // Tags
-        if (isset($config['tags']) && is_array($config['tags']) && !empty($config['tags'])) {
-            $tags = array_values(array_filter($config['tags'], fn($tag) => is_string($tag)));
+        if (isset($config['tags']) && \is_array($config['tags']) && !empty($config['tags'])) {
+            $tags = array_values(array_filter($config['tags'], fn($tag) => \is_string($tag)));
             $this->tags = array_slice($tags, 0, 3); // keep only first 3
         }
 
         // Variables
-        if (isset($config['variables']) && is_array($config['variables'])) {
+        if (isset($config['variables']) && \is_array($config['variables'])) {
             $validVars = [];
             foreach ($config['variables'] as $key => $value) {
-                if (is_string($key)) {
+                if (\is_string($key)) {
                     $validVars[$key] = $value;
                 }
             }
@@ -464,7 +464,7 @@ class MailgunTransport implements TransportInterface
             if ($value instanceof CURLFile) {
                 return true;
             }
-            if (is_array($value)) {
+            if (\is_array($value)) {
                 foreach ($value as $item) {
                     if ($item instanceof CURLFile) {
                         return true;
@@ -478,13 +478,13 @@ class MailgunTransport implements TransportInterface
     private function handleApiError(int $httpCode, string $response): void
     {
         $decodedResponse = json_decode($response, true);
-        if (!is_array($decodedResponse)) {
+        if (!\is_array($decodedResponse)) {
             throw new RuntimeException("Invalid API response format");
         }
         $message = 'Unknown error';
 
         if (isset($decodedResponse['message'])) {
-            if (is_string($decodedResponse['message'])) {
+            if (\is_string($decodedResponse['message'])) {
                 $message = $decodedResponse['message'];
             } elseif (is_scalar($decodedResponse['message'])) {
                 $message = (string)$decodedResponse['message'];

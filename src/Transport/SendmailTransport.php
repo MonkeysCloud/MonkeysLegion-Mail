@@ -49,7 +49,7 @@ class SendmailTransport implements TransportInterface
             $this->logger?->warning($warning);
         }
 
-        if (isset($config['from']) && is_array($config['from'])) {
+        if (isset($config['from']) && \is_array($config['from'])) {
             $fromAddress = safeString($config['from']['address']);
             $fromName = safeString($config['from']['name']);
 
@@ -99,7 +99,7 @@ class SendmailTransport implements TransportInterface
 
         $this->logger?->debug('Sending email via sendmail', [
             'command' => "{$this->path} -t",
-            'headers_count' => count($headers),
+            'headers_count' => \count($headers),
             'content_length' => strlen($message->getContent())
         ]);
 

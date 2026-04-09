@@ -60,13 +60,13 @@ class Mailer
         private ?EventDispatcherInterface $eventDispatcher = null,
     ) {
         $this->logger?->debug(
-            "Mailer initialized with driver: " . get_class($driver),
+            "Mailer initialized with driver: " . \get_class($driver),
             [
-                'driver'           => get_class($driver),
-                'rate_limiter'     => get_class($rateLimiter),
-                'queue_dispatcher' => get_class($dispatcher),
+                'driver'           => \get_class($driver),
+                'rate_limiter'     => \get_class($rateLimiter),
+                'queue_dispatcher' => \get_class($dispatcher),
                 'mlc_config_keys'  => array_keys($this->rawConfig),
-                'event_dispatcher' => $eventDispatcher !== null ? get_class($eventDispatcher) : null,
+                'event_dispatcher' => $eventDispatcher !== null ? \get_class($eventDispatcher) : null,
             ]
         );
     }
@@ -149,8 +149,8 @@ class Mailer
                     'subject'          => $subject,
                     'content_type'     => $contentType,
                     'has_attachments'  => !empty($attachments),
-                    'attachment_count' => count($attachments),
-                    'driver'           => get_class($this->driver),
+                    'attachment_count' => \count($attachments),
+                    'driver'           => \get_class($this->driver),
                 ]);
                 throw new RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
             }
@@ -160,8 +160,8 @@ class Mailer
                 'subject'          => $subject,
                 'content_type'     => $contentType,
                 'has_attachments'  => !empty($attachments),
-                'attachment_count' => count($attachments),
-                'driver'           => get_class($this->driver),
+                'attachment_count' => \count($attachments),
+                'driver'           => \get_class($this->driver),
             ]);
 
             $message = new Message($to, $subject, $content, $contentType, $attachments);
@@ -177,7 +177,7 @@ class Mailer
                 'to'          => $to,
                 'subject'     => $subject,
                 'duration_ms' => $duration,
-                'driver'      => get_class($this->driver),
+                'driver'      => \get_class($this->driver),
             ]);
 
             $messageData = [
@@ -202,7 +202,6 @@ class Mailer
             foreach ($this->sentListeners as $listener) {
                 $listener($sent);
             }
-
         } catch (InvalidArgumentException $e) {
             throw new InvalidArgumentException($e->getMessage(), 0, $e);
         } catch (Exception $e) {
@@ -212,7 +211,7 @@ class Mailer
                 'to'            => $to,
                 'subject'       => $subject,
                 'duration_ms'   => $duration,
-                'driver'        => get_class($this->driver),
+                'driver'        => \get_class($this->driver),
                 'exception'     => $e,
                 'error_message' => $e->getMessage(),
                 'trace'         => $e->getTraceAsString(),
@@ -233,7 +232,7 @@ class Mailer
             $failed = new MessageFailed(
                 $messageId,
                 $messageData,
-                $e instanceof Exception ? $e : new RuntimeException($e->getMessage()),
+                $e,
                 1,
                 false,
                 $this->logger,
@@ -276,7 +275,7 @@ class Mailer
             'subject'          => $subject,
             'content_type'     => $contentType,
             'has_attachments'  => !empty($attachments),
-            'attachment_count' => count($attachments),
+            'attachment_count' => \count($attachments),
             'queue'            => $queueName,
         ]);
 
@@ -294,11 +293,10 @@ class Mailer
                 'to'               => $to,
                 'subject'          => $subject,
                 'queue'            => $queueName,
-                'dispatcher_class' => get_class($this->dispatcher),
+                'dispatcher_class' => \get_class($this->dispatcher),
             ]);
 
             return true;
-
         } catch (Exception $e) {
             $this->logger?->warning("Failed to queue email", [
                 'to'            => $to,
@@ -345,7 +343,7 @@ class Mailer
      */
     public function setDriver(string $driverName, array $config = []): void
     {
-        $oldDriver = get_class($this->driver);
+        $oldDriver = \get_class($this->driver);
 
         $this->logger?->smartLog("Changing mail driver", [
             'old_driver'        => $oldDriver,
@@ -354,12 +352,12 @@ class Mailer
         ]);
 
         try {
-            if (!isset($this->rawConfig['drivers']) || !is_array($this->rawConfig['drivers'])) {
+            if (!isset($this->rawConfig['drivers']) || !\is_array($this->rawConfig['drivers'])) {
                 throw new RuntimeException('Mail config "drivers" key must be an array.');
             }
 
             $drivers = $this->rawConfig['drivers'];
-            $existingDriverConfig = is_array($drivers[$driverName] ?? null) ? $drivers[$driverName] : [];
+            $existingDriverConfig = \is_array($drivers[$driverName] ?? null) ? $drivers[$driverName] : [];
 
             $driverConfig = !empty($config)
                 ? array_replace_recursive($existingDriverConfig, $config)
@@ -375,7 +373,7 @@ class Mailer
 
             $this->logger?->smartLog("Mail driver changed successfully", [
                 'old_driver'  => $oldDriver,
-                'new_driver'  => get_class($this->driver),
+                'new_driver'  => \get_class($this->driver),
                 'driver_name' => $driverName,
             ]);
         } catch (Exception $e) {
@@ -393,44 +391,60 @@ class Mailer
     /** @return string Current driver FQCN */
     public function getCurrentDriver(): string
     {
-        return get_class($this->driver);
+        return \get_class($this->driver);
     }
 
-    /** Switch to SMTP driver. @param array<string, mixed> $config */
+    /**
+     * Switch to SMTP driver.
+     *
+     * @param array<string, mixed> $config
+     */
     public function useSmtp(array $config = []): void
     {
         $this->logger?->info("Switching to SMTP driver", [
-            'current_driver'    => get_class($this->driver),
+            'current_driver'    => \get_class($this->driver),
             'has_custom_config' => !empty($config),
         ]);
         $this->setDriver('smtp', $config);
     }
 
-    /** Switch to the null (testing) driver. @param array<string, mixed> $config */
+    /**
+     * Switch to the null (testing) driver.
+     *
+     * @param array<string, mixed> $config
+     */
     public function useNull(array $config = []): void
     {
         $this->logger?->info("Switching to null driver for testing", [
-            'current_driver'    => get_class($this->driver),
+            'current_driver'    => \get_class($this->driver),
             'has_custom_config' => !empty($config),
         ]);
         $this->setDriver('null', $config);
     }
 
-    /** Switch to sendmail driver. @param array<string, mixed> $config */
+    /**
+     * Switch to sendmail driver.
+     *
+     * @param array<string, mixed> $config
+     */
     public function useSendmail(array $config = []): void
     {
         $this->logger?->info("Switching to sendmail driver", [
-            'current_driver'    => get_class($this->driver),
+            'current_driver'    => \get_class($this->driver),
             'has_custom_config' => !empty($config),
         ]);
         $this->setDriver('sendmail', $config);
     }
 
-    /** Switch to Mailgun driver. @param array<string, mixed> $config */
+    /**
+     * Switch to Mailgun driver.
+     *
+     * @param array<string, mixed> $config
+     */
     public function useMailgun(array $config = []): void
     {
         $this->logger?->info("Switching to Mailgun driver", [
-            'current_driver'    => get_class($this->driver),
+            'current_driver'    => \get_class($this->driver),
             'has_custom_config' => !empty($config),
         ]);
         $this->setDriver('mailgun', $config);
@@ -450,34 +464,34 @@ class Mailer
         /** @var string $driverName */
         $driverName = $config['driver'];
 
-        if (!array_key_exists('drivers', $config) || !is_array($config['drivers'])) {
+        if (!array_key_exists('drivers', $config) || !\is_array($config['drivers'])) {
             $this->logger?->error("Mail config missing 'drivers' key or it is not an array");
             throw new RuntimeException("Mail drivers configuration is invalid");
         }
 
         $drivers = $config['drivers'];
 
-        if (!array_key_exists($driverName, $drivers) || !is_array($drivers[$driverName])) {
+        if (!array_key_exists($driverName, $drivers) || !\is_array($drivers[$driverName])) {
             $this->logger?->error("Driver config for '{$driverName}' is missing or not an array");
             throw new RuntimeException("Driver config for '{$driverName}' must be an array");
         }
 
         $driverConfig = $drivers[$driverName];
 
-        if (!array_key_exists('from', $driverConfig) || !is_array($driverConfig['from'])) {
+        if (!array_key_exists('from', $driverConfig) || !\is_array($driverConfig['from'])) {
             $this->logger?->error("Driver config for '{$driverName}' missing 'from' key or it is not an array");
             throw new RuntimeException("Driver config for '{$driverName}' must have a 'from' array");
         }
 
         $from = $driverConfig['from'];
 
-        if (empty($from['address']) || !filter_var($from['address'], FILTER_VALIDATE_EMAIL) || !is_string($from['address'])) {
+        if (empty($from['address']) || !filter_var($from['address'], FILTER_VALIDATE_EMAIL) || !\is_string($from['address'])) {
             $this->logger?->error("Invalid 'from.address' configured in mail driver '{$driverName}'");
             throw new RuntimeException("Invalid 'from.address' configured in mail driver '{$driverName}'. Please update your mail configuration.");
         }
 
         $fromAddress = trim($from['address']);
-        $fromName    = isset($from['name']) && is_string($from['name']) ? trim($from['name']) : '';
+        $fromName    = isset($from['name']) && \is_string($from['name']) ? trim($from['name']) : '';
         $fromHeader  = $fromName !== '' ? sprintf('%s <%s>', $fromName, $fromAddress) : $fromAddress;
 
         $message->setFrom($fromHeader);
@@ -493,19 +507,19 @@ class Mailer
     {
         $config = $this->rawConfig;
 
-        if (!isset($config['driver']) || !is_string($config['driver'])) {
+        if (!isset($config['driver']) || !\is_string($config['driver'])) {
             $this->logger?->error("Mail config missing 'driver' key or it is not a string");
             throw new RuntimeException("Mail driver is not configured");
         }
 
         $driverName = $config['driver'];
 
-        if (!isset($config['drivers']) || !is_array($config['drivers'])) {
+        if (!isset($config['drivers']) || !\is_array($config['drivers'])) {
             $this->logger?->error("Mail config missing 'drivers' array");
             throw new RuntimeException("Mail drivers config missing");
         }
 
-        if (!isset($config['drivers'][$driverName]) || !is_array($config['drivers'][$driverName])) {
+        if (!isset($config['drivers'][$driverName]) || !\is_array($config['drivers'][$driverName])) {
             $this->logger?->error("Driver config for '{$driverName}' is missing or not an array");
             throw new RuntimeException("Driver config for '{$driverName}' must be an array");
         }
@@ -518,9 +532,9 @@ class Mailer
             'dkim_domain'      => safeString($driverConfig['dkim_domain'] ?? null),
         ];
 
-        if (!DkimSigner::shouldSign(get_class($this->driver), $dkimConfig)) {
+        if (!DkimSigner::shouldSign(\get_class($this->driver), $dkimConfig)) {
             $this->logger?->debug("DKIM signing skipped for local transport", [
-                'driver' => get_class($this->driver),
+                'driver' => \get_class($this->driver),
             ]);
             return $m;
         }

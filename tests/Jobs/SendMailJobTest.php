@@ -46,7 +46,7 @@ class SendMailJobTest extends AbstractBaseTest
         // Get container through static method on Container
         $container = new Container();
         Container::setInstance($container);
-        
+
         // Register transport in container
         $container->set(TransportInterface::class, fn() => $this->transport);
         $container->set(MonkeysLoggerInterface::class, fn() => $this->logger);
@@ -219,7 +219,7 @@ class SendMailJobTest extends AbstractBaseTest
         $this->transport->expects($this->once())
             ->method('send')
             ->with($this->callback(function (Message $msg) {
-                return count($msg->getAttachments()) === 3;
+                return \count($msg->getAttachments()) === 3;
             }));
 
         $job = new SendMailJob($message);

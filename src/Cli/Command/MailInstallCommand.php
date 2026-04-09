@@ -102,7 +102,7 @@ final class MailInstallCommand extends Command
 
         $this->cliLine()->newline()->print();
 
-        $this->showInstallSummary($publishedFiles, $skippedFiles, $failedFiles, $addedEnvKeys);
+        $this->showInstallSummary($publishedFiles, $skippedFiles, $failedFiles);
         return self::SUCCESS;
     }
 
@@ -233,7 +233,7 @@ final class MailInstallCommand extends Command
             ->print();
     }
 
-    private function showInstallSummary(int $publishedFiles, int $skippedFiles, int $failedFiles, ?int $addedEnvKeys): void
+    private function showInstallSummary(int $publishedFiles, int $skippedFiles, int $failedFiles): void
     {
         $this->cliLine()
             ->success('✓ Mail installation complete!')
@@ -250,17 +250,6 @@ final class MailInstallCommand extends Command
             ->print();
         $this->cliLine()
             ->add('  • Failed: ', 'white')->add((string)$failedFiles, $failedFiles > 0 ? 'red' : 'green', 'bold')
-            ->print();
-
-        if ($addedEnvKeys === null) {
-            $this->cliLine()
-                ->add('  • .env: ', 'white')->add('not found', 'yellow', 'bold')
-                ->print();
-            return;
-        }
-
-        $this->cliLine()
-            ->add('  • .env keys added: ', 'white')->add((string)$addedEnvKeys, $addedEnvKeys > 0 ? 'yellow' : 'green', 'bold')
             ->print();
     }
 }

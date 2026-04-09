@@ -34,10 +34,10 @@ function safeString(mixed $value, string $default = ''): string
  */
 function normalizeAttachment(array|string $attachment, ?string $baseDirectory = null, bool $forCurl = false): array
 {
-    if (is_array($attachment)) {
-        $path = is_string($attachment['path']) ? $attachment['path'] : '';
+    if (\is_array($attachment)) {
+        $path = \is_string($attachment['path']) ? $attachment['path'] : '';
         $filename = isset($attachment['name']) && is_scalar($attachment['name']) ? (string)$attachment['name'] : null;
-        $mimeType = isset($attachment['mime_type']) && is_string($attachment['mime_type']) ? $attachment['mime_type'] : null;
+        $mimeType = isset($attachment['mime_type']) && \is_string($attachment['mime_type']) ? $attachment['mime_type'] : null;
     } else {
         // string case
         $path = $attachment;

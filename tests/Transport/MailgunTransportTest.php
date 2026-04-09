@@ -9,23 +9,27 @@ use MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest;
 /**
  * Namespace-level cURL mocks for MailgunTransport testing
  */
-function curl_init($url = null) {
+function curl_init($url = null)
+{
     if (!MailgunTransportTest::$mockingEnabled) return \curl_init($url);
     return MailgunTransportTest::$curlInitReturn ?? \curl_init($url);
 }
 
-function curl_setopt_array($ch, $options) {
+function curl_setopt_array($ch, $options)
+{
     if (!MailgunTransportTest::$mockingEnabled) return \curl_setopt_array($ch, $options);
     MailgunTransportTest::$lastCurlOptions = $options;
     return true;
 }
 
-function curl_exec($ch) {
+function curl_exec($ch)
+{
     if (!MailgunTransportTest::$mockingEnabled) return \curl_exec($ch);
     return MailgunTransportTest::$curlExecReturn ?? false;
 }
 
-function curl_getinfo($ch, $opt = null) {
+function curl_getinfo($ch, $opt = null)
+{
     if (!MailgunTransportTest::$mockingEnabled) return \curl_getinfo($ch, $opt);
     if ($opt === CURLINFO_HTTP_CODE) {
         return MailgunTransportTest::$curlHttpCode ?? 200;
@@ -33,25 +37,29 @@ function curl_getinfo($ch, $opt = null) {
     return \curl_getinfo($ch, $opt);
 }
 
-function curl_error($ch) {
+function curl_error($ch)
+{
     if (!MailgunTransportTest::$mockingEnabled) return \curl_error($ch);
     return MailgunTransportTest::$curlError ?? '';
 }
 
-function curl_errno($ch) {
+function curl_errno($ch)
+{
     if (!MailgunTransportTest::$mockingEnabled) return \curl_errno($ch);
     return MailgunTransportTest::$curlErrno ?? 0;
 }
 
-function curl_close($ch) {
+function curl_close($ch)
+{
     if (!MailgunTransportTest::$mockingEnabled) return \curl_close($ch);
     return null;
 }
 
 if (!function_exists('MonkeysLegion\Mail\Transport\normalizeAttachment')) {
-    function normalizeAttachment($attachment, $baseDir = null, $forCurl = false) {
+    function normalizeAttachment($attachment, $baseDir = null, $forCurl = false)
+    {
         return [
-            'full_path' => is_string($attachment) ? $attachment : ($attachment['path'] ?? 'path'),
+            'full_path' => \is_string($attachment) ? $attachment : ($attachment['path'] ?? 'path'),
             'mime_type' => 'text/plain',
             'filename' => 'test.txt',
             'is_url' => false,
@@ -139,7 +147,7 @@ class MailgunTransportTest extends TestCase
     public function test_constructor_and_getters(): void
     {
         $transport = new MailgunTransport($this->validConfig, $this->logger);
-        
+
         $this->assertEquals('mailgun', $transport->getName());
         $this->assertEquals('example.com', $transport->getDomain());
         $this->assertEquals('us', $transport->getRegion());
@@ -153,7 +161,7 @@ class MailgunTransportTest extends TestCase
         $config = $this->validConfig;
         $config['region'] = 'eu';
         $transport = new MailgunTransport($config);
-        
+
         $this->assertEquals('eu', $transport->getRegion());
         $this->assertStringContainsString('api.eu.mailgun.net', $transport->getEndpoint());
     }
@@ -164,7 +172,7 @@ class MailgunTransportTest extends TestCase
     {
         $config = $this->validConfig;
         $config['region'] = 'invalid';
-        
+
         $this->expectException(InvalidArgumentException::class);
         new MailgunTransport($config);
     }
@@ -183,9 +191,9 @@ class MailgunTransportTest extends TestCase
     {
         $transport = new MailgunTransport($this->validConfig, $this->logger);
         $message = new Message('to@example.com', 'Subject', 'Content');
-        
+
         $transport->send($message);
-        
+
         $this->assertNotEmpty(self::$lastCurlOptions);
         $this->assertStringContainsString('api:mg-key', self::$lastCurlOptions[CURLOPT_USERPWD]);
     }
@@ -195,12 +203,12 @@ class MailgunTransportTest extends TestCase
     public function test_send_content_types(): void
     {
         $transport = new MailgunTransport($this->validConfig);
-        
+
         // HTML
         $msgHtml = new Message('to@example.com', 'Sub', '<b>body</b>', Message::CONTENT_TYPE_HTML);
         $transport->send($msgHtml);
         $this->assertStringContainsString('html=%3Cb%3Ebody%3C%2Fb%3E', (string)self::$lastCurlOptions[CURLOPT_POSTFIELDS]);
-        
+
         // Text
         $msgText = new Message('to@example.com', 'Sub', 'body', Message::CONTENT_TYPE_TEXT);
         $transport->send($msgText);
@@ -217,19 +225,19 @@ class MailgunTransportTest extends TestCase
     public function test_send_with_attachments(): void
     {
         $transport = new MailgunTransport($this->validConfig);
-        
+
         $tempFile = '/tmp/mailgun_test_' . uniqid();
         file_put_contents($tempFile, 'test content');
-        
+
         // Pass absolute path - our mock normalizeAttachment will handle it
         $message = new Message('to@example.com', 'Subject', 'Content', Message::CONTENT_TYPE_TEXT, [$tempFile]);
-        
+
         $transport->send($message);
-        
+
         // When attachments are present, POSTFIELDS is an array (multipart/form-data)
         $this->assertIsArray(self::$lastCurlOptions[CURLOPT_POSTFIELDS] ?? null);
         $this->assertArrayHasKey('attachment[0]', self::$lastCurlOptions[CURLOPT_POSTFIELDS]);
-        
+
         @unlink($tempFile);
     }
 
@@ -240,9 +248,9 @@ class MailgunTransportTest extends TestCase
         $transport = new MailgunTransport($this->validConfig);
         $message = new Message('to@example.com', 'Subject', 'Content');
         $message->setDkimSignature('DKIM-Signature: v=1; a=rsa-sha256; ...');
-        
+
         $transport->send($message);
-        
+
         $payload = self::$lastCurlOptions[CURLOPT_POSTFIELDS];
         $this->assertStringContainsString('h%3ADKIM-Signature=v%3D1%3B+a%3Drsa-sha256%3B+...', $payload);
     }
@@ -255,9 +263,9 @@ class MailgunTransportTest extends TestCase
         $config['delivery_time'] = 'tomorrow';
         $transport = new MailgunTransport($config);
         $message = new Message('to@example.com', 'Sub', 'Body');
-        
+
         $transport->send($message);
-        
+
         $payload = self::$lastCurlOptions[CURLOPT_POSTFIELDS];
         $this->assertStringContainsString('o%3Adeliverytime=tomorrow', $payload);
         $this->assertStringContainsString('o%3Atag%5B0%5D=test', $payload);
@@ -271,10 +279,10 @@ class MailgunTransportTest extends TestCase
         self::$curlExecReturn = false;
         self::$curlError = 'Connection timeout';
         self::$curlErrno = 28;
-        
+
         $transport = new MailgunTransport($this->validConfig, $this->logger);
         $message = new Message('a@b.com', 'S', 'B');
-        
+
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('cURL request failed');
         $transport->send($message);
@@ -302,7 +310,7 @@ class MailgunTransportTest extends TestCase
         foreach ($errors as $code => $exception) {
             self::$curlHttpCode = $code;
             self::$curlExecReturn = json_encode(['message' => "Error $code"]);
-            
+
             try {
                 $transport->send($message);
                 $this->fail("Should have thrown $exception for code $code");
@@ -317,9 +325,9 @@ class MailgunTransportTest extends TestCase
     public function test_send_invalid_json(): void
     {
         self::$curlExecReturn = 'invalid json';
-        
+
         $transport = new MailgunTransport($this->validConfig);
-        
+
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('Invalid JSON response');
         $transport->send(new Message('a@b.com', 'S', 'B'));
@@ -340,13 +348,14 @@ class MailgunTransportTest extends TestCase
     public function test_constructor_timeouts(): void
     {
         $config = $this->validConfig;
-        
+
         // Invalid timeout
         $config['timeout'] = 0;
         try {
             new MailgunTransport($config);
             $this->fail('Should throw for 0 timeout');
-        } catch (InvalidArgumentException) {}
+        } catch (InvalidArgumentException) {
+        }
 
         // Invalid connect_timeout
         $config = $this->validConfig;
@@ -354,6 +363,7 @@ class MailgunTransportTest extends TestCase
         try {
             new MailgunTransport($config);
             $this->fail('Should throw for 0 connect_timeout');
-        } catch (InvalidArgumentException) {}
+        } catch (InvalidArgumentException) {
+        }
     }
 }

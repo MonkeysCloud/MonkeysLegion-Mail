@@ -80,7 +80,7 @@ class MessageFailedTest extends TestCase
                         && $ctx['attempts']      === 2
                         && $ctx['will_retry']    === true
                         && $ctx['error_message'] === 'Something went wrong'
-                        && is_int($ctx['failed_at']);
+                        && \is_int($ctx['failed_at']);
                 })
             );
 

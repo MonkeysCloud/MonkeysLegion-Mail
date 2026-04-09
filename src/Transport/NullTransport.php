@@ -88,7 +88,7 @@ class NullTransport implements TransportInterface
         $from = $this->config['from'] ?? [];
 
         if (
-            !is_array($from) ||
+            !\is_array($from) ||
             empty($from['address']) ||
             !filter_var($from['address'], FILTER_VALIDATE_EMAIL)
         ) {

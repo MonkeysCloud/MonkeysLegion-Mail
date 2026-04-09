@@ -347,23 +347,23 @@ abstract class Mailable
     {
         foreach ($config as $key => $value) {
             match ($key) {
-                'to' => is_string($value)
+                'to' => \is_string($value)
                     ? $this->setTo($value)
                     : throw new InvalidArgumentException("Config 'to' must be string"),
 
-                'subject' => is_string($value)
+                'subject' => \is_string($value)
                     ? $this->setSubject($value)
                     : throw new InvalidArgumentException("Config 'subject' must be string"),
 
-                'view' => is_string($value)
+                'view' => \is_string($value)
                     ? $this->setView($value)
                     : throw new InvalidArgumentException("Config 'view' must be string"),
 
-                'queue' => is_string($value)
+                'queue' => \is_string($value)
                     ? $this->setQueue($value)
                     : throw new InvalidArgumentException("Config 'queue' must be string"),
 
-                'viewData' => is_array($value)
+                'viewData' => \is_array($value)
                     ? $this->mergeViewData((function ($arr) {
                         $result = [];
                         foreach ($arr as $k => $v) {
@@ -373,11 +373,11 @@ abstract class Mailable
                     })($value))
                     : throw new InvalidArgumentException("Config 'viewData' must be array"),
 
-                'timeout' => is_int($value)
+                'timeout' => \is_int($value)
                     ? $this->setTimeout($value)
                     : throw new InvalidArgumentException("Config 'timeout' must be int"),
 
-                'maxTries' => is_int($value)
+                'maxTries' => \is_int($value)
                     ? $this->setMaxTries($value)
                     : throw new InvalidArgumentException("Config 'maxTries' must be int"),
 
@@ -624,11 +624,11 @@ abstract class Mailable
 
     private function validateBeforeSend(): void
     {
-        if (!is_string($this->to) || empty($this->to) || !filter_var($this->to, FILTER_VALIDATE_EMAIL)) {
+        if (!\is_string($this->to) || empty($this->to) || !filter_var($this->to, FILTER_VALIDATE_EMAIL)) {
             throw new InvalidArgumentException("Valid recipient email address is required");
         }
 
-        if (!is_string($this->subject)) {
+        if (!\is_string($this->subject)) {
             throw new InvalidArgumentException("Subject must be a valid string");
         }
     }

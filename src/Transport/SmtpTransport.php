@@ -193,7 +193,7 @@ class SmtpTransport implements TransportInterface
 
         try {
             $timeout = $this->timeout;
-            if (!is_string($this->address)) {
+            if (!\is_string($this->address)) {
                 $this->logger?->error("Invalid SMTP address type", [
                     'address' => $this->address,
                     'expected_type' => 'string'
@@ -699,16 +699,16 @@ class SmtpTransport implements TransportInterface
             }
         }
 
-        if (!is_string($config['host'])) {
+        if (!\is_string($config['host'])) {
             throw new InvalidArgumentException("Config 'host' must be a string.");
         }
 
-        if (!is_int($config['port'])) {
+        if (!\is_int($config['port'])) {
             throw new InvalidArgumentException("Config 'port' must be an integer.");
         }
 
         $encryption = $config['encryption'] ?? 'none';
-        if (empty($encryption) || !is_string($encryption)) {
+        if (empty($encryption) || !\is_string($encryption)) {
             $encryption = 'none';
         }
         $encryption = strtolower($encryption);
@@ -720,23 +720,23 @@ class SmtpTransport implements TransportInterface
         }
 
 
-        if (!isset($config['username']) || !is_string($config['username'])) {
+        if (!isset($config['username']) || !\is_string($config['username'])) {
             throw new InvalidArgumentException("Config 'username' is required and must be a string.");
         }
-        if (!isset($config['password']) || !is_string($config['password'])) {
+        if (!isset($config['password']) || !\is_string($config['password'])) {
             throw new InvalidArgumentException("Config 'password' is required and must be a string.");
         }
 
-        if (!is_int($config['timeout'])) {
+        if (!\is_int($config['timeout'])) {
             $this->logger?->warning("Config 'timeout' is not an integer, defaulting to " . MailDefaults::TIMEOUT . " seconds");
             $config['timeout'] = MailDefaults::TIMEOUT;
         }
 
         if (
-            !is_array($config['from'] ?? null) ||
+            !\is_array($config['from'] ?? null) ||
             !isset($config['from']['address'], $config['from']['name']) ||
-            !is_string($config['from']['address']) ||
-            !is_string($config['from']['name'])
+            !\is_string($config['from']['address']) ||
+            !\is_string($config['from']['name'])
         ) {
             throw new InvalidArgumentException("Config 'from' must be an array with string keys 'address' and 'name'.");
         }
