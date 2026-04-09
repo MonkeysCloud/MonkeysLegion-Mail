@@ -10,4 +10,5 @@ enum MailDriverName: string
     case SENDMAIL = 'sendmail';
     case NULL = 'null';
     case MAILGUN = 'mailgun';
+    case MONKEYS_MAIL = 'monkeys_mail';
 }

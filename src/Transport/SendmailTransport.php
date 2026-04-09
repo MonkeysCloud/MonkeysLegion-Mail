@@ -9,7 +9,10 @@ use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
 
-final class SendmailTransport implements TransportInterface
+use InvalidArgumentException;
+use RuntimeException;
+
+class SendmailTransport implements TransportInterface
 {
     private string $path;
     /** @var array<string, string> */
@@ -33,12 +36,12 @@ final class SendmailTransport implements TransportInterface
      * Validate and set configuration values
      *
      * @param array<string, mixed> $config
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      * @return void
      */
     private function validateAndSetConfig(array $config): void
     {
-        $this->path = safeString($config['path'], '/usr/sbin/sendmail');
+        $this->path = safeString($config['path'] ?? null, '/usr/sbin/sendmail');
 
         // Validate path exists, but don't check executable yet (might be running as different user)
         if (!file_exists($this->path)) {
@@ -46,14 +49,14 @@ final class SendmailTransport implements TransportInterface
             $this->logger?->warning($warning);
         }
 
-        if (isset($config['from']) && is_array($config['from'])) {
+        if (isset($config['from']) && \is_array($config['from'])) {
             $fromAddress = safeString($config['from']['address']);
             $fromName = safeString($config['from']['name']);
 
             if (!filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
                 $warning = "Invalid 'from' email address format: {$fromAddress}";
                 $this->logger?->warning($warning);
-                throw new \InvalidArgumentException($warning);
+                throw new InvalidArgumentException($warning);
             }
 
             $this->from = [
@@ -61,7 +64,7 @@ final class SendmailTransport implements TransportInterface
                 'name' => $fromName,
             ];
         } else {
-            throw new \InvalidArgumentException("Sendmail configuration must include 'from' address");
+            throw new InvalidArgumentException("Sendmail configuration must include 'from' address");
         }
     }
 
@@ -70,7 +73,7 @@ final class SendmailTransport implements TransportInterface
         if (!is_executable($this->path)) {
             $error = "Sendmail binary not found or not executable: {$this->path}";
             $this->logger?->error($error);
-            throw new \RuntimeException($error);
+            throw new RuntimeException($error);
         }
 
         // Set from address if not already set in the message
@@ -96,7 +99,7 @@ final class SendmailTransport implements TransportInterface
 
         $this->logger?->debug('Sending email via sendmail', [
             'command' => "{$this->path} -t",
-            'headers_count' => count($headers),
+            'headers_count' => \count($headers),
             'content_length' => strlen($message->getContent())
         ]);
 
@@ -106,7 +109,7 @@ final class SendmailTransport implements TransportInterface
         if (!is_resource($process)) {
             $error = "Failed to open sendmail process";
             $this->logger?->error($error);
-            throw new \RuntimeException($error);
+            throw new RuntimeException($error);
         }
 
         /** @var array{0: resource, 1: resource, 2: resource} $pipes */
@@ -128,7 +131,7 @@ final class SendmailTransport implements TransportInterface
                 'errors' => $errors,
                 'return_value' => $returnValue
             ]);
-            throw new \RuntimeException($errorMsg);
+            throw new RuntimeException($errorMsg);
         }
 
         $this->logger?->info('Email sent successfully via sendmail');

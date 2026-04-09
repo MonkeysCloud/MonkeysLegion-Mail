@@ -31,7 +31,7 @@ final class DkimKeyGenCommand extends Command
 
         $bits = 2048;
         $bitsArg = $this->argument(1);
-        if ($bitsArg && is_numeric($bitsArg)) {
+        if ($bitsArg && \is_numeric($bitsArg)) {
             $bits = (int) $bitsArg;
         }
 

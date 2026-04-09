@@ -102,6 +102,32 @@ class Message
         $this->from = $from;
     }
 
+    public function getFromEmail(): string
+    {
+        if (preg_match('/<([^>]+)>/', $this->from, $matches)) {
+            return trim($matches[1]);
+        }
+        return trim($this->from);
+    }
+
+    public function getFromName(): string
+    {
+        if (preg_match('/^([^<]+)</', $this->from, $matches)) {
+            return trim($matches[1], ' "');
+        }
+        return '';
+    }
+
+    public function getTextBody(): string
+    {
+        return $this->contentType === self::CONTENT_TYPE_TEXT ? $this->content : '';
+    }
+
+    public function getHtmlBody(): string
+    {
+        return $this->contentType === self::CONTENT_TYPE_HTML ? $this->content : '';
+    }
+
     public function getDkimSignature(): ?string
     {
         return $this->dkimSignature;

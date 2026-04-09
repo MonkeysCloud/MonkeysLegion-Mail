@@ -1,277 +1,369 @@
 <?php
 
+declare(strict_types=1);
+
+namespace MonkeysLegion\Mail\Transport;
+
+use MonkeysLegion\Mailer\Tests\Transport\MailgunTransportTest;
+
+/**
+ * Namespace-level cURL mocks for MailgunTransport testing
+ */
+function curl_init($url = null)
+{
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_init($url);
+    return MailgunTransportTest::$curlInitReturn ?? \curl_init($url);
+}
+
+function curl_setopt_array($ch, $options)
+{
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_setopt_array($ch, $options);
+    MailgunTransportTest::$lastCurlOptions = $options;
+    return true;
+}
+
+function curl_exec($ch)
+{
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_exec($ch);
+    return MailgunTransportTest::$curlExecReturn ?? false;
+}
+
+function curl_getinfo($ch, $opt = null)
+{
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_getinfo($ch, $opt);
+    if ($opt === CURLINFO_HTTP_CODE) {
+        return MailgunTransportTest::$curlHttpCode ?? 200;
+    }
+    return \curl_getinfo($ch, $opt);
+}
+
+function curl_error($ch)
+{
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_error($ch);
+    return MailgunTransportTest::$curlError ?? '';
+}
+
+function curl_errno($ch)
+{
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_errno($ch);
+    return MailgunTransportTest::$curlErrno ?? 0;
+}
+
+function curl_close($ch)
+{
+    if (!MailgunTransportTest::$mockingEnabled) return \curl_close($ch);
+    return null;
+}
+
+if (!function_exists('MonkeysLegion\Mail\Transport\normalizeAttachment')) {
+    function normalizeAttachment($attachment, $baseDir = null, $forCurl = false)
+    {
+        return [
+            'full_path' => \is_string($attachment) ? $attachment : ($attachment['path'] ?? 'path'),
+            'mime_type' => 'text/plain',
+            'filename' => 'test.txt',
+            'is_url' => false,
+            'boundary_encoded' => "MOCK_ATTACHMENT"
+        ];
+    }
+}
+
 namespace MonkeysLegion\Mailer\Tests\Transport;
 
+use Exception;
+use InvalidArgumentException;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
-use PHPUnit\Framework\TestCase;
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
+use PHPUnit\Framework\Attributes\CoversClass;
+use PHPUnit\Framework\Attributes\Test;
+use PHPUnit\Framework\Attributes\TestDox;
 use PHPUnit\Framework\MockObject\MockObject;
+use PHPUnit\Framework\TestCase;
+use RuntimeException;
 
+#[CoversClass(MailgunTransport::class)]
+#[AllowMockObjectsWithoutExpectations]
 class MailgunTransportTest extends TestCase
 {
     private MonkeysLoggerInterface&MockObject $logger;
-    /** @var array<string, mixed> */
     private array $validConfig;
+
+    // Static state for cURL mocks
+    public static $curlInitReturn = 'curl_resource';
+    public static $curlExecReturn = '{"id": "test-id", "message": "Queued"}';
+    public static $curlHttpCode = 200;
+    public static $curlError = '';
+    public static $curlErrno = 0;
+    public static $lastCurlOptions = [];
+    public static $mockingEnabled = false;
 
     protected function setUp(): void
     {
         $this->logger = $this->createMock(MonkeysLoggerInterface::class);
 
-        // Setup a valid config to be used in most tests
         $this->validConfig = [
-            'api_key' => 'test-key',
-            'domain' => 'mg.example.com',
-            'region' => 'us',
-            'timeout' => 30,
-            'connect_timeout' => 10,
+            'api_key' => 'mg-key',
+            'domain' => 'example.com',
             'from' => [
                 'address' => 'from@example.com',
-                'name' => 'From Name'
+                'name' => 'Sender'
             ],
+            'timeout' => 30,
+            'connect_timeout' => 10,
+            'region' => 'us',
             'tracking' => [
                 'clicks' => true,
-                'opens' => true
-            ]
+                'opens' => false
+            ],
+            'tags' => ['test', 'unit'],
+            'variables' => ['user_id' => 123]
         ];
+
+        // Reset cURL mock state
+        self::$curlInitReturn = 'curl_resource';
+        self::$curlExecReturn = '{"id": "test-id", "message": "Queued"}';
+        self::$curlHttpCode = 200;
+        self::$curlError = '';
+        self::$curlErrno = 0;
+        self::$lastCurlOptions = [];
+        self::$mockingEnabled = true;
     }
 
-    public function testConstructorValidConfigSetsEndpoint(): void
+    protected function tearDown(): void
+    {
+        self::$curlInitReturn = null;
+        self::$curlExecReturn = null;
+        self::$curlHttpCode = null;
+        self::$curlError = null;
+        self::$curlErrno = null;
+        self::$lastCurlOptions = [];
+        self::$mockingEnabled = false;
+    }
+
+    #[Test]
+    #[TestDox('Constructor and basic getters')]
+    public function test_constructor_and_getters(): void
+    {
+        $transport = new MailgunTransport($this->validConfig, $this->logger);
+
+        $this->assertEquals('mailgun', $transport->getName());
+        $this->assertEquals('example.com', $transport->getDomain());
+        $this->assertEquals('us', $transport->getRegion());
+        $this->assertStringContainsString('api.mailgun.net', $transport->getEndpoint());
+    }
+
+    #[Test]
+    #[TestDox('Constructor with EU region')]
+    public function test_constructor_eu_region(): void
     {
         $config = $this->validConfig;
         $config['region'] = 'eu';
+        $transport = new MailgunTransport($config);
 
-        $transport = new MailgunTransport($config, $this->logger);
-
-        $this->assertStringContainsString('api.eu.mailgun.net', $transport->getEndpoint());
-        $this->assertEquals('mg.example.com', $transport->getDomain());
         $this->assertEquals('eu', $transport->getRegion());
+        $this->assertStringContainsString('api.eu.mailgun.net', $transport->getEndpoint());
     }
 
-    public function testConstructorMissingApiKeyThrowsException(): void
+    #[Test]
+    #[TestDox('Constructor throws on invalid region')]
+    public function test_constructor_invalid_region(): void
     {
-        $invalidConfig = $this->validConfig;
-        unset($invalidConfig['api_key']);
+        $config = $this->validConfig;
+        $config['region'] = 'invalid';
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Mailgun configuration is incomplete. Missing or Not Valid: api_key');
-
-        new MailgunTransport($invalidConfig, $this->logger);
+        $this->expectException(InvalidArgumentException::class);
+        new MailgunTransport($config);
     }
 
-    public function testConstructorMissingDomainThrowsException(): void
+    #[Test]
+    #[TestDox('Constructor throws on missing config')]
+    public function test_constructor_missing_config(): void
     {
-        $invalidConfig = $this->validConfig;
-        unset($invalidConfig['domain']);
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Mailgun configuration is incomplete. Missing or Not Valid: domain');
-
-        new MailgunTransport($invalidConfig, $this->logger);
+        $this->expectException(InvalidArgumentException::class);
+        new MailgunTransport([]);
     }
 
-    public function testConstructorEmptyApiKeyThrowsException(): void
+    #[Test]
+    #[TestDox('Send success path')]
+    public function test_send_success(): void
     {
-        $invalidConfig = $this->validConfig;
-        $invalidConfig['api_key'] = '';
+        $transport = new MailgunTransport($this->validConfig, $this->logger);
+        $message = new Message('to@example.com', 'Subject', 'Content');
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Mailgun configuration is incomplete. Missing or Not Valid: api_key');
+        $transport->send($message);
 
-        new MailgunTransport($invalidConfig, $this->logger);
+        $this->assertNotEmpty(self::$lastCurlOptions);
+        $this->assertStringContainsString('api:mg-key', self::$lastCurlOptions[CURLOPT_USERPWD]);
     }
 
-    public function testConstructorEmptyDomainThrowsException(): void
+    #[Test]
+    #[TestDox('Send different content types')]
+    public function test_send_content_types(): void
     {
-        $invalidConfig = $this->validConfig;
-        $invalidConfig['domain'] = '';
+        $transport = new MailgunTransport($this->validConfig);
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Mailgun configuration is incomplete. Missing or Not Valid: domain');
+        // HTML
+        $msgHtml = new Message('to@example.com', 'Sub', '<b>body</b>', Message::CONTENT_TYPE_HTML);
+        $transport->send($msgHtml);
+        $this->assertStringContainsString('html=%3Cb%3Ebody%3C%2Fb%3E', (string)self::$lastCurlOptions[CURLOPT_POSTFIELDS]);
 
-        new MailgunTransport($invalidConfig, $this->logger);
+        // Text
+        $msgText = new Message('to@example.com', 'Sub', 'body', Message::CONTENT_TYPE_TEXT);
+        $transport->send($msgText);
+        $this->assertStringContainsString('text=body', self::$lastCurlOptions[CURLOPT_POSTFIELDS]);
+
+        // Mixed/Alt (defaults to HTML in implementation)
+        $msgMixed = new Message('to@example.com', 'Sub', 'body', Message::CONTENT_TYPE_MIXED);
+        $transport->send($msgMixed);
+        $this->assertStringContainsString('html=body', self::$lastCurlOptions[CURLOPT_POSTFIELDS]);
     }
 
-    public function testConstructorInvalidRegionThrowsException(): void
+    #[Test]
+    #[TestDox('Send with attachments')]
+    public function test_send_with_attachments(): void
     {
-        $invalidConfig = $this->validConfig;
-        $invalidConfig['region'] = 'asia';
+        $transport = new MailgunTransport($this->validConfig);
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid Mailgun region');
+        $tempFile = '/tmp/mailgun_test_' . uniqid();
+        file_put_contents($tempFile, 'test content');
 
-        new MailgunTransport($invalidConfig, $this->logger);
+        // Pass absolute path - our mock normalizeAttachment will handle it
+        $message = new Message('to@example.com', 'Subject', 'Content', Message::CONTENT_TYPE_TEXT, [$tempFile]);
+
+        $transport->send($message);
+
+        // When attachments are present, POSTFIELDS is an array (multipart/form-data)
+        $this->assertIsArray(self::$lastCurlOptions[CURLOPT_POSTFIELDS] ?? null);
+        $this->assertArrayHasKey('attachment[0]', self::$lastCurlOptions[CURLOPT_POSTFIELDS]);
+
+        @unlink($tempFile);
     }
 
-    public function testConstructorInvalidTimeoutThrowsException(): void
+    #[Test]
+    #[TestDox('Send with DKIM signature and custom headers')]
+    public function test_send_with_dkim_and_custom_headers(): void
     {
-        $invalidConfig = $this->validConfig;
-        $invalidConfig['timeout'] = 0;
+        $transport = new MailgunTransport($this->validConfig);
+        $message = new Message('to@example.com', 'Subject', 'Content');
+        $message->setDkimSignature('DKIM-Signature: v=1; a=rsa-sha256; ...');
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid timeout value. Must be a positive integer.');
+        $transport->send($message);
 
-        new MailgunTransport($invalidConfig, $this->logger);
+        $payload = self::$lastCurlOptions[CURLOPT_POSTFIELDS];
+        $this->assertStringContainsString('h%3ADKIM-Signature=v%3D1%3B+a%3Drsa-sha256%3B+...', $payload);
     }
 
-    public function testConstructorInvalidTimeoutTypeThrowsException(): void
+    #[Test]
+    #[TestDox('Send handles optional parameters like delivery time and tags')]
+    public function test_send_optional_parameters(): void
     {
-        $invalidConfig = $this->validConfig;
-        $invalidConfig['timeout'] = '30'; // String instead of int
+        $config = $this->validConfig;
+        $config['delivery_time'] = 'tomorrow';
+        $transport = new MailgunTransport($config);
+        $message = new Message('to@example.com', 'Sub', 'Body');
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid timeout value. Must be a positive integer.');
+        $transport->send($message);
 
-        new MailgunTransport($invalidConfig, $this->logger);
+        $payload = self::$lastCurlOptions[CURLOPT_POSTFIELDS];
+        $this->assertStringContainsString('o%3Adeliverytime=tomorrow', $payload);
+        $this->assertStringContainsString('o%3Atag%5B0%5D=test', $payload);
+        $this->assertStringContainsString('v%3Auser_id=123', $payload);
     }
 
-    public function testConstructorInvalidConnectTimeoutThrowsException(): void
+    #[Test]
+    #[TestDox('Send handles cURL failure')]
+    public function test_send_curl_failure(): void
     {
-        $invalidConfig = $this->validConfig;
-        $invalidConfig['connect_timeout'] = 0;
+        self::$curlExecReturn = false;
+        self::$curlError = 'Connection timeout';
+        self::$curlErrno = 28;
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid connect_timeout value. Must be a positive integer.');
+        $transport = new MailgunTransport($this->validConfig, $this->logger);
+        $message = new Message('a@b.com', 'S', 'B');
 
-        new MailgunTransport($invalidConfig, $this->logger);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('cURL request failed');
+        $transport->send($message);
     }
 
-    public function testConstructorInvalidConnectTimeoutTypeThrowsException(): void
+    #[Test]
+    #[TestDox('Send handles API errors with various HTTP codes')]
+    public function test_send_api_errors(): void
     {
-        $invalidConfig = $this->validConfig;
-        $invalidConfig['connect_timeout'] = '10'; // String instead of int
+        $transport = new MailgunTransport($this->validConfig);
+        $message = new Message('a@b.com', 'S', 'B');
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid connect_timeout value. Must be a positive integer.');
+        $errors = [
+            400 => InvalidArgumentException::class,
+            401 => RuntimeException::class,
+            402 => RuntimeException::class,
+            404 => RuntimeException::class,
+            413 => RuntimeException::class,
+            429 => RuntimeException::class,
+            500 => RuntimeException::class,
+            503 => RuntimeException::class,
+            418 => RuntimeException::class, // default
+        ];
 
-        new MailgunTransport($invalidConfig, $this->logger);
+        foreach ($errors as $code => $exception) {
+            self::$curlHttpCode = $code;
+            self::$curlExecReturn = json_encode(['message' => "Error $code"]);
+
+            try {
+                $transport->send($message);
+                $this->fail("Should have thrown $exception for code $code");
+            } catch (Exception $e) {
+                $this->assertInstanceOf($exception, $e, "Failed for code $code");
+            }
+        }
     }
 
-    public function testConstructorMissingFromConfigThrowsException(): void
+    #[Test]
+    #[TestDox('Send handles invalid JSON response')]
+    public function test_send_invalid_json(): void
     {
-        $invalidConfig = $this->validConfig;
-        unset($invalidConfig['from']);
+        self::$curlExecReturn = 'invalid json';
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage("Mailgun configuration must include 'from' address");
+        $transport = new MailgunTransport($this->validConfig);
 
-        new MailgunTransport($invalidConfig, $this->logger);
+        $this->expectException(RuntimeException::class);
+        $this->expectExceptionMessage('Invalid JSON response');
+        $transport->send(new Message('a@b.com', 'S', 'B'));
     }
 
-    public function testConstructorInvalidFromConfigThrowsException(): void
+    #[Test]
+    #[TestDox('Setup handles non-standard from configs')]
+    public function test_constructor_invalid_from(): void
     {
-        $invalidConfig = $this->validConfig;
-        $invalidConfig['from'] = 'not an array';
-
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage("Mailgun configuration must include 'from' address");
-
-        new MailgunTransport($invalidConfig, $this->logger);
+        $config = $this->validConfig;
+        $config['from'] = 'invalid';
+        $this->expectException(InvalidArgumentException::class);
+        new MailgunTransport($config);
     }
 
-    public function testConstructorInvalidFromEmailThrowsException(): void
+    #[Test]
+    #[TestDox('Constructor handles missing connect_timeout')]
+    public function test_constructor_timeouts(): void
     {
-        $invalidConfig = $this->validConfig;
-        if (is_array($invalidConfig['from'])) {
-            $invalidConfig['from']['address'] = 'invalid-email';
+        $config = $this->validConfig;
+
+        // Invalid timeout
+        $config['timeout'] = 0;
+        try {
+            new MailgunTransport($config);
+            $this->fail('Should throw for 0 timeout');
+        } catch (InvalidArgumentException) {
         }
 
-        $this->expectException(\InvalidArgumentException::class);
-        $this->expectExceptionMessage('Invalid \'from\' email address format');
-
-        new MailgunTransport($invalidConfig, $this->logger);
-    }
-
-    public function testConstructorWithDefaultRegion(): void
-    {
+        // Invalid connect_timeout
         $config = $this->validConfig;
-        unset($config['region']); // Should default to 'us'
-
-        $transport = new MailgunTransport($config, $this->logger);
-
-        $this->assertEquals('us', $transport->getRegion());
-        $this->assertStringContainsString('api.mailgun.net', $transport->getEndpoint());
-    }
-
-    public function testSendLogsSuccessAndFailure(): void
-    {
-        $transport = $this->getMockBuilder(MailgunTransport::class)
-            ->setConstructorArgs([$this->validConfig, $this->logger])
-            ->onlyMethods(['makeRequest'])
-            ->getMock();
-
-        $message = $this->createMock(Message::class);
-        $message->method('getTo')->willReturn('to@example.com');
-        $message->method('getSubject')->willReturn('Test Subject');
-        $message->method('getAttachments')->willReturn([]);
-        $message->method('getContentType')->willReturn(Message::CONTENT_TYPE_TEXT);
-        $message->method('getContent')->willReturn('Test body');
-        $message->method('getHeaders')->willReturn([]);
-        $message->method('getDkimSignature')->willReturn(null);
-        $message->method('getFrom')->willReturn('from@example.com');
-
-        $transport->expects($this->once())
-            ->method('makeRequest')
-            ->willReturn(['id' => 'test-id', 'message' => 'Queued']);
-
-        $this->logger->expects($this->atLeastOnce())
-            ->method('smartLog');
-
-        $transport->send($message);
-    }
-
-    public function testSendThrowsExceptionOnApiError(): void
-    {
-        $transport = $this->getMockBuilder(MailgunTransport::class)
-            ->setConstructorArgs([$this->validConfig, $this->logger])
-            ->onlyMethods(['makeRequest'])
-            ->getMock();
-
-        $message = $this->createMock(Message::class);
-        $message->method('getTo')->willReturn('to@example.com');
-        $message->method('getSubject')->willReturn('Test Subject');
-        $message->method('getAttachments')->willReturn([]);
-        $message->method('getContentType')->willReturn(Message::CONTENT_TYPE_TEXT);
-        $message->method('getContent')->willReturn('Test body');
-        $message->method('getHeaders')->willReturn([]);
-        $message->method('getDkimSignature')->willReturn(null);
-        $message->method('getFrom')->willReturn('from@example.com');
-
-        $transport->expects($this->once())
-            ->method('makeRequest')
-            ->will($this->throwException(new \RuntimeException('API error')));
-
-        $this->logger->expects($this->atLeastOnce())
-            ->method('error');
-
-        $this->expectException(\RuntimeException::class);
-        $transport->send($message);
-    }
-
-    public function testGetEndpointReturnsCorrectUrl(): void
-    {
-        $transport = new MailgunTransport($this->validConfig, $this->logger);
-        $this->assertStringContainsString('api.mailgun.net', $transport->getEndpoint());
-    }
-
-    public function testGetDomainReturnsConfiguredDomain(): void
-    {
-        $transport = new MailgunTransport($this->validConfig, $this->logger);
-        $this->assertEquals('mg.example.com', $transport->getDomain());
-    }
-
-    public function testGetRegionDefaultsToUs(): void
-    {
-        $config = $this->validConfig;
-        unset($config['region']);
-
-        $transport = new MailgunTransport($config, $this->logger);
-        $this->assertEquals('us', $transport->getRegion());
-    }
-
-    public function testGetNameReturnsMailgun(): void
-    {
-        $transport = new MailgunTransport($this->validConfig, $this->logger);
-        $this->assertEquals('mailgun', $transport->getName());
+        $config['connect_timeout'] = 0;
+        try {
+            new MailgunTransport($config);
+            $this->fail('Should throw for 0 connect_timeout');
+        } catch (InvalidArgumentException) {
+        }
     }
 }

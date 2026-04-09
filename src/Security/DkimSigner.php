@@ -4,6 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Security;
 
+use MonkeysLegion\Mail\Transport\MonkeysMailTransport;
 use MonkeysLegion\Mail\Transport\NullTransport;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
 use RuntimeException;
@@ -60,7 +61,7 @@ class DkimSigner
         $privateKey = '';
         $exportResult = openssl_pkey_export($keyResource, $privateKey, null, $config);
 
-        if (!is_string($privateKey) || $privateKey === '') {
+        if (!\is_string($privateKey) || $privateKey === '') {
             throw new RuntimeException("Exported private key is not a valid string");
         }
 
@@ -76,7 +77,7 @@ class DkimSigner
             throw new RuntimeException("Failed to get public key details: $error");
         }
 
-        if (!isset($publicKeyDetails['key']) || !is_string($publicKeyDetails['key']) || $publicKeyDetails['key'] === '') {
+        if (!isset($publicKeyDetails['key']) || !\is_string($publicKeyDetails['key']) || $publicKeyDetails['key'] === '') {
             throw new RuntimeException("Public key is not a valid string");
         }
 
@@ -117,7 +118,7 @@ class DkimSigner
         $signature = '';
         $signResult = openssl_sign($stringToSign, $signature, $privateKey, OPENSSL_ALGO_SHA256);
 
-        if (!$signResult || !is_string($signature) || $signature === '') {
+        if (!$signResult || !\is_string($signature) || $signature === '') {
             throw new RuntimeException("Failed to sign DKIM headers: " . openssl_error_string());
         }
 
@@ -210,7 +211,11 @@ class DkimSigner
      */
     public static function shouldSign(string $transportName, array $config): bool
     {
-        $localTransports = [NullTransport::class, SendmailTransport::class];
+        $localTransports = [
+            NullTransport::class, // just a dummy transport for testing, no need to sign
+            SendmailTransport::class, // TODO: Consider planing for milter integration in the future, but for now we won't sign emails sent via sendmail
+            MonkeysMailTransport::class // Signing is handled in the platform's mailer, so we don't want to sign again here
+        ];
         return !in_array($transportName, $localTransports) && !empty($config['dkim_private_key'])
             && !empty($config['dkim_selector']) && !empty($config['dkim_domain']);
     }

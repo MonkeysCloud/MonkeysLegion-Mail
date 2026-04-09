@@ -4,16 +4,21 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Mail;
 
+use MonkeysLegion\DI\Traits\ContainerAware;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\Template\Renderer;
-use MonkeysLegion\Mail\Service\ServiceContainer;
+
+use Exception;
+use InvalidArgumentException;
+use RuntimeException;
 
 /**
  * Base Mailable class for creating structured mail classes
  */
 abstract class Mailable
 {
+    use ContainerAware;
     // =================================================================
     // PROPERTIES
     // =================================================================
@@ -45,11 +50,14 @@ abstract class Mailable
     /** @var array<string, mixed> */
     protected array $viewData = [];
 
-    /** Service container instance */
-    private ServiceContainer $container;
-
     /** Logger instance */
-    private MonkeysLoggerInterface $logger;
+    private ?MonkeysLoggerInterface $logger;
+
+    /** Mailer instance */
+    private Mailer $mailer;
+
+    /** Renderer instance */
+    private Renderer $renderer;
 
     // =================================================================
     // CONSTRUCTOR & ABSTRACT METHODS
@@ -57,10 +65,25 @@ abstract class Mailable
 
     public function __construct()
     {
-        $this->container = ServiceContainer::getInstance();
-        /** @var MonkeysLoggerInterface $logger */
-        $logger = $this->container->get(MonkeysLoggerInterface::class);
+        /** @var MonkeysLoggerInterface|null $logger */
+        $logger = $this->has(MonkeysLoggerInterface::class) ? $this->resolve(MonkeysLoggerInterface::class) : null;
         $this->logger = $logger;
+
+        /** @var Mailer|null $mailer */
+        $mailer = $this->has(Mailer::class) ? $this->resolve(Mailer::class) : null;
+        if (!$mailer) {
+            $this->logger?->error("No mailer configured. Mailable cannot be used.");
+            throw new RuntimeException("No mailer configured.");
+        }
+
+        /** @var Renderer|null $renderer */
+        $renderer = $this->has(Renderer::class) ? $this->resolve(Renderer::class) : null;
+        if (!$renderer) {
+            $this->logger?->error("No renderer configured. Mailable cannot be used.");
+            throw new RuntimeException("No renderer configured.");
+        }
+        $this->mailer = $mailer;
+        $this->renderer = $renderer;
     }
 
     /**
@@ -74,65 +97,59 @@ abstract class Mailable
     // =================================================================
 
     /**
-     * Send the mail immediately
+     * Send the mail immediately.
+     *
+     * Calls {@see afterSent()} on success or {@see afterFailed()} on failure,
+     * giving each concrete mailable its own hook without touching global state.
      */
     public function send(): void
     {
-        // Build the mail first
         $this->build();
-
-        // Validate required fields
         $this->validate();
+
+        // Tell the Mailer which mailable class is active so events carry that context.
+        $this->mailer->setMailableContext(static::class);
 
         try {
             $this->validateBeforeSend();
-
-            /** @var Mailer $mailer */
-            $mailer = $this->container->get(Mailer::class);
-
-            // Render content if view is specified
             $content = $this->renderContent();
 
-            $mailer->send(
+            $this->mailer->send(
                 $this->to ?? '',
                 $this->subject ?? '',
                 $content,
                 $this->contentType,
                 $this->attachments
             );
-        } catch (\Exception $e) {
-            $this->logger->error("Mailable sending failed", [
-                'class' => static::class,
-                'to' => $this->to,
-                'exception' => $e,
-                'error_message' => $e->getMessage()
+        } catch (Exception $e) {
+            $this->logger?->error("Mailable sending failed", [
+                'class'         => static::class,
+                'to'            => $this->to,
+                'exception'     => $e,
+                'error_message' => $e->getMessage(),
             ]);
             throw $e;
+        } finally {
+            $this->mailer->setMailableContext(null);
         }
     }
 
     /**
-     * Queue the mail for background processing
+     * Queue the mail for background processing.
      */
     public function queue(): mixed
     {
-
-        // Build the mail first
         $this->build();
-
-        // Validate required fields
         $this->validate();
+
+        // Tell the Mailer which mailable class is active.
+        $this->mailer->setMailableContext(static::class);
 
         try {
             $this->validateBeforeSend();
-
-            /** @var Mailer $mailer */
-            $mailer = $this->container->get(Mailer::class);
-
-            // Render content if view is specified
             $content = $this->renderContent();
 
-            $jobId = $mailer->queue(
+            $jobId = $this->mailer->queue(
                 $this->to ?? '',
                 $this->subject ?? '',
                 $content,
@@ -141,21 +158,23 @@ abstract class Mailable
                 $this->queue
             );
 
-            $this->logger->smartLog("Mailable queued successfully", [
-                'class' => static::class,
+            $this->logger?->smartLog("Mailable queued successfully", [
+                'class'  => static::class,
                 'job_id' => $jobId,
-                'to' => $this->to
+                'to'     => $this->to,
             ]);
 
             return $jobId;
-        } catch (\Exception $e) {
-            $this->logger->error("Mailable queueing failed", [
-                'class' => static::class,
-                'to' => $this->to,
-                'exception' => $e,
-                'error_message' => $e->getMessage()
+        } catch (Exception $e) {
+            $this->logger?->error("Mailable queueing failed", [
+                'class'         => static::class,
+                'to'            => $this->to,
+                'exception'     => $e,
+                'error_message' => $e->getMessage(),
             ]);
             throw $e;
+        } finally {
+            $this->mailer->setMailableContext(null);
         }
     }
 
@@ -328,23 +347,23 @@ abstract class Mailable
     {
         foreach ($config as $key => $value) {
             match ($key) {
-                'to' => is_string($value)
+                'to' => \is_string($value)
                     ? $this->setTo($value)
-                    : throw new \InvalidArgumentException("Config 'to' must be string"),
+                    : throw new InvalidArgumentException("Config 'to' must be string"),
 
-                'subject' => is_string($value)
+                'subject' => \is_string($value)
                     ? $this->setSubject($value)
-                    : throw new \InvalidArgumentException("Config 'subject' must be string"),
+                    : throw new InvalidArgumentException("Config 'subject' must be string"),
 
-                'view' => is_string($value)
+                'view' => \is_string($value)
                     ? $this->setView($value)
-                    : throw new \InvalidArgumentException("Config 'view' must be string"),
+                    : throw new InvalidArgumentException("Config 'view' must be string"),
 
-                'queue' => is_string($value)
+                'queue' => \is_string($value)
                     ? $this->setQueue($value)
-                    : throw new \InvalidArgumentException("Config 'queue' must be string"),
+                    : throw new InvalidArgumentException("Config 'queue' must be string"),
 
-                'viewData' => is_array($value)
+                'viewData' => \is_array($value)
                     ? $this->mergeViewData((function ($arr) {
                         $result = [];
                         foreach ($arr as $k => $v) {
@@ -352,15 +371,15 @@ abstract class Mailable
                         }
                         return $result;
                     })($value))
-                    : throw new \InvalidArgumentException("Config 'viewData' must be array"),
+                    : throw new InvalidArgumentException("Config 'viewData' must be array"),
 
-                'timeout' => is_int($value)
+                'timeout' => \is_int($value)
                     ? $this->setTimeout($value)
-                    : throw new \InvalidArgumentException("Config 'timeout' must be int"),
+                    : throw new InvalidArgumentException("Config 'timeout' must be int"),
 
-                'maxTries' => is_int($value)
+                'maxTries' => \is_int($value)
                     ? $this->setMaxTries($value)
-                    : throw new \InvalidArgumentException("Config 'maxTries' must be int"),
+                    : throw new InvalidArgumentException("Config 'maxTries' must be int"),
 
                 default => null, // safely ignore unknown keys
             };
@@ -479,23 +498,20 @@ abstract class Mailable
     private function renderContent(): string
     {
         if ($this->view === null) {
-            throw new \InvalidArgumentException("No view specified for mail class " . static::class);
+            throw new InvalidArgumentException("No view specified for mail class " . static::class);
         }
 
         try {
-            /** @var Renderer $renderer */
-            $renderer = $this->container->get(Renderer::class);
-
-            $content = $renderer->render($this->view, $this->viewData);
+            $content = $this->renderer->render($this->view, $this->viewData);
             return $content;
-        } catch (\Exception $e) {
-            $this->logger->error("Failed to render mail content", [
+        } catch (Exception $e) {
+            $this->logger?->error("Failed to render mail content", [
                 'class' => static::class,
                 'view' => $this->view,
                 'exception' => $e,
                 'error_message' => $e->getMessage()
             ]);
-            throw new \RuntimeException("Failed to render mail content: " . $e->getMessage(), 0, $e);
+            throw new RuntimeException("Failed to render mail content: " . $e->getMessage(), 0, $e);
         }
     }
 
@@ -519,11 +535,11 @@ abstract class Mailable
         }
 
         if (!empty($errors)) {
-            $this->logger->error("Mail validation failed", [
+            $this->logger?->error("Mail validation failed", [
                 'class' => static::class,
                 'errors' => $errors
             ]);
-            throw new \InvalidArgumentException(implode(', ', $errors));
+            throw new InvalidArgumentException(implode(', ', $errors));
         }
     }
 
@@ -532,33 +548,19 @@ abstract class Mailable
      * @param string $driver The driver name (e.g., 'smtp', 'sendmail')
      * @param array<string, mixed> $config Optional configuration for the driver
      * @return $this
-     * @throws \Exception If the driver cannot be set
+     * @throws Exception If the driver cannot be set
      */
     public function setDriver(string $driver, array $config = []): self
     {
-        $this->logger->smartLog("Setting mail driver from Mailable", [
+        $this->logger?->smartLog("Setting mail driver from Mailable", [
             'class' => static::class,
             'driver' => $driver,
             'has_custom_config' => !empty($config)
         ]);
 
         try {
-            /** @var Mailer $mailer */
-            $mailer = $this->container->get(Mailer::class);
-            $mailer->setDriver($driver, $config);
-
-            $this->logger->smartLog("Mail driver set successfully from Mailable", [
-                'class' => static::class,
-                'driver' => $driver,
-                'new_driver_class' => $mailer->getCurrentDriver()
-            ]);
-        } catch (\Exception $e) {
-            $this->logger->error("Failed to set mail driver from Mailable", [
-                'class' => static::class,
-                'driver' => $driver,
-                'exception' => $e,
-                'error_message' => $e->getMessage()
-            ]);
+            $this->mailer->setDriver($driver, $config);
+        } catch (Exception $e) {
             throw $e;
         }
 
@@ -622,12 +624,12 @@ abstract class Mailable
 
     private function validateBeforeSend(): void
     {
-        if (!is_string($this->to) || empty($this->to) || !filter_var($this->to, FILTER_VALIDATE_EMAIL)) {
-            throw new \InvalidArgumentException("Valid recipient email address is required");
+        if (!\is_string($this->to) || empty($this->to) || !filter_var($this->to, FILTER_VALIDATE_EMAIL)) {
+            throw new InvalidArgumentException("Valid recipient email address is required");
         }
 
-        if (!is_string($this->subject)) {
-            throw new \InvalidArgumentException("Subject must be a valid string");
+        if (!\is_string($this->subject)) {
+            throw new InvalidArgumentException("Subject must be a valid string");
         }
     }
 }

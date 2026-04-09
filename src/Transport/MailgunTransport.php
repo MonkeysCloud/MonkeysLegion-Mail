@@ -2,13 +2,17 @@
 
 namespace MonkeysLegion\Mail\Transport;
 
-use CURLFile;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
-use MonkeysLegion\Mail\Enums\MailDefaults;
 use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Enums\MailgunRegion;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
+
+use CURLFile;
+use Exception;
+use InvalidArgumentException;
+use RuntimeException;
+use ValueError;
 
 class MailgunTransport implements TransportInterface
 {
@@ -51,7 +55,7 @@ class MailgunTransport implements TransportInterface
      * Validate and set configuration values
      *
      * @param array<string, mixed> $config
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      * @return void
      */
     private function validateAndSetConfig(array $config): void
@@ -59,11 +63,11 @@ class MailgunTransport implements TransportInterface
         // Validate required fields
         $required = ['api_key', 'domain'];
         $missing = array_filter($required, function ($key) use ($config) {
-            return !isset($config[$key]) || !is_string($config[$key]) || trim($config[$key]) === '';
+            return !isset($config[$key]) || !\is_string($config[$key]) || trim($config[$key]) === '';
         });
 
         if (!empty($missing)) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 'Mailgun configuration is incomplete. Missing or Not Valid: ' . implode(', ', $missing)
             );
         }
@@ -73,14 +77,14 @@ class MailgunTransport implements TransportInterface
         $this->domain = safeString($config['domain']);
 
         // Validate and assign 'from'
-        if (isset($config['from']) && is_array($config['from'])) {
+        if (isset($config['from']) && \is_array($config['from'])) {
             $fromAddress = safeString($config['from']['address']);
             $fromName = safeString($config['from']['name']);
 
             if (!filter_var($fromAddress, FILTER_VALIDATE_EMAIL)) {
                 $warning = "Invalid 'from' email address format: {$fromAddress}";
                 $this->logger?->warning($warning);
-                throw new \InvalidArgumentException($warning);
+                throw new InvalidArgumentException($warning);
             }
 
             $this->from = [
@@ -88,7 +92,7 @@ class MailgunTransport implements TransportInterface
                 'name' => $fromName,
             ];
         } else {
-            throw new \InvalidArgumentException("Mailgun configuration must include 'from' address");
+            throw new InvalidArgumentException("Mailgun configuration must include 'from' address");
         }
 
         // Validate and assign region if provided
@@ -96,27 +100,27 @@ class MailgunTransport implements TransportInterface
         try {
             $region = MailgunRegion::from($regionString);
             $this->region = $region->value;
-        } catch (\ValueError $e) {
+        } catch (ValueError $e) {
             $warning = "Invalid Mailgun region '{$regionString}'. Supported regions: " .
                 implode(', ', array_map(fn($r) => $r->value, MailgunRegion::cases()));
             $this->logger?->warning($warning);
-            throw new \InvalidArgumentException($warning);
+            throw new InvalidArgumentException($warning);
         }
 
         // Timeout settings
-        if (!isset($config['timeout']) || !is_int($config['timeout']) || $config['timeout'] <= 0) {
-            throw new \InvalidArgumentException("Invalid timeout value. Must be a positive integer.");
+        if (!isset($config['timeout']) || !\is_int($config['timeout']) || $config['timeout'] <= 0) {
+            throw new InvalidArgumentException("Invalid timeout value. Must be a positive integer.");
         }
         $this->timeout = $config['timeout'];
 
-        if (!isset($config['connect_timeout']) || !is_int($config['connect_timeout']) || $config['connect_timeout'] <= 0) {
-            throw new \InvalidArgumentException("Invalid connect_timeout value. Must be a positive integer.");
+        if (!isset($config['connect_timeout']) || !\is_int($config['connect_timeout']) || $config['connect_timeout'] <= 0) {
+            throw new InvalidArgumentException("Invalid connect_timeout value. Must be a positive integer.");
         }
         $this->connectTimeout = $config['connect_timeout'];
 
         // Tracking options
         $this->tracking = [];
-        if (isset($config['tracking']) && is_array($config['tracking'])) {
+        if (isset($config['tracking']) && \is_array($config['tracking'])) {
             $this->tracking = [
                 'clicks' => isset($config['tracking']['clicks']) ? (bool)$config['tracking']['clicks'] : true,
                 'opens' => isset($config['tracking']['opens']) ? (bool)$config['tracking']['opens'] : true
@@ -129,16 +133,16 @@ class MailgunTransport implements TransportInterface
         }
 
         // Tags
-        if (isset($config['tags']) && is_array($config['tags']) && !empty($config['tags'])) {
-            $tags = array_values(array_filter($config['tags'], fn($tag) => is_string($tag)));
+        if (isset($config['tags']) && \is_array($config['tags']) && !empty($config['tags'])) {
+            $tags = array_values(array_filter($config['tags'], fn($tag) => \is_string($tag)));
             $this->tags = array_slice($tags, 0, 3); // keep only first 3
         }
 
         // Variables
-        if (isset($config['variables']) && is_array($config['variables'])) {
+        if (isset($config['variables']) && \is_array($config['variables'])) {
             $validVars = [];
             foreach ($config['variables'] as $key => $value) {
-                if (is_string($key)) {
+                if (\is_string($key)) {
                     $validVars[$key] = $value;
                 }
             }
@@ -169,7 +173,7 @@ class MailgunTransport implements TransportInterface
                 'mailgun_id' => $response['id'] ?? null,
                 'message' => $response['message'] ?? null
             ]);
-        } catch (\Exception $e) {
+        } catch (Exception $e) {
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
             $this->logger?->error("Mailgun API request failed", [
@@ -313,7 +317,7 @@ class MailgunTransport implements TransportInterface
             /** @var array<string, mixed>|string $attachment */
             try {
                 $normalized = normalizeAttachment($attachment, base_path('/public'), true);
-            } catch (\RuntimeException $e) {
+            } catch (RuntimeException $e) {
                 $this->logger?->warning("Attachment error: " . $e->getMessage(), [
                     'file' => $attachment,
                     'to' => $message->getTo()
@@ -367,10 +371,14 @@ class MailgunTransport implements TransportInterface
      * Make the actual API request to Mailgun
      * @param array<string, mixed> $postData Data to send in the POST request
      * @return array<string, mixed> Decoded JSON response from Mailgun API
-     * @throws \RuntimeException If the request fails or response is invalid
+     * @throws RuntimeException If the request fails or response is invalid
      */
     protected function makeRequest(array $postData): array
     {
+        if ($this->endpoint === '') {
+            throw new RuntimeException('Mailgun endpoint is not configured');
+        }
+
         $ch = curl_init();
 
         // Check if we have file uploads (CURLFile objects)
@@ -406,14 +414,12 @@ class MailgunTransport implements TransportInterface
         $curlError = curl_error($ch);
         $curlErrno = curl_errno($ch);
 
-        curl_close($ch);
-
         if ($response === false) {
             $this->logger?->error("cURL request failed", [
                 'errno' => $curlErrno,
                 'error' => $curlError,
             ]);
-            throw new \RuntimeException("cURL request failed: {$curlError}");
+            throw new RuntimeException("cURL request failed: {$curlError}");
         }
 
         if ($curlErrno !== 0) {
@@ -422,7 +428,7 @@ class MailgunTransport implements TransportInterface
                 'error' => $curlError,
                 'endpoint' => $this->endpoint,
             ]);
-            throw new \RuntimeException("cURL error ({$curlErrno}): {$curlError}");
+            throw new RuntimeException("cURL error ({$curlErrno}): {$curlError}");
         }
 
         if ($httpCode < 200 || $httpCode >= 300) {
@@ -442,7 +448,7 @@ class MailgunTransport implements TransportInterface
                 'response' => $response,
                 'endpoint' => $this->endpoint,
             ]);
-            throw new \RuntimeException("Invalid JSON response from Mailgun API: " . json_last_error_msg());
+            throw new RuntimeException("Invalid JSON response from Mailgun API: " . json_last_error_msg());
         }
 
         return $decodedResponse;
@@ -458,7 +464,7 @@ class MailgunTransport implements TransportInterface
             if ($value instanceof CURLFile) {
                 return true;
             }
-            if (is_array($value)) {
+            if (\is_array($value)) {
                 foreach ($value as $item) {
                     if ($item instanceof CURLFile) {
                         return true;
@@ -472,13 +478,13 @@ class MailgunTransport implements TransportInterface
     private function handleApiError(int $httpCode, string $response): void
     {
         $decodedResponse = json_decode($response, true);
-        if (!is_array($decodedResponse)) {
-            throw new \RuntimeException("Invalid API response format");
+        if (!\is_array($decodedResponse)) {
+            throw new RuntimeException("Invalid API response format");
         }
         $message = 'Unknown error';
 
         if (isset($decodedResponse['message'])) {
-            if (is_string($decodedResponse['message'])) {
+            if (\is_string($decodedResponse['message'])) {
                 $message = $decodedResponse['message'];
             } elseif (is_scalar($decodedResponse['message'])) {
                 $message = (string)$decodedResponse['message'];
@@ -489,25 +495,25 @@ class MailgunTransport implements TransportInterface
 
         switch ($httpCode) {
             case 400:
-                throw new \InvalidArgumentException("Bad Request: {$message}");
+                throw new InvalidArgumentException("Bad Request: {$message}");
             case 401:
-                throw new \RuntimeException("Unauthorized: Invalid API key or domain");
+                throw new RuntimeException("Unauthorized: Invalid API key or domain");
             case 402:
-                throw new \RuntimeException("Payment Required: {$message}");
+                throw new RuntimeException("Payment Required: {$message}");
             case 404:
-                throw new \RuntimeException("Not Found: Domain not found or not configured");
+                throw new RuntimeException("Not Found: Domain not found or not configured");
             case 413:
-                throw new \RuntimeException("Request Entity Too Large: {$message}");
+                throw new RuntimeException("Request Entity Too Large: {$message}");
             case 429:
-                throw new \RuntimeException("Rate Limited: {$message}");
+                throw new RuntimeException("Rate Limited: {$message}");
             case 500:
-                throw new \RuntimeException("Internal Server Error: {$message}");
+                throw new RuntimeException("Internal Server Error: {$message}");
             case 502:
             case 503:
             case 504:
-                throw new \RuntimeException("Service Unavailable: {$message}");
+                throw new RuntimeException("Service Unavailable: {$message}");
             default:
-                throw new \RuntimeException("Mailgun API Error (HTTP {$httpCode}): {$message}");
+                throw new RuntimeException("Mailgun API Error (HTTP {$httpCode}): {$message}");
         }
     }
 

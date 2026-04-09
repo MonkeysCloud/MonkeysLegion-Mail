@@ -4,40 +4,62 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail;
 
+use MonkeysLegion\DI\Container;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\MailDriverName;
-use MonkeysLegion\Mail\Service\ServiceContainer;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
+use MonkeysLegion\Mail\Transport\MonkeysMailTransport;
 use MonkeysLegion\Mail\Transport\NullTransport;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
 use MonkeysLegion\Mail\Transport\SmtpTransport;
 
+use InvalidArgumentException;
+
+/**
+ * Class MailerFactory
+ *
+ * A centralized factory service responsible for resolving and managing mail transports.
+ * The factory implements a "Manager" pattern, allowing the application to toggle 
+ * between different delivery providers (SMTP, Mailgun, etc.) while abstracting 
+ * the underlying implementation from the consumer.
+ *
+ * @package MonkeysLegion\Mail
+ */
 class MailerFactory
 {
-    private ?MonkeysLoggerInterface $logger;
 
-    public function __construct(private ServiceContainer $container)
-    {
-        try {
-            /** @var MonkeysLoggerInterface $logger */
-            $logger = $this->container->get(MonkeysLoggerInterface::class);
-            $this->logger = $logger;
-        } catch (\Exception $e) {
-            $this->logger?->error($e->getMessage());
-            $this->logger = null;
-        }
-    }
+    /**
+     * Initialises the MailerFactory service.
+     *
+     * This factory manages the lifecycle and instantiation of various mail transports.
+     * It maintains the application's mail configuration and provides mechanisms to 
+     * swap the active transport implementation within the DI Container at runtime.
+     *
+     * @param MonkeysLoggerInterface $logger    The logging service for tracking transport 
+     * initialization and driver-switch failures.
+     * @param array<string, mixed>   $config    The global mail configuration containing 
+     * default driver settings and driver-specific 
+     * connection parameters.
+     * @param Container              $container The Dependency Injection container used to 
+     * rebind the TransportInterface when the 
+     * active driver is changed.
+     */
+    public function __construct(
+        private MonkeysLoggerInterface $logger,
+        private array $config,
+        private Container $container
+    ) {}
 
     /**
      * Create a Mailer instance based on the provided configuration.
      *
      * @param array<string, mixed> $config Configuration for the mailer.
      * @return TransportInterface
-     * @throws \InvalidArgumentException If the driver is unknown.
+     * @throws InvalidArgumentException If the driver is unknown.
      */
     public static function make(array $config = [], ?MonkeysLoggerInterface $logger = null): TransportInterface
     {
-        $driver = safeString($config['driver'], 'null');
+        $driver = safeString($config['driver'] ?? 'null', 'null');
         return self::getTransport($driver, $config, $logger);
     }
 
@@ -59,24 +81,24 @@ class MailerFactory
      *
      * @param string $driver The driver name
      * @return TransportInterface
-     * @throws \InvalidArgumentException If the driver is unknown.
+     * @throws InvalidArgumentException If the driver is unknown.
      */
     public function setDriver(string $driver): TransportInterface
     {
         try {
-            $config = $this->container->getConfig('mail');
             $driver = $this->validateDriver($driver);
-            $config = array_merge(['driver' => $driver], $config);
+            $config = array_merge(['driver' => $driver], $this->config);
+            $transport = self::make($config, $this->logger);
 
-            $this->container->set(TransportInterface::class, function () use ($config) {
-                return self::make($config, $this->logger);
+            $this->container->set(TransportInterface::class, function () use ($transport) {
+                return $transport;
             });
-
-            /** @var TransportInterface $transport */
-            $transport = $this->container->get(TransportInterface::class);
             return $transport;
-        } catch (\InvalidArgumentException $e) {
-            $this->logger?->error($e->getMessage());
+        } catch (InvalidArgumentException $e) {
+            $this->logger->error('Failed to set mail driver', [
+                'driver' => $driver,
+                'error' => $e->getMessage(),
+            ]);
             throw $e;
         }
     }
@@ -86,13 +108,13 @@ class MailerFactory
      *
      * @param string $driver
      * @return string
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     private static function validateDriver(string $driver): string
     {
         $driverString = strtolower(safeString($driver, 'null'));
         $driverEnum = MailDriverName::tryFrom($driverString);
-        if (!$driverEnum) throw new \InvalidArgumentException("Unknown driver: $driverString");
+        if (!$driverEnum) throw new InvalidArgumentException("Unknown driver: $driverString");
         return $driverEnum->value;
     }
 
@@ -102,12 +124,12 @@ class MailerFactory
      * @param string $driver
      * @param array<string, mixed> $config
      * @return array<string, mixed>
-     * @throws \InvalidArgumentException
+     * @throws InvalidArgumentException
      */
     private static function getDriverConfig(string $driver, array $config): array
     {
         if (!isset($config['drivers'])) {
-            throw new \InvalidArgumentException("No drivers configured");
+            throw new InvalidArgumentException("No drivers configured");
         }
         /** @var array<string, mixed> $config */
         $config = $config['drivers'];
@@ -116,8 +138,9 @@ class MailerFactory
             MailDriverName::SMTP->value => $config[MailDriverName::SMTP->value],
             MailDriverName::SENDMAIL->value => $config[MailDriverName::SENDMAIL->value],
             MailDriverName::MAILGUN->value => $config[MailDriverName::MAILGUN->value],
+            MailDriverName::MONKEYS_MAIL->value => $config[MailDriverName::MONKEYS_MAIL->value],
             MailDriverName::NULL->value => $config[MailDriverName::NULL->value],
-            default => throw new \InvalidArgumentException("Unknown driver: $driver"),
+            default => throw new InvalidArgumentException("Unknown driver: $driver"),
         };
 
         return $config;
@@ -129,9 +152,9 @@ class MailerFactory
      * @param string $driver
      * @param array<string, mixed> $config
      * @return TransportInterface
-     * @throws \InvalidArgumentException If the driver is unknown.
+     * @throws InvalidArgumentException If the driver is unknown.
      */
-    private static function getTransport(string $driver, array $config, ?MonkeysLoggerInterface $logger): TransportInterface
+    private static function getTransport(string $driver, array $config, ?MonkeysLoggerInterface $logger = null): TransportInterface
     {
         $driver = self::validateDriver($driver);
         $config = self::getDriverConfig($driver, $config);
@@ -139,8 +162,9 @@ class MailerFactory
             MailDriverName::SMTP->value => new SmtpTransport($config, $logger),
             MailDriverName::SENDMAIL->value => new SendmailTransport($config, $logger),
             MailDriverName::MAILGUN->value => new MailgunTransport($config, $logger),
+            MailDriverName::MONKEYS_MAIL->value => new MonkeysMailTransport($config, $logger),
             MailDriverName::NULL->value => new NullTransport($config, $logger),
-            default => throw new \InvalidArgumentException("Unknown driver: $driver"),
+            default => throw new InvalidArgumentException("Unknown driver: $driver"),
         };
     }
 }

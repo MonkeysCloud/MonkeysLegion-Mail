@@ -13,4 +13,11 @@ interface TransportInterface
      * @return void
      */
     public function send(Message $m): void;
+
+    /**
+     * Get the name of the transport.
+     *
+     * @return string The name of the transport.
+     */
+    public function getName(): string;
 }

@@ -9,7 +9,7 @@ return [
     |
     | This option controls the default mailer that is used to send all email
     | messages unless another mailer is explicitly specified when sending
-    | the message.a
+    | the message.
     |
     */
 
@@ -35,9 +35,6 @@ return [
                 'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourapp.com',
                 'name' => $_ENV['MAIL_FROM_NAME'] ?? 'My App'
             ],
-            'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
-            'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
-            'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
         ],
 
         /*|--------------------------------------------------------------------------
@@ -102,6 +99,22 @@ return [
             'dkim_private_key' => $_ENV['MAIL_DKIM_PRIVATE_KEY'] ?? '',
             'dkim_selector' => $_ENV['MAIL_DKIM_SELECTOR'] ?? 'default',
             'dkim_domain' => $_ENV['MAIL_DKIM_DOMAIN'] ?? '',
+        ],
+
+        /*|--------------------------------------------------------------------------
+        | Monkeys Mail (MonkeysLegion API)
+        |--------------------------------------------------------------------------
+        | This driver sends emails via the MonkeysMail HTTP API.
+        |*/
+        'monkeys_mail' => [
+            'api_key' => $_ENV['MONKEYS_MAIL_API_KEY'] ?? '',
+            'domain' => $_ENV['MONKEYS_MAIL_DOMAIN'] ?? 'monkeys.cloud',
+            'from' => [
+                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'no-reply@monkeys.cloud',
+                'name' => $_ENV['MAIL_FROM_NAME'] ?? 'MonkeysCloud Support',
+            ],
+            'tracking_opens' => filter_var($_ENV['MONKEYS_MAIL_TRACKING_OPENS'] ?? true, FILTER_VALIDATE_BOOLEAN),
+            'tracking_clicks' => filter_var($_ENV['MONKEYS_MAIL_TRACKING_CLICKS'] ?? true, FILTER_VALIDATE_BOOLEAN),
         ],
 
         /*|--------------------------------------------------------------------------

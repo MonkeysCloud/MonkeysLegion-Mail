@@ -25,4 +25,10 @@ foreach ($testDirs as $dir) {
 // Load autoloader
 require_once dirname(__DIR__) . '/vendor/autoload.php';
 
-echo "Test environment initialized\n";
+// Load .env if exists
+if (file_exists(dirname(__DIR__) . '/.env')) {
+    $dotenv = \Dotenv\Dotenv::createImmutable(dirname(__DIR__));
+    $dotenv->load();
+}
+
+

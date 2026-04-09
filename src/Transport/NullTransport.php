@@ -9,11 +9,13 @@ use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
 
+use InvalidArgumentException;
+
 /**
  * Null transport for testing purposes
  * Does not actually send emails, just logs them
  */
-final class NullTransport implements TransportInterface
+class NullTransport implements TransportInterface
 {
     private string $fromAddress;
     private string $fromName;
@@ -24,7 +26,7 @@ final class NullTransport implements TransportInterface
      */
     public function __construct(
         private array $config,
-        private ?MonkeysLoggerInterface $logger
+        private ?MonkeysLoggerInterface $logger = null
     ) {
         $this->validateAndSetConfig();
     }
@@ -51,7 +53,7 @@ final class NullTransport implements TransportInterface
             ];
 
             $this->logger?->smartLog("NullTransport: Email to {$to} with subject '{$subject}'", $logData);
-        } catch (\InvalidArgumentException $e) {
+        } catch (InvalidArgumentException $e) {
             $this->logger?->error("NullTransport send failed due to invalid argument", [
                 'to' => $to,
                 'subject' => $subject,
@@ -71,11 +73,11 @@ final class NullTransport implements TransportInterface
     private function validateEmail(string $to, string $subject): bool
     {
         if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-            throw new \InvalidArgumentException("Invalid email address: $to");
+            throw new InvalidArgumentException("Invalid email address: $to");
         }
 
         if (empty($subject)) {
-            throw new \InvalidArgumentException("Email subject cannot be empty");
+            throw new InvalidArgumentException("Email subject cannot be empty");
         }
 
         return true;
@@ -86,11 +88,11 @@ final class NullTransport implements TransportInterface
         $from = $this->config['from'] ?? [];
 
         if (
-            !is_array($from) ||
+            !\is_array($from) ||
             empty($from['address']) ||
             !filter_var($from['address'], FILTER_VALIDATE_EMAIL)
         ) {
-            throw new \InvalidArgumentException("Invalid or missing 'from.address' in config.");
+            throw new InvalidArgumentException("Invalid or missing 'from.address' in config.");
         }
 
         $this->fromAddress = safeString($from['address']);

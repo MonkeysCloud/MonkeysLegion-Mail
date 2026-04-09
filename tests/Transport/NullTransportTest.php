@@ -5,8 +5,13 @@ namespace MonkeysLegion\Mailer\Tests\Transport;
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\NullTransport;
+
+use InvalidArgumentException;
+
+use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\TestCase;
 
+#[AllowMockObjectsWithoutExpectations]
 class NullTransportTest extends TestCase
 {
     private MonkeysLoggerInterface $logger;
@@ -39,7 +44,7 @@ class NullTransportTest extends TestCase
             // Missing 'from' configuration
         ];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Invalid or missing 'from.address' in config");
 
         new NullTransport($invalidConfig, $this->logger);
@@ -51,7 +56,7 @@ class NullTransportTest extends TestCase
             'from' => 'not an array'
         ];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Invalid or missing 'from.address' in config");
 
         new NullTransport($invalidConfig, $this->logger);
@@ -66,7 +71,7 @@ class NullTransportTest extends TestCase
             ]
         ];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Invalid or missing 'from.address' in config");
 
         new NullTransport($invalidConfig, $this->logger);
@@ -81,7 +86,7 @@ class NullTransportTest extends TestCase
             ]
         ];
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage("Invalid or missing 'from.address' in config");
 
         new NullTransport($invalidConfig, $this->logger);
@@ -117,7 +122,7 @@ class NullTransportTest extends TestCase
         $transport = new NullTransport($this->validConfig, $this->logger);
         $message = new Message('invalid-email', 'Subject', 'Body');
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Invalid email address');
 
         $transport->send($message);
@@ -128,7 +133,7 @@ class NullTransportTest extends TestCase
         $transport = new NullTransport($this->validConfig, $this->logger);
         $message = new Message('test@example.com', '', 'Body');
 
-        $this->expectException(\InvalidArgumentException::class);
+        $this->expectException(InvalidArgumentException::class);
         $this->expectExceptionMessage('Email subject cannot be empty');
 
         $transport->send($message);

@@ -9,6 +9,8 @@ use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\Cli\Command\MakerHelpers;
 use MonkeysLegion\Cli\Console\Traits\Cli;
 
+use InvalidArgumentException;
+
 /**
  * Class MailMakeCommand
  *
@@ -122,7 +124,7 @@ final class MailMakeCommand extends Command
 
         // Validate class name format
         if (!preg_match('/^[A-Z][a-zA-Z0-9]*$/', $className)) {
-            throw new \InvalidArgumentException(
+            throw new InvalidArgumentException(
                 "Invalid class name: {$className}. " .
                     "Class names must start with a capital letter and contain only letters and numbers."
             );
@@ -144,13 +146,13 @@ final class MailMakeCommand extends Command
             }
 
             $composer = json_decode($content, true);
-            if (!is_array($composer)) {
+            if (!\is_array($composer)) {
                 $this->error("Invalid composer.json format at: $composerPath");
                 throw new \RuntimeException("Invalid composer.json format at: $composerPath");
             }
 
             $autoload = [];
-            if (isset($composer['autoload']) && is_array($composer['autoload'])) {
+            if (isset($composer['autoload']) && \is_array($composer['autoload'])) {
                 $autoload = $composer['autoload']['psr-4'] ?? [];
             }
 
@@ -266,8 +268,9 @@ final class MailMakeCommand extends Command
 
         $this->cliLine()
             ->success('✓ Mail class created:')->space()->add($relativePath, 'cyan')
+            ->newline()
             ->print();
-        echo "\n";
+
         $this->cliLine()
             ->info('Next steps:')
             ->print();

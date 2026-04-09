@@ -5,10 +5,13 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Event;
 
 use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use Psr\EventDispatcher\EventDispatcherInterface;
+use Psr\EventDispatcher\StoppableEventInterface;
 
-class MessageFailed
+class MessageFailed implements StoppableEventInterface
 {
     private int $failedAt;
+    private bool $propagationStopped = false;
 
     /**
      * MessageFailed constructor.
@@ -19,6 +22,8 @@ class MessageFailed
      * @param int $attempts Number of attempts made to process the job
      * @param bool $willRetry Whether the job will be retried
      * @param ?MonkeysLoggerInterface $logger Logger instance for logging the event
+     * @param ?EventDispatcherInterface $eventDispatcher Optional PSR-14 event dispatcher
+     * @param string|null $mailableClass FQCN of the Mailable that triggered this event (null for direct sends)
      */
     public function __construct(
         private string $jobId,
@@ -26,23 +31,43 @@ class MessageFailed
         private \Exception $exception,
         private int $attempts,
         private bool $willRetry,
-        private ?MonkeysLoggerInterface $logger
+        private ?MonkeysLoggerInterface $logger,
+        private ?EventDispatcherInterface $eventDispatcher = null,
+        private ?string $mailableClass = null,
     ) {
         $this->failedAt = time();
-        $this->logger = $logger;
         $this->log();
+        $this->eventDispatcher?->dispatch($this);
+    }
+
+    /**
+     * Returns the FQCN of the Mailable that triggered this event, or null for direct sends.
+     */
+    public function getMailableClass(): ?string
+    {
+        return $this->mailableClass;
     }
 
     private function log(): void
     {
         $this->logger?->error("MessageFailed event created", [
-            'job_id' => $this->jobId,
-            'job_class' => $this->jobData['job'] ?? 'unknown',
-            'attempts' => $this->attempts,
-            'will_retry' => $this->willRetry,
+            'job_id'        => $this->jobId,
+            'job_class'     => $this->jobData['job'] ?? 'unknown',
+            'attempts'      => $this->attempts,
+            'will_retry'    => $this->willRetry,
             'error_message' => $this->exception->getMessage(),
-            'failed_at' => $this->failedAt
+            'failed_at'     => $this->failedAt,
         ]);
+    }
+
+    public function isPropagationStopped(): bool
+    {
+        return $this->propagationStopped;
+    }
+
+    public function stopPropagation(): void
+    {
+        $this->propagationStopped = true;
     }
 
     public function getJobId(): string
