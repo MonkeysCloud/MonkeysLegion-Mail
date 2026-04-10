@@ -123,11 +123,6 @@ return [
         | This mailer is used to discard all email messages.
         | It is useful for testing and development purposes.
         |*/
-        'null' => [
-            'from' => [
-                'address' => $_ENV['MAIL_FROM_ADDRESS'] ?? 'noreply@yourdomain.com',
-                'name' => $_ENV['MAIL_FROM_NAME'] ?? 'Your App'
-            ]
-        ]
+        'null' => []
     ]
 ];

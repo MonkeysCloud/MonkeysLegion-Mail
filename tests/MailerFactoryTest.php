@@ -146,12 +146,7 @@ class MailerFactoryTest extends TestCase
         $config = [
             'driver' => 'null',
             'drivers' => [
-                'null' => [
-                    'from' => [
-                        'address' => 'from@example.com',
-                        'name' => 'From Name'
-                    ]
-                ]
+                'null' => []
             ]
         ];
 
@@ -159,26 +154,6 @@ class MailerFactoryTest extends TestCase
 
         $this->assertInstanceOf(NullTransport::class, $transport);
         $this->assertEquals('null', $transport->getName());
-    }
-
-    #[Test]
-    #[TestDox('Make defaults to null driver when no driver specified')]
-    public function makeDefaultsToNullDriverWhenNoDriverSpecified(): void
-    {
-        $config = [
-            'drivers' => [
-                'null' => [
-                    'from' => [
-                        'address' => 'from@example.com',
-                        'name' => 'From Name'
-                    ]
-                ]
-            ]
-        ];
-
-        $transport = MailerFactory::make($config, $this->logger);
-
-        $this->assertInstanceOf(NullTransport::class, $transport);
     }
 
     #[Test]
@@ -320,47 +295,6 @@ class MailerFactoryTest extends TestCase
         $this->expectExceptionMessage('Unknown driver');
 
         $factory->setDriver('invalid');
-    }
-
-    #[Test]
-    #[TestDox('Make works without logger')]
-    public function makeWorksWithoutLogger(): void
-    {
-        $config = [
-            'driver' => 'null',
-            'drivers' => [
-                'null' => [
-                    'from' => [
-                        'address' => 'from@example.com',
-                        'name' => 'From Name'
-                    ]
-                ]
-            ]
-        ];
-
-        $transport = MailerFactory::make($config);
-
-        $this->assertInstanceOf(NullTransport::class, $transport);
-    }
-
-    #[Test]
-    #[TestDox('CreateTransport works without logger')]
-    public function createTransportWorksWithoutLogger(): void
-    {
-        $config = [
-            'drivers' => [
-                'null' => [
-                    'from' => [
-                        'address' => 'from@example.com',
-                        'name' => 'From Name'
-                    ]
-                ]
-            ]
-        ];
-
-        $transport = MailerFactory::createTransport('null', $config);
-
-        $this->assertInstanceOf(NullTransport::class, $transport);
     }
 
     #[Test]

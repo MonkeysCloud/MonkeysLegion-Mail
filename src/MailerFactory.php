@@ -163,7 +163,7 @@ class MailerFactory
             MailDriverName::SENDMAIL->value => new SendmailTransport($config, $logger),
             MailDriverName::MAILGUN->value => new MailgunTransport($config, $logger),
             MailDriverName::MONKEYS_MAIL->value => new MonkeysMailTransport($config, $logger),
-            MailDriverName::NULL->value => new NullTransport($config, $logger),
+            MailDriverName::NULL->value => new NullTransport(),
             default => throw new InvalidArgumentException("Unknown driver: $driver"),
         };
     }
