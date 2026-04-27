@@ -212,7 +212,7 @@ final class MailInstallCommand extends Command
      * Ask a yes/no question and return true for 'yes', false for 'no'.
      * Defaults to the provided value if no input is given.
      */
-    private function confirm(string $question, bool $default = false): bool
+    protected function confirm(string $question, bool $default = false): bool
     {
         $answer = $this->ask($question . ($default ? ' [Y/n]' : ' [y/N]'));
         if ($answer === '') {
