@@ -233,7 +233,7 @@ final class MailMakeCommand extends Command
         return $overwrite;
     }
 
-    private function confirm(string $question, bool $default = false): bool
+    protected function confirm(string $question, bool $default = false): bool
     {
         $answer = $this->ask($question . ($default ? ' [Y/n]' : ' [y/N]'));
 
