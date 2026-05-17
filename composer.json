@@ -35,6 +35,7 @@
         "monkeyscloud/monkeyslegion-cli": "^1.0 || ^2.0",
         "monkeyscloud/monkeyslegion-core": "^1.0 || ^2.0",
         "monkeyscloud/monkeyslegion-di": "^1.0 || ^2.0",
+        "monkeyscloud/monkeyslegion-http-client": "^1.0",
         "monkeyscloud/monkeyslegion-logger": "^1.0 || ^2.0",
         "monkeyscloud/monkeyslegion-queue": "^1.1 || ^2.0",
         "monkeyscloud/monkeyslegion-template": "^1.0 || ^2.0",

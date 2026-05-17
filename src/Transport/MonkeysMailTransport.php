@@ -123,37 +123,31 @@ class MonkeysMailTransport implements TransportInterface
         if ($url !== null && !filter_var($url, FILTER_VALIDATE_URL)) {
             throw new InvalidArgumentException("Invalid 'api_url' provided in MonkeysMail configuration");
         }
-        $ch = curl_init($url);
-
-        $headers = [
-            'Content-Type: application/json',
-            'X-API-Key: ' . $this->apiKey,
-        ];
+        if ($url === null) {
+            throw new InvalidArgumentException("Missing 'api_url' in MonkeysMail configuration");
+        }
 
         $jsonPayload = json_encode($payload);
         if ($jsonPayload === false) {
             throw new RuntimeException('Failed to encode payload as JSON');
         }
 
-        curl_setopt($ch, CURLOPT_POST, true);
-        curl_setopt($ch, CURLOPT_POSTFIELDS, $jsonPayload);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, $headers);
-        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch, CURLOPT_TIMEOUT, 30);
-        curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 10);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, true);
-        curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, 2);
+        $client = new \MonkeysLegion\HttpClient\HttpClient(new \MonkeysLegion\HttpClient\DTO\ClientConfig(
+            timeout: 30,
+            connectTimeout: 10,
+        ));
 
-        $response = curl_exec($ch);
-        $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-        $curlError = curl_error($ch);
+        $response = $client
+            ->newRequest()
+            ->withHeaders([
+                'Content-Type' => 'application/json',
+                'X-API-Key'    => $this->apiKey,
+            ])
+            ->withBody($jsonPayload, 'application/json')
+            ->send(\MonkeysLegion\HttpClient\Enum\HttpMethod::POST, $url);
 
-        if ($response === false) {
-            throw new RuntimeException("cURL request failed: {$curlError}");
-        }
-
-        if ($httpCode < 200 || $httpCode >= 300) {
-            throw new RuntimeException("MonkeysMail API returned HTTP {$httpCode}: {$response}");
+        if ($response->isFailed) {
+            throw new RuntimeException("MonkeysMail API returned HTTP {$response->statusCode}: {$response->body}");
         }
     }
 
