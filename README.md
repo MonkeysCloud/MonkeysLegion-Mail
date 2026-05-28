@@ -1,11 +1,11 @@
 # 🐒 MonkeysLegion Mail (v2)
 
-A premium, high-performance mail engine for the **MonkeysLegion PHP framework**. Features PSR-14 events, DKIM signing, rate limiting, and a beautiful fluent API. Our codebase is rigorously tested with **288 unit and integration tests** ensuring **92.28% code coverage**.
+A premium, high-performance mail engine for the **MonkeysLegion PHP framework**. Features PSR-14 events, DKIM signing, rate limiting, and a beautiful fluent API. Our codebase is rigorously tested with **288 unit and integration tests** ensuring **90.45% code coverage**.
 
 [![PHP Version](https://img.shields.io/badge/php-8.4%2B-blue.svg)](https://php.net)
 [![License](https://img.shields.io/badge/license-MIT-green.svg)](LICENSE)
 [![Tests](https://img.shields.io/badge/tests-288%20passed-brightgreen.svg)]()
-[![Coverage](https://img.shields.io/badge/coverage-92.28%25-brightgreen.svg)]()
+[![Coverage](https://img.shields.io/badge/coverage-90.45%25-brightgreen.svg)]()
 
 ---
 
@@ -118,11 +118,27 @@ Then send or queue it fluently:
     ->send(); // or ->queue() for background processing
 ```
 
+### With Metadata (Mailables)
+
+When using **Mailables** with metadata-aware transports, set metadata in your `build()` method:
+
+```php
+public function build(): self
+{
+    return $this->view('emails.welcome')
+                ->subject('Welcome!')
+                ->withTags(['onboarding', 'transactional'])
+                ->withMetadata(['user_id' => $this->user->id, 'source' => 'signup'])
+                ->withVariables(['activation_url' => $url, 'name' => $this->user->name])
+                ->replyTo('support@example.com');
+}
+```
+
 ---
 
 ## 📨 Advanced Email Metadata (MonkeysMailTransport & MailgunTransport)
 
-The **MonkeysMailTransport** and **MailgunTransport** support rich email metadata through the `SupportsAdvancedMetadata` interface. This allows you to send tags, custom metadata, template variables, and reply-to addresses.
+The **MonkeysMailTransport** and **MailgunTransport** support rich email metadata through the `SupportsAdvancedMetadata` interface. This allows you to send tags, custom metadata, template variables, and reply-to addresses. Metadata is preserved when sending via `Mailer` or `Mailable` classes.
 
 ### Using Metadata in Mailables
 
@@ -136,7 +152,27 @@ The **MonkeysMailTransport** and **MailgunTransport** support rich email metadat
     ->send();
 ```
 
-### Using Metadata Directly with Messages
+### Using Metadata via Mailer (Direct Messages)
+
+```php
+use MonkeysLegion\Mail\Message;
+
+$mailer = $container->get(Mailer::class);
+
+$message = new Message('user@example.com', 'Hello!', '<h1>Welcome</h1>');
+$message->setTags(['onboarding', 'promotion']);
+$message->setMetadata(['campaign_id' => '12345', 'segment' => 'premium']);
+$message->setVariables(['first_name' => 'John', 'discount' => '20%']);
+$message->setReplyTo('support@example.com');
+
+// Send with metadata preserved
+$mailer->sendMessage($message);
+
+// Or queue with metadata preserved
+$mailer->queueMessage($message, 'high-priority');
+```
+
+### Using Metadata Directly with Message & Transport
 
 ```php
 $message = new Message('user@example.com', 'Hello!', '<h1>Welcome</h1>');

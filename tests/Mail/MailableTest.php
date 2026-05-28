@@ -300,8 +300,8 @@ class MailableTest extends AbstractBaseTest
             ->willReturn('<html/>');
 
         $this->mailer->expects($this->once())
-            ->method('send')
-            ->with('a@b.com', 'Test Email', '<html/>', 'text/html', []);
+            ->method('sendMessage')
+            ->with($this->isInstanceOf(\MonkeysLegion\Mail\Message::class));
 
         $mailable->send();
     }
@@ -334,8 +334,8 @@ class MailableTest extends AbstractBaseTest
             ->willReturn('<html/>');
 
         $this->mailer->expects($this->once())
-            ->method('queue')
-            ->with('a@b.com', 'Test Email', '<html/>', 'text/html', [], 'my_queue')
+            ->method('queueMessage')
+            ->with($this->isInstanceOf(\MonkeysLegion\Mail\Message::class), 'my_queue')
             ->willReturn('job-123');
 
         $result = $mailable->queue();
@@ -354,7 +354,7 @@ class MailableTest extends AbstractBaseTest
             ->willReturn('<html/>');
 
         $this->mailer->expects($this->once())
-            ->method('queue')
+            ->method('queueMessage')
             ->willThrowException(new RuntimeException("Queue failed"));
 
         $this->expectException(RuntimeException::class);
