@@ -72,7 +72,7 @@ namespace MonkeysLegion\Mailer\Tests\Transport;
 
 use Exception;
 use InvalidArgumentException;
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;

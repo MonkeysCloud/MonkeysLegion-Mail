@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Mail;
 
 use MonkeysLegion\DI\Traits\ContainerAware;
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\Template\Renderer;
 
@@ -158,7 +158,7 @@ abstract class Mailable
                 $this->queue
             );
 
-            $this->logger?->smartLog("Mailable queued successfully", [
+            $this->logger?->info("Mailable queued successfully", [
                 'class'  => static::class,
                 'job_id' => $jobId,
                 'to'     => $this->to,
@@ -552,7 +552,7 @@ abstract class Mailable
      */
     public function setDriver(string $driver, array $config = []): self
     {
-        $this->logger?->smartLog("Setting mail driver from Mailable", [
+        $this->logger?->info("Setting mail driver from Mailable", [
             'class' => static::class,
             'driver' => $driver,
             'has_custom_config' => !empty($config)

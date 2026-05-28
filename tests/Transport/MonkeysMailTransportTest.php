@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mailer\Tests\Transport;
 
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\MonkeysMailTransport;
 use PHPUnit\Framework\TestCase;
@@ -20,6 +20,8 @@ use RuntimeException;
 #[AllowMockObjectsWithoutExpectations]
 class MonkeysMailTransportTest extends TestCase
 {
+    private const TEST_API_URL = 'http://127.0.0.1:1';
+
     private MonkeysLoggerInterface&MockObject $logger;
     /** @var array<string, mixed> */
     private array $validConfig;
@@ -30,6 +32,7 @@ class MonkeysMailTransportTest extends TestCase
 
         $this->validConfig = [
             'api_key' => 'test-api-key',
+            'api_url' => self::TEST_API_URL,
             'domain' => 'monkeys.cloud',
             'tracking_opens' => true,
             'tracking_clicks' => true,
@@ -78,10 +81,10 @@ class MonkeysMailTransportTest extends TestCase
             ->method('makeRequest')
             ->with($this->callback(function (array $payload) {
                 return $payload['from']['email'] === 'no-reply@monkeys.cloud' &&
-                       $payload['to'] === ['to@example.com'] &&
-                       $payload['subject'] === 'Test Subject' &&
-                       $payload['html'] === '<h1>Hello</h1>' &&
-                       $payload['tracking']['opens'] === true;
+                    $payload['to'] === ['to@example.com'] &&
+                    $payload['subject'] === 'Test Subject' &&
+                    $payload['html'] === '<h1>Hello</h1>' &&
+                    $payload['tracking']['opens'] === true;
             }));
 
         $transport->send($message);
@@ -153,6 +156,7 @@ class MonkeysMailTransportTest extends TestCase
     {
         $customConfig = [
             'api_key' => 'test-api-key',
+            'api_url' => self::TEST_API_URL,
             'tracking_opens' => false,
             'tracking_clicks' => false,
         ];
@@ -176,7 +180,7 @@ class MonkeysMailTransportTest extends TestCase
             ->method('makeRequest')
             ->with($this->callback(function (array $payload) {
                 return $payload['tracking']['opens'] === false &&
-                       $payload['tracking']['clicks'] === false;
+                    $payload['tracking']['clicks'] === false;
             }));
 
         $transport->send($message);
@@ -201,15 +205,15 @@ class MonkeysMailTransportTest extends TestCase
         $message->method('getHtmlBody')->willReturn('<h1>Hello</h1>');
 
         $this->logger->expects($this->once())
-            ->method('smartLog')
+            ->method('info')
             ->with(
                 'MonkeysMail API request successful',
                 $this->callback(function (array $context) {
                     return isset($context['to']) &&
-                           isset($context['subject']) &&
-                           isset($context['duration_ms']) &&
-                           $context['to'] === 'to@example.com' &&
-                           $context['subject'] === 'Test Subject';
+                        isset($context['subject']) &&
+                        isset($context['duration_ms']) &&
+                        $context['to'] === 'to@example.com' &&
+                        $context['subject'] === 'Test Subject';
                 })
             );
 
@@ -251,8 +255,9 @@ class MonkeysMailTransportTest extends TestCase
     #[Test]
     public function testMakeRequestThrowsOnCurlFailure(): void
     {
-        $transport = new class(['api_key' => 'test-key']) extends MonkeysMailTransport {
-            public function publicMakeRequest(array $payload): void {
+        $transport = new class(['api_key' => 'test-key', 'api_url' => self::TEST_API_URL]) extends MonkeysMailTransport {
+            public function publicMakeRequest(array $payload): void
+            {
                 parent::makeRequest($payload);
             }
         };
@@ -275,8 +280,9 @@ class MonkeysMailTransportTest extends TestCase
     #[Test]
     public function testMakeRequestThrowsOnJsonEncodeFailure(): void
     {
-        $transport = new class(['api_key' => 'test-key']) extends MonkeysMailTransport {
-            public function publicMakeRequest(array $payload): void {
+        $transport = new class(['api_key' => 'test-key', 'api_url' => self::TEST_API_URL]) extends MonkeysMailTransport {
+            public function publicMakeRequest(array $payload): void
+            {
                 parent::makeRequest($payload);
             }
         };
@@ -285,7 +291,7 @@ class MonkeysMailTransportTest extends TestCase
         // Actually, PHP's json_encode rarely fails, so let's test with recursive data
         $recursive = [];
         $recursive['self'] = &$recursive;
-        
+
         $payload = [
             'from' => ['email' => 'sender@example.com'],
             'to' => ['to@example.com'],

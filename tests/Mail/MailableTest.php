@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mailer\Tests\Mail;
 
 use MonkeysLegion\DI\Container;
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Mail\Mailable;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\Template\Renderer;

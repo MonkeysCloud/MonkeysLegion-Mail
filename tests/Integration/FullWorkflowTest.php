@@ -2,6 +2,8 @@
 
 namespace MonkeysLegion\Mailer\Tests\Integration;
 
+use MonkeysLegion\Logger\Handler\NullHandler;
+use MonkeysLegion\Logger\Logger;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mailer\Tests\Abstracts\AbstractBaseTest;
 
@@ -23,8 +25,8 @@ class FullWorkflowTest extends AbstractBaseTest
         $rateLimiter->method('allow')->willReturn(true);
         /** @var \MonkeysLegion\Queue\Contracts\QueueDispatcherInterface&\PHPUnit\Framework\MockObject\MockObject $dispatcher */
         $dispatcher = $this->createMock(\MonkeysLegion\Queue\Contracts\QueueDispatcherInterface::class);
-        $logger = new \MonkeysLegion\Logger\Logger\NullLogger();
-        
+        $logger = new Logger(handlers: [new NullHandler()], channelName: 'tests');
+
         $config = [
             'driver' => 'null',
             'drivers' => [
@@ -58,7 +60,7 @@ class FullWorkflowTest extends AbstractBaseTest
     {
         $this->expectNotToPerformAssertions();
 
-            // Use null transport for testing
+        // Use null transport for testing
         $this->mailer->useNull();
 
         // Test should not throw exception
@@ -76,10 +78,10 @@ class FullWorkflowTest extends AbstractBaseTest
 
         // Switch to SMTP first, then to null
         $this->mailer->useSmtp([
-            'host' => 'test.smtp.com', 
-            'port' => 587, 
-            'username' => 'test', 
-            'password' => 'secret', 
+            'host' => 'test.smtp.com',
+            'port' => 587,
+            'username' => 'test',
+            'password' => 'secret',
             'timeout' => 30,
             'from' => [
                 'address' => 'test@example.com',

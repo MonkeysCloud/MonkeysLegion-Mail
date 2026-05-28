@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mailer\Tests\Event;
 
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Event\MessageSent;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -65,12 +65,12 @@ class MessageSentTest extends TestCase
     }
 
     #[Test]
-    #[TestDox('Constructor calls logger smartLog when logger provided')]
-    public function test_constructor_calls_logger_smartlog(): void
+    #[TestDox('Constructor calls logger info when logger provided')]
+    public function test_constructor_calls_logger_info(): void
     {
         $logger = $this->createMock(MonkeysLoggerInterface::class);
         $logger->expects($this->once())
-            ->method('smartLog')
+            ->method('info')
             ->with('MessageSent event created', $this->isArray());
 
         new MessageSent('job-log', $this->jobData, 50, $logger);
@@ -90,14 +90,15 @@ class MessageSentTest extends TestCase
     {
         $logger = $this->createMock(MonkeysLoggerInterface::class);
         $logger->expects($this->once())
-            ->method('smartLog')
+            ->method('info')
             ->with(
                 'MessageSent event created',
-                $this->callback(fn($ctx) =>
+                $this->callback(
+                    fn($ctx) =>
                     array_key_exists('job_id', $ctx) &&
-                    array_key_exists('job_class', $ctx) &&
-                    array_key_exists('duration_ms', $ctx) &&
-                    array_key_exists('sent_at', $ctx)
+                        array_key_exists('job_class', $ctx) &&
+                        array_key_exists('duration_ms', $ctx) &&
+                        array_key_exists('sent_at', $ctx)
                 )
             );
 
@@ -110,7 +111,7 @@ class MessageSentTest extends TestCase
     {
         $logger = $this->createMock(MonkeysLoggerInterface::class);
         $logger->expects($this->once())
-            ->method('smartLog')
+            ->method('info')
             ->with(
                 'MessageSent event created',
                 $this->callback(fn($ctx) => $ctx['job_class'] === 'unknown')
@@ -175,4 +176,3 @@ class MessageSentTest extends TestCase
         new MessageSent('job-no-disp', [], 50, null, null);
     }
 }
-

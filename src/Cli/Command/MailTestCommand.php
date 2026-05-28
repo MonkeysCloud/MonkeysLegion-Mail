@@ -8,7 +8,7 @@ use MonkeysLegion\Cli\Console\Attributes\Command as CommandAttr;
 use MonkeysLegion\Cli\Console\Command;
 use MonkeysLegion\Cli\Command\MakerHelpers;
 use MonkeysLegion\Cli\Console\Traits\Cli;
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Mailer;
 
 #[CommandAttr('mail:test', 'Send a test email')]

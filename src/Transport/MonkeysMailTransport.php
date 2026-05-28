@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Transport;
 
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
 
@@ -97,7 +97,7 @@ class MonkeysMailTransport implements TransportInterface
             $this->makeRequest($payload);
 
             $duration = round((microtime(true) - $startTime) * 1000, 2);
-            $this->logger?->smartLog("MonkeysMail API request successful", [
+            $this->logger?->info("MonkeysMail API request successful", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
                 'duration_ms' => $duration

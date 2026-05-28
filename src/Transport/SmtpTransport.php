@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Transport;
 
 use InvalidArgumentException;
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\Encryption;
 use MonkeysLegion\Mail\Enums\MailDefaults;
 use MonkeysLegion\Mail\Enums\MailDriverName;
@@ -38,7 +38,7 @@ class SmtpTransport implements TransportInterface
     ) {
         $this->validateSmtpConfig($config);
 
-        $this->logger?->smartLog("SMTP Transport initialized", [
+        $this->logger?->info("SMTP Transport initialized", [
             'host' => safeString($this->host, 'not_set'),
             'port' => $this->port ?? 25,
             'encryption' => safeString($this->encryption, 'not_set'),
@@ -51,7 +51,7 @@ class SmtpTransport implements TransportInterface
 
     public function send(Message $m): void
     {
-        $this->logger?->smartLog("Attempting SMTP send", [
+        $this->logger?->info("Attempting SMTP send", [
             'to' => $m->getTo(),
             'subject' => $m->getSubject(),
             'host' => $this->host,
@@ -78,7 +78,7 @@ class SmtpTransport implements TransportInterface
 
             $this->disconnect();
 
-            $this->logger?->smartLog("SMTP send completed successfully", [
+            $this->logger?->info("SMTP send completed successfully", [
                 'to' => $m->getTo(),
                 'subject' => $m->getSubject()
             ]);
@@ -186,7 +186,7 @@ class SmtpTransport implements TransportInterface
      */
     private function connect(): void
     {
-        $this->logger?->smartLog("Connecting to SMTP server", [
+        $this->logger?->info("Connecting to SMTP server", [
             'address' => $this->address,
             'timeout' => $this->timeout
         ]);
@@ -211,7 +211,7 @@ class SmtpTransport implements TransportInterface
             );
 
             if ($socket === false) {
-                $this->logger?->smartLog("SMTP connection failed", [
+                $this->logger?->info("SMTP connection failed", [
                     'address' => $this->address,
                     'errno' => $errno,
                     'errstr' => $errstr
@@ -232,7 +232,7 @@ class SmtpTransport implements TransportInterface
                 throw new \RuntimeException("SMTP server did not greet properly: " . trim($banner));
             }
 
-            $this->logger?->smartLog("SMTP connection established", [
+            $this->logger?->info("SMTP connection established", [
                 'banner' => trim($banner)
             ]);
 
@@ -272,7 +272,7 @@ class SmtpTransport implements TransportInterface
             }
 
             if (!empty($this->username) && !empty($this->password)) {
-                $this->logger?->smartLog("Attempting SMTP authentication", [
+                $this->logger?->info("Attempting SMTP authentication", [
                     'username' => $this->username,
                     'auth_method' => strpos($ehloResponse, 'CRAM-MD5') !== false ? 'CRAM-MD5' : 'LOGIN'
                 ]);
@@ -283,7 +283,7 @@ class SmtpTransport implements TransportInterface
                     $this->authenticateLogin();
                 }
 
-                $this->logger?->smartLog("SMTP authentication successful");
+                $this->logger?->info("SMTP authentication successful");
             }
         } catch (InvalidArgumentException $e) {
             throw $e;
@@ -310,7 +310,7 @@ class SmtpTransport implements TransportInterface
     {
         $socket = $this->socket;
         if (is_resource($socket)) {
-            $this->logger?->smartLog("Disconnecting from SMTP server");
+            $this->logger?->info("Disconnecting from SMTP server");
             $this->sendCommand("QUIT");
             fclose($socket);
             $this->socket = null;
@@ -334,7 +334,7 @@ class SmtpTransport implements TransportInterface
 
     private function handleEncryption(string $ehloResponse): string
     {
-        $this->logger?->smartLog("Handling SMTP encryption", [
+        $this->logger?->info("Handling SMTP encryption", [
             'encryption_type' => $this->encryption,
             'starttls_available' => strpos($ehloResponse, 'STARTTLS') !== false
         ]);
@@ -362,7 +362,7 @@ class SmtpTransport implements TransportInterface
                 throw new \RuntimeException('Failed to enable TLS.');
             }
 
-            $this->logger?->smartLog("TLS encryption enabled successfully");
+            $this->logger?->info("TLS encryption enabled successfully");
 
             // Re-EHLO is mandatory after STARTTLS
             $this->sendCommand("EHLO localhost");
@@ -373,7 +373,7 @@ class SmtpTransport implements TransportInterface
             }
             return $newEhloResponse;
         } elseif ($this->encryption === Encryption::NONE->value) {
-            $this->logger?->smartLog("Using no encryption");
+            $this->logger?->info("Using no encryption");
             return $ehloResponse;
         } elseif ($this->encryption !== Encryption::SSL->value) {
             $this->logger?->error("Unsupported encryption method", [
@@ -431,7 +431,7 @@ class SmtpTransport implements TransportInterface
             ? 'AUTH [HIDDEN]'
             : $command;
 
-        $this->logger?->smartLog("Sending SMTP command", ['command' => $logCommand]);
+        $this->logger?->info("Sending SMTP command", ['command' => $logCommand]);
 
         $result = fwrite($this->socket, $command . "\r\n");
         if ($result === false) {
@@ -480,7 +480,7 @@ class SmtpTransport implements TransportInterface
             throw new \RuntimeException("No response received from SMTP server (Host: {$this->host}:{$this->port})");
         }
 
-        $this->logger?->smartLog("Received SMTP response", [
+        $this->logger?->info("Received SMTP response", [
             'response_code' => substr(trim($response), 0, 3),
             'response' => trim($response)
         ]);

@@ -4,6 +4,8 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mailer\Tests\Integration;
 
+use MonkeysLegion\Logger\Handler\NullHandler;
+use MonkeysLegion\Logger\Logger;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\SmtpTransport;
 use PHPUnit\Framework\TestCase;
@@ -24,7 +26,7 @@ class SmtpRealTest extends TestCase
     {
         $host = $_ENV['SMTP_HOST'] ?? '';
         $port = $_ENV['SMTP_PORT'] ?? '';
-        
+
         if (empty($host) || empty($port)) {
             $this->markTestSkipped('Real SMTP credentials not provided in environment variables (SMTP_HOST, SMTP_PORT).');
         }
@@ -49,8 +51,7 @@ class SmtpRealTest extends TestCase
     #[TestDox('Sends email using real SMTP credentials')]
     public function test_real_smtp_send(): void
     {
-        /** @var \MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface $logger */
-        $logger = \MonkeysLegion\DI\Container::instance()->get(\MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface::class);
+        $logger = new Logger(handlers: [new NullHandler()], channelName: 'integration');
         $transport = new SmtpTransport($this->config, $logger);
 
         $html = "

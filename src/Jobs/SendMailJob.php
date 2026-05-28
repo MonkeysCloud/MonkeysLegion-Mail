@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail\Jobs;
 
 use MonkeysLegion\DI\Traits\ContainerAware;
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
 use MonkeysLegion\Queue\Contracts\DispatchableJobInterface;

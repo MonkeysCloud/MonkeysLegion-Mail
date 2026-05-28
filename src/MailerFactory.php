@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mail;
 
 use MonkeysLegion\DI\Container;
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
 use MonkeysLegion\Mail\Transport\MonkeysMailTransport;

@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail;
 
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Event\MessageFailed;
 use MonkeysLegion\Mail\Event\MessageSent;
 use MonkeysLegion\Mail\Jobs\SendMailJob;
@@ -144,7 +144,7 @@ class Mailer
             $allowed = $this->rateLimiter->allow();
 
             if (!$allowed) {
-                $this->logger?->smartLog("Rate limit exceeded for sending emails", [
+                $this->logger?->info("Rate limit exceeded for sending emails", [
                     'to'               => $to,
                     'subject'          => $subject,
                     'content_type'     => $contentType,
@@ -155,7 +155,7 @@ class Mailer
                 throw new RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
             }
 
-            $this->logger?->smartLog("Attempting to send email", [
+            $this->logger?->info("Attempting to send email", [
                 'to'               => $to,
                 'subject'          => $subject,
                 'content_type'     => $contentType,
@@ -173,7 +173,7 @@ class Mailer
 
             $duration = (int) round((microtime(true) - $startTime) * 1000);
 
-            $this->logger?->smartLog("Email sent successfully", [
+            $this->logger?->info("Email sent successfully", [
                 'to'          => $to,
                 'subject'     => $subject,
                 'duration_ms' => $duration,
@@ -270,7 +270,7 @@ class Mailer
     ): mixed {
         $queueName = $queue ?? 'default';
 
-        $this->logger?->smartLog("Queuing email for background processing", [
+        $this->logger?->info("Queuing email for background processing", [
             'to'               => $to,
             'subject'          => $subject,
             'content_type'     => $contentType,
@@ -289,7 +289,7 @@ class Mailer
                 queue: $queueName,
             );
 
-            $this->logger?->smartLog("Email queued successfully", [
+            $this->logger?->info("Email queued successfully", [
                 'to'               => $to,
                 'subject'          => $subject,
                 'queue'            => $queueName,
@@ -345,7 +345,7 @@ class Mailer
     {
         $oldDriver = \get_class($this->driver);
 
-        $this->logger?->smartLog("Changing mail driver", [
+        $this->logger?->info("Changing mail driver", [
             'old_driver'        => $oldDriver,
             'new_driver'        => $driverName,
             'has_custom_config' => !empty($config),
@@ -371,7 +371,7 @@ class Mailer
 
             $this->driver = MailerFactory::make($fullConfig, $this->logger);
 
-            $this->logger?->smartLog("Mail driver changed successfully", [
+            $this->logger?->info("Mail driver changed successfully", [
                 'old_driver'  => $oldDriver,
                 'new_driver'  => \get_class($this->driver),
                 'driver_name' => $driverName,

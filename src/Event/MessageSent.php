@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mail\Event;
 
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use Psr\EventDispatcher\EventDispatcherInterface;
 use Psr\EventDispatcher\StoppableEventInterface;
 
@@ -46,7 +46,7 @@ class MessageSent implements StoppableEventInterface
 
     private function log(): void
     {
-        $this->logger?->smartLog("MessageSent event created", [
+        $this->logger?->info("MessageSent event created", [
             'job_id'      => $this->jobId,
             'job_class'   => $this->jobData['job'] ?? 'unknown',
             'duration_ms' => $this->duration,

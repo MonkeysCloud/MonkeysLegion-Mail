@@ -5,7 +5,7 @@ declare(strict_types=1);
 namespace MonkeysLegion\Mailer\Tests;
 
 use MonkeysLegion\DI\Container;
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\MailerFactory;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
 use MonkeysLegion\Mail\Transport\MonkeysMailTransport;
@@ -123,7 +123,7 @@ class MailerFactoryTest extends TestCase
             'drivers' => [
                 'monkeys_mail' => [
                     'api_key' => 'test-key',
-                    'endpoint' => 'https://api.monkeysmail.com',
+                    'api_url' => 'https://smtp.monkeysmail.com/messages/send',
                     'timeout' => 30,
                     'from' => [
                         'address' => 'from@example.com',

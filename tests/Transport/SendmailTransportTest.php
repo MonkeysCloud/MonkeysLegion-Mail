@@ -6,6 +6,7 @@ declare(strict_types=1);
  * Namespace-level function mocks for the SendmailTransport namespace.
  * These override PHP built-in functions when called from MonkeysLegion\Mail\Transport.
  */
+
 namespace MonkeysLegion\Mail\Transport;
 
 use MonkeysLegion\Mailer\Tests\Transport\SendmailTransportTest;
@@ -68,7 +69,7 @@ if (!function_exists('MonkeysLegion\Mail\Transport\stream_get_contents')) {
 namespace MonkeysLegion\Mailer\Tests\Transport;
 
 use InvalidArgumentException;
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Transport\SendmailTransport;
 use PHPUnit\Framework\Attributes\CoversClass;

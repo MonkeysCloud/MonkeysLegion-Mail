@@ -2,7 +2,7 @@
 
 namespace MonkeysLegion\Mail\Transport;
 
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Enums\MailgunRegion;
 use MonkeysLegion\Mail\Message;
@@ -155,7 +155,7 @@ class MailgunTransport implements TransportInterface
         $startTime = microtime(true);
 
         try {
-            $this->logger?->smartLog("Preparing Mailgun API request", [
+            $this->logger?->info("Preparing Mailgun API request", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
                 'endpoint' => $this->endpoint
@@ -166,7 +166,7 @@ class MailgunTransport implements TransportInterface
 
             $duration = round((microtime(true) - $startTime) * 1000, 2);
 
-            $this->logger?->smartLog("Mailgun API request successful", [
+            $this->logger?->info("Mailgun API request successful", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
                 'duration_ms' => $duration,
@@ -281,7 +281,7 @@ class MailgunTransport implements TransportInterface
 
             $customHeaders['DKIM-Signature'] = $dkimSignature;
 
-            $this->logger?->smartLog("Adding DKIM signature to Mailgun headers", [
+            $this->logger?->info("Adding DKIM signature to Mailgun headers", [
                 'signature_length' => strlen($dkimSignature),
                 'to' => $message->getTo()
             ]);

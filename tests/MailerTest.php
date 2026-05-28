@@ -4,7 +4,7 @@ declare(strict_types=1);
 
 namespace MonkeysLegion\Mailer\Tests;
 
-use MonkeysLegion\Logger\Contracts\MonkeysLoggerInterface;
+use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Jobs\SendMailJob;
 use MonkeysLegion\Mail\Mailer;
 use MonkeysLegion\Mail\MailerFactory;

@@ -41,6 +41,7 @@ class MonkeysMailRealTest extends TestCase
     {
         $config = [
             'api_key' => $this->apiKey,
+            'api_url' => $_ENV['MONKEYS_MAIL_URL'] ?? 'https://smtp.monkeysmail.com/messages/send',
             'domain' => 'monkeys.cloud',
             'tracking_opens' => true,
             'tracking_clicks' => true,
