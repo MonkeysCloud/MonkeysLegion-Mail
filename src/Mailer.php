@@ -248,6 +248,126 @@ class Mailer
     }
 
     /**
+     * Send a pre-built Message instance (supports metadata and reply-to).
+     */
+    public function sendMessage(Message $message): void
+    {
+        $startTime = microtime(true);
+
+        try {
+            $allowed = $this->rateLimiter->allow();
+
+            if (!$allowed) {
+                $this->logger?->info("Rate limit exceeded for sending emails", [
+                    'to'               => $message->getTo(),
+                    'subject'          => $message->getSubject(),
+                    'content_type'     => $message->getContentType(),
+                    'has_attachments'  => !empty($message->getAttachments()),
+                    'attachment_count' => \count($message->getAttachments()),
+                    'driver'           => \get_class($this->driver),
+                ]);
+                throw new RuntimeException("Rate limit exceeded for sending emails. Please try again later.");
+            }
+
+            $this->logger?->info("Attempting to send email", [
+                'to'               => $message->getTo(),
+                'subject'          => $message->getSubject(),
+                'content_type'     => $message->getContentType(),
+                'has_attachments'  => !empty($message->getAttachments()),
+                'attachment_count' => \count($message->getAttachments()),
+                'driver'           => \get_class($this->driver),
+            ]);
+
+            $this->setFromHeader($message);
+            $message = $this->sign($message);
+
+            $this->driver->send($message);
+
+            $duration = (int) round((microtime(true) - $startTime) * 1000);
+
+            $this->logger?->info("Email sent successfully", [
+                'to'          => $message->getTo(),
+                'subject'     => $message->getSubject(),
+                'duration_ms' => $duration,
+                'driver'      => \get_class($this->driver),
+            ]);
+
+            $messageData = [
+                'to'          => $message->getTo(),
+                'subject'     => $message->getSubject(),
+                'content'     => $message->getContent(),
+                'contentType' => $message->getContentType(),
+                'attachments' => $message->getAttachments(),
+                'tags'        => $message->getTags(),
+                'metadata'    => $message->getMetadata(),
+                'variables'   => $message->getVariables(),
+                'replyTo'     => $message->getReplyTo(),
+            ];
+
+            $messageId = uniqid('direct_', true);
+
+            // Fire PSR-14 MessageSent event + per-instance listeners
+            $sent = new MessageSent(
+                $messageId,
+                $messageData,
+                $duration,
+                $this->logger,
+                $this->eventDispatcher,
+                $this->currentMailableClass,
+            );
+            foreach ($this->sentListeners as $listener) {
+                $listener($sent);
+            }
+        } catch (InvalidArgumentException $e) {
+            throw new InvalidArgumentException($e->getMessage(), 0, $e);
+        } catch (Exception $e) {
+            $duration = (int) round((microtime(true) - $startTime) * 1000);
+
+            $this->logger?->warning("Email sending failed", [
+                'to'            => $message->getTo(),
+                'subject'       => $message->getSubject(),
+                'duration_ms'   => $duration,
+                'driver'        => \get_class($this->driver),
+                'exception'     => $e,
+                'error_message' => $e->getMessage(),
+                'trace'         => $e->getTraceAsString(),
+            ]);
+
+            $messageData = [
+                'to'          => $message->getTo(),
+                'subject'     => $message->getSubject(),
+                'content'     => $message->getContent(),
+                'contentType' => $message->getContentType(),
+                'attachments' => $message->getAttachments(),
+                'tags'        => $message->getTags(),
+                'metadata'    => $message->getMetadata(),
+                'variables'   => $message->getVariables(),
+                'replyTo'     => $message->getReplyTo(),
+                'job'         => 'direct_send',
+            ];
+
+            $messageId = uniqid('fail_', true);
+
+            // Fire PSR-14 MessageFailed event + per-instance listeners
+            $failed = new MessageFailed(
+                $messageId,
+                $messageData,
+                $e,
+                1,
+                false,
+                $this->logger,
+                $this->eventDispatcher,
+                $this->currentMailableClass,
+            );
+            foreach ($this->failedListeners as $listener) {
+                $listener($failed);
+            }
+
+            throw new RuntimeException($e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
      * Queue an email for background processing.
      *
      * Fires {@see MessageFailed} through the PSR-14 dispatcher if queueing fails.
@@ -310,6 +430,87 @@ class Mailer
             $messageData = [
                 'to'          => $to,
                 'subject'     => $subject,
+                'job'         => SendMailJob::class,
+                'queue'       => $queueName,
+            ];
+
+            $messageId = uniqid('queue_fail_', true);
+
+            // Fire PSR-14 MessageFailed event + per-instance listeners for queue failures
+            $failed = new MessageFailed(
+                $messageId,
+                $messageData,
+                $e,
+                1,
+                false,
+                $this->logger,
+                $this->eventDispatcher,
+                $this->currentMailableClass,
+            );
+            foreach ($this->failedListeners as $listener) {
+                $listener($failed);
+            }
+
+            throw new RuntimeException($e->getMessage(), 0, $e);
+        }
+    }
+
+    /**
+     * Queue a pre-built Message instance (supports metadata and reply-to).
+     *
+     * @param Message     $message
+     * @param string|null $queue Queue name (null = 'default').
+     */
+    public function queueMessage(Message $message, ?string $queue = null): mixed
+    {
+        $queueName = $queue ?? 'default';
+
+        $this->logger?->info("Queuing email for background processing", [
+            'to'               => $message->getTo(),
+            'subject'          => $message->getSubject(),
+            'content_type'     => $message->getContentType(),
+            'has_attachments'  => !empty($message->getAttachments()),
+            'attachment_count' => \count($message->getAttachments()),
+            'queue'            => $queueName,
+        ]);
+
+        try {
+            $this->setFromHeader($message);
+            $message = $this->sign($message);
+
+            $this->dispatcher->dispatch(
+                job: new SendMailJob($message),
+                queue: $queueName,
+            );
+
+            $this->logger?->info("Email queued successfully", [
+                'to'               => $message->getTo(),
+                'subject'          => $message->getSubject(),
+                'queue'            => $queueName,
+                'dispatcher_class' => \get_class($this->dispatcher),
+            ]);
+
+            return true;
+        } catch (Exception $e) {
+            $this->logger?->warning("Failed to queue email", [
+                'to'            => $message->getTo(),
+                'subject'       => $message->getSubject(),
+                'queue'         => $queueName,
+                'exception'     => $e,
+                'error_message' => $e->getMessage(),
+                'trace'         => $e->getTraceAsString(),
+            ]);
+
+            $messageData = [
+                'to'          => $message->getTo(),
+                'subject'     => $message->getSubject(),
+                'content'     => $message->getContent(),
+                'contentType' => $message->getContentType(),
+                'attachments' => $message->getAttachments(),
+                'tags'        => $message->getTags(),
+                'metadata'    => $message->getMetadata(),
+                'variables'   => $message->getVariables(),
+                'replyTo'     => $message->getReplyTo(),
                 'job'         => SendMailJob::class,
                 'queue'       => $queueName,
             ];

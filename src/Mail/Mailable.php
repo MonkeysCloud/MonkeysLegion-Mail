@@ -7,6 +7,7 @@ namespace MonkeysLegion\Mail\Mail;
 use MonkeysLegion\DI\Traits\ContainerAware;
 use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Mailer;
+use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\Template\Renderer;
 
 use Exception;
@@ -49,6 +50,18 @@ abstract class Mailable
 
     /** @var array<string, mixed> */
     protected array $viewData = [];
+
+    /** @var array<string> Tags for categorization/tracking */
+    protected array $tags = [];
+
+    /** @var array<string, mixed> Custom metadata key-value pairs */
+    protected array $metadata = [];
+
+    /** @var array<string, mixed> Template variables for substitution */
+    protected array $variables = [];
+
+    /** @var string|null Reply-To email address */
+    protected ?string $replyTo = null;
 
     /** Logger instance */
     private ?MonkeysLoggerInterface $logger;
@@ -114,13 +127,31 @@ abstract class Mailable
             $this->validateBeforeSend();
             $content = $this->renderContent();
 
-            $this->mailer->send(
+            // Build message with metadata
+            $message = new Message(
                 $this->to ?? '',
                 $this->subject ?? '',
                 $content,
                 $this->contentType,
                 $this->attachments
             );
+
+            // Attach metadata to message
+            if (!empty($this->tags)) {
+                $message->setTags($this->tags);
+            }
+            if (!empty($this->metadata)) {
+                $message->setMetadata($this->metadata);
+            }
+            if (!empty($this->variables)) {
+                $message->setVariables($this->variables);
+            }
+            if ($this->replyTo !== null) {
+                $message->setReplyTo($this->replyTo);
+            }
+
+            // Use sendMessage to preserve all metadata
+            $this->mailer->sendMessage($message);
         } catch (Exception $e) {
             $this->logger?->error("Mailable sending failed", [
                 'class'         => static::class,
@@ -149,14 +180,31 @@ abstract class Mailable
             $this->validateBeforeSend();
             $content = $this->renderContent();
 
-            $jobId = $this->mailer->queue(
+            // Build message with metadata
+            $message = new Message(
                 $this->to ?? '',
                 $this->subject ?? '',
                 $content,
                 $this->contentType,
-                $this->attachments,
-                $this->queue
+                $this->attachments
             );
+
+            // Attach metadata to message
+            if (!empty($this->tags)) {
+                $message->setTags($this->tags);
+            }
+            if (!empty($this->metadata)) {
+                $message->setMetadata($this->metadata);
+            }
+            if (!empty($this->variables)) {
+                $message->setVariables($this->variables);
+            }
+            if ($this->replyTo !== null) {
+                $message->setReplyTo($this->replyTo);
+            }
+
+            // Use queueMessage to preserve all metadata
+            $jobId = $this->mailer->queueMessage($message, $this->queue);
 
             $this->logger?->info("Mailable queued successfully", [
                 'class'  => static::class,
