@@ -81,18 +81,24 @@ class MonkeysMailTransport implements TransportInterface, SupportsAdvancedMetada
             $fromName  = $message->getFromName() ?: $this->fromName;
 
             $payload = [
-                'from' => [
-                    'email' => $fromEmail,
-                    'name'  => $fromName
-                ],
-                'to'       => array_values($to), // array_values resets indices after filter
-                'subject'  => $message->getSubject(),
-                'text'     => $message->getTextBody(),
-                'html'     => $message->getHtmlBody(),
-                'tracking' => [
-                    'opens'  => (bool)($this->config['tracking_opens'] ?? true),
-                    'clicks' => (bool)($this->config['tracking_clicks'] ?? true)
-                ]
+                'from'      => $fromEmail,
+                'from_name' => $fromName,
+                'to'        => count($to) === 1 ? reset($to) : $to,
+                'subject'   => $message->getSubject(),
+            ];
+
+            // Add body content
+            if ($message->getHtmlBody()) {
+                $payload['html'] = $message->getHtmlBody();
+            }
+            if ($message->getTextBody()) {
+                $payload['text'] = $message->getTextBody();
+            }
+
+            // Add tracking settings
+            $payload['tracking'] = [
+                'opens'  => (bool)($this->config['tracking_opens'] ?? true),
+                'clicks' => (bool)($this->config['tracking_clicks'] ?? true)
             ];
 
             // Add advanced metadata if present (tags, variables, metadata, reply-to)
@@ -137,19 +143,29 @@ class MonkeysMailTransport implements TransportInterface, SupportsAdvancedMetada
      */
     protected function makeRequest(array $payload): void
     {
-        $apiUrl = $this->config['api_url'] ?? null;
-        $url = \is_string($apiUrl) ? $apiUrl : null;
-        if ($url !== null && !filter_var($url, FILTER_VALIDATE_URL)) {
-            throw new InvalidArgumentException("Invalid 'api_url' provided in MonkeysMail configuration");
+        $domain = $this->config['domain'] ?? null;
+        if (!is_string($domain) || empty($domain)) {
+            throw new InvalidArgumentException("Missing 'domain' in MonkeysMail configuration");
         }
-        if ($url === null) {
-            throw new InvalidArgumentException("Missing 'api_url' in MonkeysMail configuration");
+
+        $baseUrl = $this->config['api_url'] ?? 'https://api.monkeysmail.com/api/v2';
+        if (!is_string($baseUrl)) {
+            throw new InvalidArgumentException("Invalid 'api_url' in MonkeysMail configuration");
+        }
+
+        // Construct the full URL: https://api.monkeysmail.com/api/v2/{domain}/messages
+        $url = rtrim($baseUrl, '/') . '/' . urlencode($domain) . '/messages';
+
+        if (!filter_var($url, FILTER_VALIDATE_URL)) {
+            throw new InvalidArgumentException("Constructed API URL is invalid: {$url}");
         }
 
         $jsonPayload = json_encode($payload);
         if ($jsonPayload === false) {
             throw new RuntimeException('Failed to encode payload as JSON');
         }
+
+        $basicAuth = base64_encode("api:{$this->apiKey}");
 
         $client = new \MonkeysLegion\HttpClient\HttpClient(new \MonkeysLegion\HttpClient\DTO\ClientConfig(
             timeout: 30,
@@ -160,7 +176,7 @@ class MonkeysMailTransport implements TransportInterface, SupportsAdvancedMetada
             ->newRequest()
             ->withHeaders([
                 'Content-Type' => 'application/json',
-                'X-API-Key'    => $this->apiKey,
+                'Authorization' => "Basic {$basicAuth}",
             ])
             ->withBody($jsonPayload, 'application/json')
             ->send(\MonkeysLegion\HttpClient\Enum\HttpMethod::POST, $url);

@@ -67,7 +67,6 @@ mail {
         # This driver sends emails via the MonkeysMail HTTP API.
         monkeys_mail {
             api_key = ${MONKEYS_MAIL_API_KEY:-''}
-            api_url = ${MONKEYS_MAIL_URL:-'https://smtp.monkeysmail.com/messages/send'}
             domain = ${MONKEYS_MAIL_DOMAIN:-''}
             from {
                 address = ${MONKEYS_MAIL_FROM_ADDRESS:-'noreply@yourapp.com'}

@@ -123,7 +123,7 @@ class MailerFactoryTest extends TestCase
             'drivers' => [
                 'monkeys_mail' => [
                     'api_key' => 'test-key',
-                    'api_url' => 'https://smtp.monkeysmail.com/messages/send',
+                    'domain' => 'example.com',
                     'timeout' => 30,
                     'from' => [
                         'address' => 'from@example.com',

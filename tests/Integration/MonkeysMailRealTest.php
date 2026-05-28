@@ -41,13 +41,13 @@ class MonkeysMailRealTest extends TestCase
     {
         $config = [
             'api_key' => $this->apiKey,
-            'api_url' => $_ENV['MONKEYS_MAIL_URL'] ?? 'https://smtp.monkeysmail.com/messages/send',
-            'domain' => 'monkeys.cloud',
+            'api_url' => $_ENV['MONKEYS_MAIL_URL'] ?? 'https://api.monkeysmail.com/api/v2',
+            'domain' => $_ENV['MONKEYS_MAIL_DOMAIN'] ?? '4unk.tech',
             'tracking_opens' => true,
             'tracking_clicks' => true,
             'from' => [
-                'address' => 'no-reply@monkeys.cloud',
-                'name' => 'MonkeysCloud Test'
+                'address' => $_ENV['MONKEYS_MAIL_FROM_ADDRESS'] ?? 'no-reply@4unk.tech',
+                'name' => $_ENV['MONKEYS_MAIL_FROM_NAME'] ?? '4unk'
             ]
         ];
 

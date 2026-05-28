@@ -255,7 +255,7 @@ class MonkeysMailTransportTest extends TestCase
     #[Test]
     public function testMakeRequestThrowsOnCurlFailure(): void
     {
-        $transport = new class(['api_key' => 'test-key', 'api_url' => self::TEST_API_URL]) extends MonkeysMailTransport {
+        $transport = new class(['api_key' => 'test-key', 'api_url' => self::TEST_API_URL, 'domain' => 'example.com']) extends MonkeysMailTransport {
             public function publicMakeRequest(array $payload): void
             {
                 parent::makeRequest($payload);
@@ -280,7 +280,7 @@ class MonkeysMailTransportTest extends TestCase
     #[Test]
     public function testMakeRequestThrowsOnJsonEncodeFailure(): void
     {
-        $transport = new class(['api_key' => 'test-key', 'api_url' => self::TEST_API_URL]) extends MonkeysMailTransport {
+        $transport = new class(['api_key' => 'test-key', 'api_url' => self::TEST_API_URL, 'domain' => 'example.com']) extends MonkeysMailTransport {
             public function publicMakeRequest(array $payload): void
             {
                 parent::makeRequest($payload);
