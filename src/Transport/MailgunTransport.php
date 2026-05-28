@@ -7,6 +7,7 @@ use MonkeysLegion\Mail\Enums\MailDriverName;
 use MonkeysLegion\Mail\Enums\MailgunRegion;
 use MonkeysLegion\Mail\Message;
 use MonkeysLegion\Mail\TransportInterface;
+use MonkeysLegion\Mail\SupportsAdvancedMetadata;
 
 use CURLFile;
 use Exception;
@@ -14,7 +15,7 @@ use InvalidArgumentException;
 use RuntimeException;
 use ValueError;
 
-class MailgunTransport implements TransportInterface
+class MailgunTransport implements TransportInterface, SupportsAdvancedMetadata
 {
     private string $endpoint;
     private string $apiKey;
@@ -222,7 +223,7 @@ class MailgunTransport implements TransportInterface
         $this->addAttachments($postData, $message);
 
         // Add optional parameters
-        $this->addOptionalParameters($postData);
+        $this->addOptionalParameters($postData, $message);
 
         return $postData;
     }
@@ -269,6 +270,10 @@ class MailgunTransport implements TransportInterface
     {
         $headers = $message->getHeaders();
         $customHeaders = [];
+
+        if ($message->getReplyTo()) {
+            $customHeaders['Reply-To'] = $message->getReplyTo();
+        }
 
         // Add DKIM signature if present
         if ($message->getDkimSignature()) {
@@ -338,9 +343,10 @@ class MailgunTransport implements TransportInterface
 
     /**
      * @param array<string, mixed> $postData Passed by reference
+     * @param Message $message
      * @return void
      */
-    private function addOptionalParameters(array &$postData): void
+    private function addOptionalParameters(array &$postData, Message $message): void
     {
         // Add tracking options
         if (isset($this->tracking['clicks'])) {
@@ -356,14 +362,42 @@ class MailgunTransport implements TransportInterface
             $postData['o:deliverytime'] = $this->deliveryTime;
         }
 
-        // Add tags if configured
-        if (!empty($this->tags)) {
-            $postData['o:tag'] = $this->tags;
+        // Add tags (config + message) if configured
+        $tags = $this->tags;
+        foreach ($message->getTags() as $tag) {
+            if (\is_string($tag) && trim($tag) !== '') {
+                $tags[] = trim($tag);
+            }
+        }
+        if (!empty($tags)) {
+            $tags = array_values(array_unique($tags));
+            $postData['o:tag'] = array_slice($tags, 0, 3);
         }
 
-        // Add custom variables if configured
-        foreach ($this->variables as $key => $value) {
+        // Add custom variables (config + message)
+        $variables = $this->variables;
+        foreach ($message->getVariables() as $key => $value) {
+            if (\is_string($key)) {
+                $variables[$key] = $value;
+            }
+        }
+        foreach ($variables as $key => $value) {
             $postData["v:{$key}"] = $value;
+        }
+
+        // Add metadata from message (serialized)
+        $metadata = [];
+        foreach ($message->getMetadata() as $key => $value) {
+            if (\is_string($key)) {
+                $metadata[$key] = $value;
+            }
+        }
+        if (!empty($metadata)) {
+            $metadataJson = json_encode($metadata);
+            if ($metadataJson === false) {
+                throw new RuntimeException('Failed to encode Mailgun metadata as JSON');
+            }
+            $postData['v:metadata'] = $metadataJson;
         }
     }
 

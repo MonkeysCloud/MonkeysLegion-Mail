@@ -15,6 +15,10 @@ class Message
     private string $messageId = '';
     private string $date = '';
     private ?string $dkimSignature = null;
+    private array $tags = [];
+    private array $metadata = [];
+    private array $variables = [];
+    private ?string $replyTo = null;
 
     /**
      * Message constructor.
@@ -136,6 +140,86 @@ class Message
     public function setDkimSignature(string $dkimSignature): void
     {
         $this->dkimSignature = $dkimSignature;
+    }
+
+    /**
+     * Set tags for MonkeysMail API tracking.
+     * @param array<string> $tags Array of tags (e.g., ['onboarding', 'transactional'])
+     * @return static
+     */
+    public function setTags(array $tags): static
+    {
+        $this->tags = $tags;
+        return $this;
+    }
+
+    /**
+     * Get message tags.
+     * @return array<string>
+     */
+    public function getTags(): array
+    {
+        return $this->tags;
+    }
+
+    /**
+     * Set metadata for MonkeysMail API.
+     * @param array<string, mixed> $metadata Metadata key-value pairs
+     * @return static
+     */
+    public function setMetadata(array $metadata): static
+    {
+        $this->metadata = $metadata;
+        return $this;
+    }
+
+    /**
+     * Get message metadata.
+     * @return array<string, mixed>
+     */
+    public function getMetadata(): array
+    {
+        return $this->metadata;
+    }
+
+    /**
+     * Set template variables for MonkeysMail API.
+     * @param array<string, mixed> $variables Template variable substitutions
+     * @return static
+     */
+    public function setVariables(array $variables): static
+    {
+        $this->variables = $variables;
+        return $this;
+    }
+
+    /**
+     * Get message variables.
+     * @return array<string, mixed>
+     */
+    public function getVariables(): array
+    {
+        return $this->variables;
+    }
+
+    /**
+     * Set the Reply-To email address.
+     * @param ?string $replyTo Reply-To email address or null
+     * @return static
+     */
+    public function setReplyTo(?string $replyTo): static
+    {
+        $this->replyTo = $replyTo;
+        return $this;
+    }
+
+    /**
+     * Get the Reply-To email address.
+     * @return ?string
+     */
+    public function getReplyTo(): ?string
+    {
+        return $this->replyTo;
     }
 
     public function getDate(): string

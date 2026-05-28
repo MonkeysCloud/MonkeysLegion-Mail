@@ -120,6 +120,85 @@ Then send or queue it fluently:
 
 ---
 
+## 📨 Advanced Email Metadata (MonkeysMailTransport & MailgunTransport)
+
+The **MonkeysMailTransport** and **MailgunTransport** support rich email metadata through the `SupportsAdvancedMetadata` interface. This allows you to send tags, custom metadata, template variables, and reply-to addresses.
+
+### Using Metadata in Mailables
+
+```php
+(new WelcomeMail($user))
+    ->setTo('user@example.com')
+    ->withTags(['onboarding', 'transactional'])                          // Categorization tags
+    ->withMetadata(['user_id' => $user->id, 'source' => 'signup'])      // Custom key-value data
+    ->withVariables(['activation_url' => $url, 'name' => $user->name])  // Template substitutions
+    ->replyTo('support@example.com')                                     // Reply-To address
+    ->send();
+```
+
+### Using Metadata Directly with Messages
+
+```php
+$message = new Message('user@example.com', 'Hello!', '<h1>Welcome</h1>');
+$message->setTags(['onboarding', 'promotion']);
+$message->setMetadata(['campaign_id' => '12345', 'segment' => 'premium']);
+$message->setVariables(['first_name' => 'John', 'discount' => '20%']);
+$message->setReplyTo('support@example.com');
+
+$transport->send($message);
+```
+
+### Metadata Field Details
+
+| Field | Type | Purpose | Example |
+|-------|------|---------|---------|
+| **tags** | `array<string>` | Categorize emails for tracking/analytics | `['onboarding', 'transactional', 'marketing']` |
+| **metadata** | `array<string, mixed>` | Custom key-value pairs | `['user_id' => 123, 'campaign' => 'summer2025']` |
+| **variables** | `array<string, mixed>` | Template variable substitutions | `['first_name' => 'John', 'code' => 'ABC123']` |
+| **replyTo** | `?string` | Reply-To email address | `'support@example.com'` |
+
+### Supported Transports
+
+- ✅ **MonkeysMailTransport** - Full support for all metadata fields
+- ❌ **SmtpTransport** - Ignores metadata (standard SMTP limitation)
+- ❌ **SendmailTransport** - Ignores metadata
+- ✅ **MailgunTransport** - Supports tags (max 3), variables, metadata (v:metadata JSON), reply-to
+- ❌ **NullTransport** - Ignores metadata
+
+**Note:** Transports that don't support metadata simply ignore these fields without error. This ensures backward compatibility.
+
+---
+
+## 🏗️ Transport Interface: SupportsAdvancedMetadata
+
+To add metadata support to a custom transport, implement the marker interface:
+
+```php
+use MonkeysLegion\Mail\TransportInterface;
+use MonkeysLegion\Mail\SupportsAdvancedMetadata;
+
+class MyCustomTransport implements TransportInterface, SupportsAdvancedMetadata
+{
+    public function send(Message $message): void
+    {
+        // Extract metadata from the message
+        $tags = $message->getTags();           // array<string>
+        $metadata = $message->getMetadata();   // array<string, mixed>
+        $variables = $message->getVariables(); // array<string, mixed>
+        $replyTo = $message->getReplyTo();     // ?string
+        
+        // Use these fields in your API payload or business logic
+    }
+
+    public function getName(): string
+    {
+        return 'my-custom-transport';
+    }
+}
+```
+
+---
+
 ## 🔔 Events & Hooks (New in v2)
 
 Listen to successful sends or failures globally via PSR-14, or locally on the instances.

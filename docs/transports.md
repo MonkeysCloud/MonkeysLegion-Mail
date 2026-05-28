@@ -60,6 +60,13 @@ MAILGUN_TRACK_CLICKS=true
 MAILGUN_TRACK_OPENS=true
 ```
 
+### Metadata Support
+
+- **Tags**: up to 3 per message (merged from config + message tags)
+- **Variables**: sent as `v:*` fields for template/event data
+- **Metadata**: serialized into `v:metadata` as JSON
+- **Reply-To**: sent as `Reply-To` header
+
 ---
 
 ## 📁 Sendmail Mailer

@@ -335,6 +335,98 @@ abstract class Mailable
     }
 
     // =================================================================
+    // ADVANCED METADATA (MonkeysMailTransport & SupportsAdvancedMetadata)
+    // =================================================================
+
+    /**
+     * Set tags for email categorization and tracking.
+     * Supported by transports implementing SupportsAdvancedMetadata (e.g., MonkeysMailTransport).
+     *
+     * @param array<string> $tags Array of tag strings (e.g., ['onboarding', 'transactional'])
+     * @return $this
+     */
+    public function withTags(array $tags): self
+    {
+        $this->tags = $tags;
+        return $this;
+    }
+
+    /**
+     * Get tags for this email
+     * @return array<string>
+     */
+    public function getTags(): array
+    {
+        return $this->tags;
+    }
+
+    /**
+     * Set custom metadata key-value pairs.
+     * Supported by transports implementing SupportsAdvancedMetadata (e.g., MonkeysMailTransport).
+     *
+     * @param array<string, mixed> $metadata Key-value pairs (e.g., ['user_id' => 123, 'source' => 'signup'])
+     * @return $this
+     */
+    public function withMetadata(array $metadata): self
+    {
+        $this->metadata = $metadata;
+        return $this;
+    }
+
+    /**
+     * Get metadata for this email
+     * @return array<string, mixed>
+     */
+    public function getMetadata(): array
+    {
+        return $this->metadata;
+    }
+
+    /**
+     * Set template variables for substitution in the email body.
+     * Supported by transports implementing SupportsAdvancedMetadata (e.g., MonkeysMailTransport).
+     *
+     * @param array<string, mixed> $variables Template variables (e.g., ['activation_url' => '...', 'name' => 'John'])
+     * @return $this
+     */
+    public function withVariables(array $variables): self
+    {
+        $this->variables = $variables;
+        return $this;
+    }
+
+    /**
+     * Get template variables for this email
+     * @return array<string, mixed>
+     */
+    public function getVariables(): array
+    {
+        return $this->variables;
+    }
+
+    /**
+     * Set the Reply-To email address.
+     * Supported by transports implementing SupportsAdvancedMetadata (e.g., MonkeysMailTransport).
+     *
+     * @param ?string $email Reply-To email address, or null to unset
+     * @return $this
+     */
+    public function replyTo(?string $email): self
+    {
+        $this->replyTo = $email;
+        return $this;
+    }
+
+    /**
+     * Get the Reply-To address for this email
+     * @return ?string
+     */
+    public function getReplyTo(): ?string
+    {
+        return $this->replyTo;
+    }
+
+    // =================================================================
     // ADVANCED CONFIGURATION
     // =================================================================
 

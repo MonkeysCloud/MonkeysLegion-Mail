@@ -74,6 +74,7 @@ use Exception;
 use InvalidArgumentException;
 use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
+use MonkeysLegion\Mail\SupportsAdvancedMetadata;
 use MonkeysLegion\Mail\Transport\MailgunTransport;
 use PHPUnit\Framework\Attributes\AllowMockObjectsWithoutExpectations;
 use PHPUnit\Framework\Attributes\CoversClass;
@@ -152,6 +153,7 @@ class MailgunTransportTest extends TestCase
         $this->assertEquals('example.com', $transport->getDomain());
         $this->assertEquals('us', $transport->getRegion());
         $this->assertStringContainsString('api.mailgun.net', $transport->getEndpoint());
+        $this->assertInstanceOf(SupportsAdvancedMetadata::class, $transport);
     }
 
     #[Test]
@@ -270,6 +272,35 @@ class MailgunTransportTest extends TestCase
         $this->assertStringContainsString('o%3Adeliverytime=tomorrow', $payload);
         $this->assertStringContainsString('o%3Atag%5B0%5D=test', $payload);
         $this->assertStringContainsString('v%3Auser_id=123', $payload);
+    }
+
+    #[Test]
+    #[TestDox('Send includes message tags, variables, metadata, and reply-to')]
+    public function test_send_message_metadata(): void
+    {
+        $config = $this->validConfig;
+        $config['tags'] = ['config-tag', 'shared'];
+        $config['variables'] = ['config_var' => 'a', 'user_id' => 123];
+        $transport = new MailgunTransport($config);
+
+        $message = new Message('to@example.com', 'Sub', 'Body');
+        $message->setTags(['message-tag', 'shared']);
+        $message->setVariables(['user_id' => 456, 'message_var' => 'b']);
+        $message->setMetadata(['campaign' => 'winter']);
+        $message->setReplyTo('support@example.com');
+
+        $transport->send($message);
+
+        $payload = self::$lastCurlOptions[CURLOPT_POSTFIELDS];
+
+        $this->assertStringContainsString('o%3Atag%5B0%5D=config-tag', $payload);
+        $this->assertStringContainsString('o%3Atag%5B1%5D=shared', $payload);
+        $this->assertStringContainsString('o%3Atag%5B2%5D=message-tag', $payload);
+        $this->assertStringContainsString('v%3Aconfig_var=a', $payload);
+        $this->assertStringContainsString('v%3Auser_id=456', $payload);
+        $this->assertStringContainsString('v%3Amessage_var=b', $payload);
+        $this->assertStringContainsString('v%3Ametadata=%7B%22campaign%22%3A%22winter%22%7D', $payload);
+        $this->assertStringContainsString('h%3AReply-To=support%40example.com', $payload);
     }
 
     #[Test]

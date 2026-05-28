@@ -6,6 +6,7 @@ namespace MonkeysLegion\Mail\Transport;
 
 use MonkeysLegion\Logger\LoggerInterface as MonkeysLoggerInterface;
 use MonkeysLegion\Mail\Message;
+use MonkeysLegion\Mail\SupportsAdvancedMetadata;
 use MonkeysLegion\Mail\TransportInterface;
 
 use Exception;
@@ -13,7 +14,7 @@ use InvalidArgumentException;
 use MonkeysLegion\Mail\Enums\MailDriverName;
 use RuntimeException;
 
-class MonkeysMailTransport implements TransportInterface
+class MonkeysMailTransport implements TransportInterface, SupportsAdvancedMetadata
 {
     private string $apiKey;
     private string $fromEmail;
@@ -94,13 +95,31 @@ class MonkeysMailTransport implements TransportInterface
                 ]
             ];
 
+            // Add advanced metadata if present (tags, variables, metadata, reply-to)
+            if (!empty($message->getTags())) {
+                $payload['tags'] = $message->getTags();
+            }
+            if (!empty($message->getVariables())) {
+                $payload['variables'] = $message->getVariables();
+            }
+            if (!empty($message->getMetadata())) {
+                $payload['metadata'] = $message->getMetadata();
+            }
+            if ($message->getReplyTo()) {
+                $payload['reply_to'] = $message->getReplyTo();
+            }
+
             $this->makeRequest($payload);
 
             $duration = round((microtime(true) - $startTime) * 1000, 2);
             $this->logger?->info("MonkeysMail API request successful", [
                 'to' => $message->getTo(),
                 'subject' => $message->getSubject(),
-                'duration_ms' => $duration
+                'duration_ms' => $duration,
+                'has_tags' => !empty($message->getTags()),
+                'has_metadata' => !empty($message->getMetadata()),
+                'has_variables' => !empty($message->getVariables()),
+                'has_reply_to' => $message->getReplyTo() !== null,
             ]);
         } catch (Exception $e) {
             $this->logger?->error("MonkeysMail API request failed", [
