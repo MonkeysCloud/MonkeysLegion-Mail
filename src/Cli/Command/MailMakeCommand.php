@@ -214,13 +214,6 @@ final class MailMakeCommand extends Command
         return $content;
     }
 
-    private function ensureDirectoryExists(string $directory): void
-    {
-        if (!is_dir($directory)) {
-            mkdir($directory, 0755, true);
-        }
-    }
-
     private function shouldOverwrite(string $filePath, string $projectRoot): bool
     {
         $relativePath = str_replace($projectRoot . DIRECTORY_SEPARATOR, '', $filePath);
